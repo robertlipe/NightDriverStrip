@@ -258,8 +258,13 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
     #define PROJECT_NAME            "Demo"
     #endif
 
-    #define MATRIX_WIDTH            144
-    #define MATRIX_HEIGHT           1
+    #ifndef MATRIX_WIDTH
+        #define MATRIX_WIDTH            144
+    #endif
+    #ifndef MATRIX_HEIGHT
+        #define MATRIX_HEIGHT           1
+    #endif
+
     #define NUM_LEDS                (MATRIX_WIDTH*MATRIX_HEIGHT)
     #define NUM_CHANNELS            1
     #define ENABLE_AUDIO            0
@@ -273,15 +278,21 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 
     #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
     #define TIME_BEFORE_LOCAL       0   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_NTP              0   // Set the clock from the web
-    #define ENABLE_OTA              0   // Accept over the air flash updates
+    #ifndef ENABLE_NTP
+        #define ENABLE_NTP              0   // Set the clock from the web
+    #endif
+    #ifndef ENABLE_OTA
+        #define ENABLE_OTA              0   // Accept over the air flash updates
+    #endif
 
-    #if M5STICKC || M5STICKCPLUS || M5STACKCORE2
-        #define LED_PIN0 32
-    #elif LILYGOTDISPLAYS3
-        #define LED_PIN0 21
-    #else
-        #define LED_PIN0 5
+    #ifndef LED_PIN0
+        #if M5STICKC || M5STICKCPLUS || M5STACKCORE2
+            #define LED_PIN0 32
+        #elif LILYGOTDISPLAYS3
+            #define LED_PIN0 21
+        #else
+            #define LED_PIN0 5
+        #endif
     #endif
 
     // The webserver serves files that are baked into the device firmware. When running you should be able to
@@ -744,7 +755,16 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
     #define TIME_BEFORE_LOCAL       1   // How many seconds before the lamp times out and shows local content
 
     #define NUM_CHANNELS    1
-    #define MATRIX_WIDTH    (271)     // My maximum run, and about all you can do at 30fps
+    #define NUM_HEXAGON_RINGS    10 // The panel has ten rings with the
+				    // outermost ring having ten LEDS on
+				    // each vertex. We have one in the
+				    // center as a special case.
+//    #define MATRIX_WIDTH    (271)
+//    The formula for the sum of an arithmetic series is:
+//
+// S = n * (a_first + a_last) / 2
+// Worked for n (NUM_HEXAGON_RINGS) = 10, that's 10*(0+(10-1)*6)/2 + 1
+    #define MATRIX_WIDTH (NUM_HEXAGON_RINGS*(0 + (NUM_HEXAGON_RINGS - 1)*6) / 2 + 1
     #define MATRIX_HEIGHT   1
     #define NUM_LEDS        (MATRIX_WIDTH * MATRIX_HEIGHT)
     #define ENABLE_REMOTE   0                     // IR Remote Control
