@@ -847,7 +847,7 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 //
 // S = n * (a_first + a_last) / 2
 // Worked for n (NUM_HEXAGON_RINGS) = 10, that's 10*(0+(10-1)*6)/2 + 1
-    #define MATRIX_WIDTH (NUM_HEXAGON_RINGS*(0 + (NUM_HEXAGON_RINGS - 1)*6) / 2 + 1
+    #define MATRIX_WIDTH (NUM_HEXAGON_RINGS*(0 + (NUM_HEXAGON_RINGS - 1)*6) / 2 + 1)
     #define MATRIX_HEIGHT   1
     #define NUM_LEDS        (MATRIX_WIDTH * MATRIX_HEIGHT)
     #define ENABLE_REMOTE   0                     // IR Remote Control
