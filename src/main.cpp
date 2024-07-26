@@ -550,7 +550,7 @@ void loop()
             }
             catch(const std::exception& e)
             {
-                debugW("Exception in OTA code caught");
+                debugW("Exception in OTA code caught %s", e.what());
             }
         #endif
 

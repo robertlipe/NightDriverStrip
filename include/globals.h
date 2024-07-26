@@ -852,7 +852,9 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
     #define NUM_LEDS        (MATRIX_WIDTH * MATRIX_HEIGHT)
     #define ENABLE_REMOTE   0                     // IR Remote Control
     #define ENABLE_AUDIO    0                     // Listen for audio from the microphone and process it
-    #define LED_PIN0        5
+    #if !defined (LED_PIN0)
+      #define LED_PIN0        5
+    #endif
 
     #define DEFAULT_EFFECT_INTERVAL     (1000*20)
 
