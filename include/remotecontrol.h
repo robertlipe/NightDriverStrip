@@ -35,7 +35,7 @@
 #include <IRutils.h>
 #include <limits>
 
-
+// Define the IR remote key codes
 #define key24  true
 #define key44  false
 
@@ -115,6 +115,58 @@ void IRAM_ATTR RemoteLoopEntry(void *);
 #define IR_FADE7  0xFFE01F  //
 #endif
 
+// Command table for IR remote functions
+typedef void (*RemoteCommandFunc)(EffectManager&, DeviceConfig&);
+const static struct {
+    uint code;
+    RemoteCommandFunc handler;
+} RemoteCommands[] = {
+    { IR_ON,     [](EffectManager& em, DeviceConfig& dc) {
+        debugV("Turning ON via remote");
+        em.ClearRemoteColor();
+        em.SetInterval(0);
+        em.StartEffect();
+        dc.SetBrightness(BRIGHTNESS_MAX);
+    }},
+    { IR_OFF,    [](EffectManager& em, DeviceConfig& dc) {
+        #if HUB75
+            dc.SetBrightness((int)dc.GetBrightness() - BRIGHTNESS_STEP);
+        #else
+            em.ClearRemoteColor();
+            em.SetInterval(0);
+            em.StartEffect();
+            dc.SetBrightness(0);
+        #endif
+    }},
+    { IR_BPLUS,  [](EffectManager& em, DeviceConfig& dc) {
+        em.SetInterval(DEFAULT_EFFECT_INTERVAL, true);
+        if (dc.ApplyGlobalColors())
+            em.ClearRemoteColor();
+        else
+            em.NextEffect();
+    }},
+    { IR_BMINUS, [](EffectManager& em, DeviceConfig& dc) {
+        em.SetInterval(DEFAULT_EFFECT_INTERVAL, true);
+        if (dc.ApplyGlobalColors())
+            em.ClearRemoteColor();
+        else
+            em.PreviousEffect();
+    }},
+    { IR_SMOOTH, [](EffectManager& em, DeviceConfig& dc) {
+        em.ClearRemoteColor();
+        em.SetInterval(EffectManager::csSmoothButtonSpeed);
+    }},
+    { IR_STROBE, [](EffectManager& em, DeviceConfig& dc) {
+        em.NextPalette();
+    }},
+    { IR_FLASH,  [](EffectManager& em, DeviceConfig& dc) {
+        em.PreviousPalette();
+    }},
+    { IR_FADE,   [](EffectManager& em, DeviceConfig& dc) {
+        em.ShowVU(!em.IsVUVisible());
+    }}
+};
+
 const static struct
 {
     uint    code;
@@ -151,6 +203,12 @@ class RemoteControl
 {
   private:
     IRrecv _IR_Receive;
+
+    // Helper methods for IR code processing
+    bool processRepeatCode(uint& result, uint& lastResult);
+    bool handleCommandCode(uint result);
+    bool handleColorCode(uint result);
+    uint getMinRepeatDelay(uint result, uint lastResult) const;
 
   public:
 

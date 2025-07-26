@@ -133,7 +133,7 @@ class DeviceConfig : public IJSONSerializable
     bool    rememberCurrentEffect = true;
     int     powerLimit = POWER_LIMIT_DEFAULT;
     bool    showVUMeter = true;
-    uint8_t brightness = BRIGHTNESS_MAX;
+    uint8_t brightness = BRIGHTNESS_MAX/8; // RJL
     CRGB    globalColor = CRGB::Red;
     bool    applyGlobalColors = false;
     CRGB    secondColor = CRGB::Red;
