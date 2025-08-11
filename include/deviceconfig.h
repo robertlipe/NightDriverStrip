@@ -38,11 +38,21 @@
 #if ENABLE_WIFI
 // Make sure we have a secrets.h and that it contains everything we need.
 
-#if !__has_include("secrets.h")
-#error Copy include/secrets.example.h to include/secrets.h, edit to taste, and retry. Please see README.md.
+#if __has_include("secrets.h")
+#include "secrets.h"
+#else
+#warning Copy include/secrets.example.h to include/secrets.h, edit to taste, and retry. Using silly defaults. Please see README.md.
+// Please preserve same order as tests below.
+#define cszSSID ""
+#define cszPassword ""
+#define cszHostname ""
+#define cszOpenWeatherAPIKey ""
+#define cszLocation ""
+#define bLocationIsZip false
+#define cszCountryCode ""
+#define cszTimeZone ""
 #endif
 
-#include "secrets.h"
 
 #if !defined(cszSSID)
 #error A definition for cszSSID is missing from secrets.h
@@ -75,14 +85,7 @@
 #if !defined(cszTimeZone)
 #error A definition for cszTimeZone is missing from secrets.h
 #endif
-#else
-#define cszHostname ""
-#define cszLocation ""
-#define bLocationIsZip false
-#define cszCountryCode ""
-#define cszTimeZone ""
-#define cszOpenWeatherAPIKey ""
-#define cszSSID ""
+
 #endif // ENABLE_WIFI
 
 // Define this to true to make the DeviceConfig ignore any JSON-persisted config that may be on the device.
