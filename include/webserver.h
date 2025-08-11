@@ -40,7 +40,6 @@
 #pragma once
 
 #include "deviceconfig.h"
-#include "jsonbase.h"
 #include "network.h"
 
 #include <Arduino.h>
@@ -112,11 +111,11 @@ class CWebServer
             return false;
 
         debugV("found %s", paramName.c_str());
-
-        AsyncWebParameter *param = pRequest->getParam(paramName, true, false);
+// RJL - this is a sleazy const_cast so I don't have to fix callers yet.
+        auto param = pRequest->getParam(paramName, true, false);
 
         // Extract the value and pass it off to the setter
-        return setter(getter(param));
+        return setter(getter((AsyncWebParameter *)param));
     }
 
     // Generic param value forwarder. The type argument must be implicitly convertable from String!
