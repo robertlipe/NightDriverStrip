@@ -35,6 +35,7 @@
 #include <sys/time.h>
 #include <optional>
 #include <WString.h>
+#include <memory.h>
 
 #ifndef MICROS_PER_SECOND
     #define MICROS_PER_SECOND 1000000
@@ -238,6 +239,7 @@ struct SettingSpec
 
 inline void * PreferPSRAMAlloc(size_t s)
 {
+#if LATER
     if (psramInit())
     {
         debugV("PSRAM Array Request for %u bytes\n", s);
@@ -250,11 +252,12 @@ inline void * PreferPSRAMAlloc(size_t s)
         return p;
     }
     else
+#endif
     {
         auto p = malloc(s);
         if (!p)
         {
-            debugE("RAM Allocation failed for %u bytes\n", s);
+//            debugE("RAM Allocation failed for %u bytes\n", s);
             throw std::bad_alloc();
         }   
         return p;
