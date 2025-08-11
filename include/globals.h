@@ -1827,3 +1827,6 @@ constexpr std::array<T, N> to_array(const T (&arr)[N]) {
     #include <TFT_eSPI.h>
     #include <SPI.h>
 #endif
+
+#undef ENABLE_REMOTE
+#define ENABLE_REMOTE 0
