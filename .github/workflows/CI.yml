@@ -45,6 +45,7 @@ jobs:
     - name: Install PlatformIO
       run: |
         curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py -o get-platformio.py
+        pip install esptool==5.0.dev1
         python get-platformio.py
         echo "/home/runner/.platformio/penv/bin" >> $GITHUB_PATH
 
