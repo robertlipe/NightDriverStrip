@@ -370,7 +370,7 @@ void EffectManager::ClearRemoteColor(bool retainRemoteEffect)
 
 void EffectManager::ApplyGlobalColor(CRGB color) const
 {
-    debugI("Setting Global Color: %08X\n", (uint32_t) color);
+    debugI("Setting Global Color: %08lX\n", (uint32_t) color);
 
     auto& deviceConfig = g_ptrSystem->DeviceConfig();
     deviceConfig.SetColorSettings(color, deviceConfig.GlobalColor());

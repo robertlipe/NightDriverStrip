@@ -103,7 +103,7 @@ bool NTPTimeClient::UpdateClockFromWeb(WiFiUDP * pUDP)
         return false;
     }
 
-    debugW("NTP clock: Raw values sec=%u, usec=%llu", frac, microsecs);
+    debugW("NTP clock: Raw values sec=%lu, usec=%llu", frac, microsecs);
 
     tvNew.tv_sec = ((unsigned long)chNtpPacket[40] << 24) +       // bits 24 through 31 of ntp time
         ((unsigned long)chNtpPacket[41] << 16) +                        // bits 16 through 23 of ntp time

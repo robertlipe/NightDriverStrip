@@ -220,9 +220,9 @@ void PrintOutputHeader()
         debugI("ESP32 PSRAM Init: %s", psramInit() ? "OK" : "FAIL");
     #endif
 
-    debugI("Version %u: Wifi SSID: \"%s\" - ESP32 Free Memory: %u, PSRAM:%u, PSRAM Free: %u",
+    debugI("Version %u: Wifi SSID: \"%s\" - ESP32 Free Memory: %lu, PSRAM:%lu, PSRAM Free: %lu",
             FLASH_VERSION, cszSSID, ESP.getFreeHeap(), ESP.getPsramSize(), ESP.getFreePsram());
-    debugI("ESP32 Clock Freq : %d MHz", ESP.getCpuFreqMHz());
+    debugI("ESP32 Clock Freq : %ld MHz", ESP.getCpuFreqMHz());
 }
 
 // TerminateHandler
@@ -586,11 +586,11 @@ void loop()
                 strOutput += str_sprintf("WiFi: %s, MAC: %s, IP: %s ", WLtoString(WiFi.status()), WiFi.macAddress().c_str(), WiFi.localIP().toString().c_str());
             #endif
 
-            strOutput += str_sprintf("Mem: %u, LargestBlk: %u, PSRAM Free: %u/%u, ", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), ESP.getFreePsram(), ESP.getPsramSize());
-            strOutput += str_sprintf("LED FPS: %d ", g_Values.FPS);
+            strOutput += str_sprintf("Mem: %lu, LargestBlk: %lu, PSRAM Free: %lu/%lu, ", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), ESP.getFreePsram(), ESP.getPsramSize());
+            strOutput += str_sprintf("LED FPS: %ld ", g_Values.FPS);
 
             #if USE_WS281X
-                strOutput += str_sprintf("LED Bright: %3.0lf%%, LED Watts: %u, ", g_Values.Brite, g_Values.Watts);
+                strOutput += str_sprintf("LED Bright: %3.0lf%%, LED Watts: %lu, ", g_Values.Brite, g_Values.Watts);
             #endif
 
             #if USE_HUB75
