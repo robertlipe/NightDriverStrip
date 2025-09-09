@@ -187,8 +187,8 @@ public:
         // to see how much there is (it's how they measure free CPU).  Thus, we starve the system's normal idle tasks
         // and have to feed the watchdog on our own.
 
-        esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
-        esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(1));
+        esp_task_wdt_delete(xTaskGetIdleTaskHandleForCore(0));
+        esp_task_wdt_delete(xTaskGetIdleTaskHandleForCore(1));
         esp_task_wdt_add(_hIdle0);
         esp_task_wdt_add(_hIdle1);
     }

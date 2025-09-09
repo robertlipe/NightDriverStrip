@@ -189,7 +189,7 @@ class CWebServer
         _server.on(strUri, HTTP_GET, [strUri, file](AsyncWebServerRequest *request)
         {
             Serial.printf("GET for: %s\n", strUri);
-            AsyncWebServerResponse *response = request->beginResponse_P(200, file.type, file.contents, file.length);
+            AsyncWebServerResponse *response = request->beginResponse(200, file.type, file.contents, file.length);
             if (file.encoding)
             {
                 response->addHeader("Content-Encoding", file.encoding);

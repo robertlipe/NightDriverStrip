@@ -39,7 +39,7 @@ bool NTPTimeClient::UpdateClockFromWeb(WiFiUDP * pUDP)
 
     // Send the ntp packet.
     while (pUDP->parsePacket() != 0)
-        pUDP->flush();
+        pUDP->clear();
 
     if (!pUDP->beginPacket(ipNtpServer, 123))
     {
@@ -65,7 +65,7 @@ bool NTPTimeClient::UpdateClockFromWeb(WiFiUDP * pUDP)
     int iPass = 0;
     while (!pUDP->parsePacket())
     {
-        pUDP->flush();
+        pUDP->clear();
         delay(100);
         debugV(".");
         if (iPass++ > 100)
@@ -141,9 +141,9 @@ bool NTPTimeClient::UpdateClockFromWeb(WiFiUDP * pUDP)
     char chBuffer[128];
     struct tm * tmPointer = localtime(&tvNew.tv_sec);
     strftime(chBuffer, sizeof(chBuffer), "%d %b %Y %H:%M:%S", tmPointer);
-    debugI("NTP clock: response received, updated time to: %ld.%ld, DELTA: %lf\n",
-            tvNew.tv_sec,
-            tvNew.tv_usec,
+    debugI("NTP clock: response received, updated time to: %lld.%lld, DELTA: %lf\n",
+            (long long)tvNew.tv_sec,
+            (long long)tvNew.tv_usec,
             dNew - dOld );
 
     _bClockSet = true;  // Clock has been set at least once
