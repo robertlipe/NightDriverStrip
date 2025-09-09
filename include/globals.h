@@ -536,7 +536,7 @@ extern RemoteDebug Debug; // Let everyone in the project know about it. If
 
 #if USE_SCREEN
 
-    #if ARDUINO_HELTEC_WIFI_KIT_32 screen definations for
+    #if ARDUINO_HELTEC_WIFI_KIT_32 // screen definitions for
                           // heltec_wifi_kit_32 or heltec_wifi_kit_32_v2
 
         #define USE_OLED 1 // Enable the Heltec's monochrome OLED
