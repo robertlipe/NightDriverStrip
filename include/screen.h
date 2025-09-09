@@ -2,7 +2,8 @@
 //
 // File:        screen.h
 //
-// NightDriverStrip - (c) 2018 Plummer's Software LLC.  All Rights Reserved.
+// NightDriverStrip - (c) 2018 Plummer's Software LLC.  All Rights
+// Reserved.
 //
 // This file is part of the NightDriver software project.
 //
@@ -57,10 +58,13 @@ class Page
     virtual ~Page() = default;
 
     // Human-readable name (for diagnostics)
-    virtual std::string Name() const { return std::string("Page"); }
+    virtual std::string Name() const
+    {
+        return std::string("Page");
+    }
 
     // Render this page. bRedraw indicates a full redraw is requested.
-    virtual void Draw(Screen& display, bool bRedraw) = 0;
+    virtual void Draw(Screen &display, bool bRedraw) = 0;
 
     // Optional button hook. Default behavior is provided in screen.cpp.
     virtual void OnButtonPress(uint8_t buttonIndex);
@@ -75,7 +79,8 @@ class Screen : public GFXBase
     {
     }
 
-    // Some devices, like the OLED, require that you send the whole buffer at once, but others do not.  The default impl is to do nothing.
+    // Some devices, like the OLED, require that you send the whole buffer
+    // at once, but others do not.  The default impl is to do nothing.
 
     virtual void StartFrame()
     {
@@ -87,12 +92,25 @@ class Screen : public GFXBase
 
     // Display capabilities and theme colors
     // Default: color display with a blue theme and white/yellow accents.
-    virtual bool IsMonochrome() const { return false; }
-    virtual uint16_t GetTextColor() const { return WHITE16; }
-    virtual uint16_t GetBkgndColor() const { return BLUE16; }
-    virtual uint16_t GetBorderColor() const { return YELLOW16; }
+    virtual bool IsMonochrome() const
+    {
+        return false;
+    }
+    virtual uint16_t GetTextColor() const
+    {
+        return WHITE16;
+    }
+    virtual uint16_t GetBkgndColor() const
+    {
+        return BLUE16;
+    }
+    virtual uint16_t GetBorderColor() const
+    {
+        return YELLOW16;
+    }
 
-    // Define the drawable area for the spectrum to render into the status area
+    // Define the drawable area for the spectrum to render into the status
+    // area
 
     const int BottomMargin = 12;
 
@@ -123,7 +141,7 @@ class Screen : public GFXBase
     //
     // Returns the height of a string in screen pixels
 
-    virtual int textHeight(const String & str)
+    virtual int textHeight(const String &str)
     {
         int16_t x1, y1;
         uint16_t w, h;
@@ -135,7 +153,7 @@ class Screen : public GFXBase
     //
     // Returns the width of a string in screen pixels
 
-    virtual int textWidth(const String & str)
+    virtual int textWidth(const String &str)
     {
         int16_t x1, y1;
         uint16_t w, h;
@@ -149,30 +167,33 @@ class Screen : public GFXBase
     // Run the screen update loop (button handling + periodic redraw)
     void RunUpdateLoop();
 
-    // Flip to the next page and handle effect-rotation pause/resume semantics.
-    // Safe to call from button handlers.
+    // Flip to the next page and handle effect-rotation pause/resume
+    // semantics. Safe to call from button handlers.
     static void FlipToNextPage();
 
   private:
     // Cached screen refresh FPS (updated each loop iteration)
-    float _screenFPS = 0.0f;
+    float _screenFPS           = 0.0f;
     uint32_t _lastScreenMillis = 0;
-    bool _fpsTouchedThisFrame = false;
+    bool _fpsTouchedThisFrame  = false;
 
   public:
+    inline float GetScreenFPS() const
+    {
+        return _screenFPS;
+    }
 
-    inline float GetScreenFPS() const { return _screenFPS; }
-    
     inline void SetScreenFPS(float fps)
     {
-        _screenFPS = fps;
+        _screenFPS           = fps;
         _fpsTouchedThisFrame = true;
     }
-    
+
     // TouchFPS
-    // Marks the FPS value as intentionally managed this frame without changing it.
-    // This prevents the fallback loop-based FPS from overwriting an effect-driven FPS
-    // when the active page prefers to keep the last effect cadence.
+    // Marks the FPS value as intentionally managed this frame without
+    // changing it. This prevents the fallback loop-based FPS from
+    // overwriting an effect-driven FPS when the active page prefers to
+    // keep the last effect cadence.
     inline void TouchFPS()
     {
         _fpsTouchedThisFrame = true;
@@ -180,111 +201,113 @@ class Screen : public GFXBase
 
     inline void UpdateScreenFPSFromDelta(uint32_t dtMs)
     {
-        if (dtMs == 0) 
+        if (dtMs == 0)
             return;
         const float inst = 1000.0f / (float)dtMs;
         // Light smoothing to avoid flicker
-        _screenFPS = (_screenFPS * 0.8f) + (inst * 0.2f);
+        _screenFPS           = (_screenFPS * 0.8f) + (inst * 0.2f);
         _fpsTouchedThisFrame = true;
     }
 
   private:
-  
-  // Page registry and page count helpers
-    static std::vector<std::unique_ptr<class Page>>& Pages();
+    // Page registry and page count helpers
+    static std::vector<std::unique_ptr<class Page>> &Pages();
     static int ActivePageCount();
 
-    #if defined(TOGGLE_BUTTON_0)
-        Bounce2::Button _button0;
-    #endif
-    #if defined(TOGGLE_BUTTON_1)
-        Bounce2::Button _button1;
-    #endif
+#if defined(TOGGLE_BUTTON_0)
+    Bounce2::Button _button0;
+#endif
+#if defined(TOGGLE_BUTTON_1)
+    Bounce2::Button _button1;
+#endif
 };
 
-// Class specializations of the Screen class for various display types can implement hardware-specific versions of functions
-// like fillRect.  They also do any required initial setup of the display.
+// Class specializations of the Screen class for various display types can
+// implement hardware-specific versions of functions like fillRect.  They
+// also do any required initial setup of the display.
 
 #if USE_M5DISPLAY
 
-    // M5Screen
-    //
-    // Display code for the M5 based TFT displays on the M5 Stick, Stick C Plus, and Stack
+// M5Screen
+//
+// Display code for the M5 based TFT displays on the M5 Stick, Stick C
+// Plus, and Stack
 
     #include <M5UnitLCD.h>
 
-    // M5Screen
-    //
-    // Screen class that supports the M5 devices
+// M5Screen
+//
+// Screen class that supports the M5 devices
 
-    class M5Screen : public Screen
+class M5Screen : public Screen
+{
+  public:
+    M5Screen(int w, int h) : Screen(w, h)
     {
-      public:
+        M5.Lcd.fillScreen(GREEN16);
+    }
 
-        M5Screen(int w, int h) : Screen(w, h)
-        {
-            M5.Lcd.fillScreen(GREEN16);
-        }
+    virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
+    {
+        M5.Lcd.drawPixel(x, y, color);
+    }
 
-        virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
-        {
-            M5.Lcd.drawPixel(x, y, color);
-        }
+    virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h,
+                          uint16_t color) override
+    {
+        M5.Lcd.fillRect(x, y, w, h, color);
+    }
 
-        virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override
-        {
-            M5.Lcd.fillRect(x, y, w, h, color);
-        }
-
-        virtual void fillScreen(uint16_t color) override
-        {
-            M5.Lcd.fillScreen(color);
-        }
-    };
+    virtual void fillScreen(uint16_t color) override
+    {
+        M5.Lcd.fillScreen(color);
+    }
+};
 #endif
 
 #if USE_TFTSPI
     #include <TFT_eSPI.h>
     #include <SPI.h>
 
-    // TFTScreen
-    //
-    // Screen class that works with the TFT_eSPI library for devices such as the S3-TFT-Feather
-    class TFTScreen : public Screen
+// TFTScreen
+//
+// Screen class that works with the TFT_eSPI library for devices such as
+// the S3-TFT-Feather
+class TFTScreen : public Screen
+{
+    TFT_eSPI tft;
+
+  public:
+    TFTScreen(int w, int h) : Screen(w, h)
     {
-        TFT_eSPI tft;
+        tft.begin();
 
-    public:
+    #ifdef TFT_BL
+        pinMode(TFT_BL, OUTPUT); // REVIEW begin() might do this for us
+        digitalWrite(TFT_BL, 128);
+    #endif
 
-        TFTScreen(int w, int h) : Screen(w, h)
-        {
-            tft.begin();
+        tft.setRotation(3);
+        tft.fillScreen(TFT_GREEN);
+        tft.setTextDatum(L_BASELINE);
+    }
 
-            #ifdef TFT_BL
-                pinMode(TFT_BL, OUTPUT);                // REVIEW begin() might do this for us
-                digitalWrite(TFT_BL, 128);
-            #endif
+    virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
+    {
+        tft.drawPixel(x, y, color);
+    }
 
-            tft.setRotation(3);
-            tft.fillScreen(TFT_GREEN);
-            tft.setTextDatum(L_BASELINE);
-        }
+    virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h,
+                          uint16_t color) override
+    {
+        tft.fillRect(x, y, w, h, color);
+    }
 
-        virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
-        {
-            tft.drawPixel(x, y, color);
-        }
-
-        virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override
-        {
-            tft.fillRect(x, y, w, h, color);
-        }
-
-        virtual void fillScreen(uint16_t color) override
-        {
-            tft.fillScreen(color);
-        }
-    };
+    virtual void fillScreen(uint16_t color) override
+    {
+        tft.fillScreen(color);
+    }
+};
 #endif
 
 #if AMOLED_S3
@@ -293,405 +316,450 @@ class Screen : public GFXBase
     #include "amoled/lv_conf.h"
     #include "amoled/LV_Helper.h"
 
-    // AMOLEDScreen
-    //
-    // Screen class that works with the AMOLED S3
+// AMOLEDScreen
+//
+// Screen class that works with the AMOLED S3
 
-    class AMOLEDScreen : public Screen
+class AMOLEDScreen : public Screen
+{
+    LilyGo_Class amoled;
+    lv_color_t *cbuf = NULL;
+    lv_obj_t *canvas = NULL;
+
+    inline lv_color_t lv_from16Bit(uint16_t color)
     {
-        LilyGo_Class amoled;
-        lv_color_t * cbuf = NULL;
-        lv_obj_t * canvas = NULL;
+        uint8_t r = gamma5[color >> 11];
+        uint8_t g = gamma6[(color >> 5) & 0x3F];
+        uint8_t b = gamma5[color & 0x1F];
 
-        inline lv_color_t lv_from16Bit(uint16_t color)
+        return lv_color_make(r, g, b);
+    }
+
+  public:
+    AMOLEDScreen(int w, int h) : Screen(w, h)
+    {
+        if (!amoled.begin())
         {
-            uint8_t r = gamma5[color >> 11];
-            uint8_t g = gamma6[(color >> 5) & 0x3F];
-            uint8_t b = gamma5[color & 0x1F];
-
-            return lv_color_make(r, g, b);
+            debugE("AMOLED begin failed");
+            return;
         }
 
-    public:
+        amoled.setBrightness(255);
 
-        AMOLEDScreen(int w, int h) : Screen(w, h)
+        // Register lvgl helper
+        beginLvglHelper(amoled);
+
+        const size_t kBufferSize = LV_CANVAS_BUF_SIZE_TRUE_COLOR(w, h);
+        cbuf = (lv_color_t *)heap_caps_malloc(kBufferSize,
+                                              MALLOC_CAP_SPIRAM);
+        if (cbuf == NULL)
         {
-            if (!amoled.begin())
-            {
-                debugE("AMOLED begin failed");
-                return;
-            }
-
-            amoled.setBrightness(255);
-
-            // Register lvgl helper
-            beginLvglHelper(amoled);
-
-            const size_t kBufferSize = LV_CANVAS_BUF_SIZE_TRUE_COLOR(w,h);
-            cbuf = (lv_color_t *)heap_caps_malloc(kBufferSize, MALLOC_CAP_SPIRAM);
-            if (cbuf == NULL)
-            {
-                debugE("AMOLED malloc failed");
-                return;
-            }
-            debugW("Allocated %d bytes for lvgl canvas: %p\n", sizeof(lv_color_t) * w * h, cbuf);
-
-            canvas = lv_canvas_create(lv_scr_act());
-            lv_canvas_set_buffer(canvas, cbuf, w, h, LV_IMG_CF_TRUE_COLOR);
-            lv_obj_center(canvas);
-            lv_canvas_fill_bg(canvas, lv_from16Bit(GREEN16), LV_OPA_COVER);
+            debugE("AMOLED malloc failed");
+            return;
         }
+        debugW("Allocated %d bytes for lvgl canvas: %p\n",
+               sizeof(lv_color_t) * w * h, cbuf);
 
-        ~AMOLEDScreen()
+        canvas = lv_canvas_create(lv_scr_act());
+        lv_canvas_set_buffer(canvas, cbuf, w, h, LV_IMG_CF_TRUE_COLOR);
+        lv_obj_center(canvas);
+        lv_canvas_fill_bg(canvas, lv_from16Bit(GREEN16), LV_OPA_COVER);
+    }
+
+    ~AMOLEDScreen()
+    {
+        if (canvas)
         {
-            if (canvas)
-            {
-                lv_obj_del(canvas);
-                canvas = NULL;
-            }
-            if (cbuf)
-            {
-                heap_caps_free(cbuf);
-                cbuf = NULL;
-            }
+            lv_obj_del(canvas);
+            canvas = NULL;
         }
-
-        virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
+        if (cbuf)
         {
-            assert(canvas != NULL);
-            assert(cbuf != NULL);
-
-            lv_color_t lv_color = lv_from16Bit(color);
-            lv_canvas_set_px_color(canvas, x, y, lv_color);
-
+            heap_caps_free(cbuf);
+            cbuf = NULL;
         }
+    }
 
-        virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override
-        {
-            assert(canvas != NULL);
-            assert(cbuf != NULL);
+    virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
+    {
+        assert(canvas != NULL);
+        assert(cbuf != NULL);
 
-            // Define the rectangle's properties
-            lv_draw_rect_dsc_t rect_dsc;
-            lv_draw_rect_dsc_init(&rect_dsc);
-            rect_dsc.bg_opa = LV_OPA_COVER;
-            rect_dsc.bg_color = lv_from16Bit(color);
+        lv_color_t lv_color = lv_from16Bit(color);
+        lv_canvas_set_px_color(canvas, x, y, lv_color);
+    }
 
-            // Draw the rectangle
-            lv_canvas_draw_rect(canvas, x, y, w, h, &rect_dsc);
-        }
+    virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h,
+                          uint16_t color) override
+    {
+        assert(canvas != NULL);
+        assert(cbuf != NULL);
 
-        virtual void fillScreen(uint16_t color) override
-        {
-            assert(canvas);
-            assert(cbuf);
+        // Define the rectangle's properties
+        lv_draw_rect_dsc_t rect_dsc;
+        lv_draw_rect_dsc_init(&rect_dsc);
+        rect_dsc.bg_opa   = LV_OPA_COVER;
+        rect_dsc.bg_color = lv_from16Bit(color);
 
-            lv_color_t lv_color = lv_from16Bit(color);
-            lv_canvas_fill_bg(canvas, lv_color, LV_OPA_COVER);
-        }
+        // Draw the rectangle
+        lv_canvas_draw_rect(canvas, x, y, w, h, &rect_dsc);
+    }
+
+    virtual void fillScreen(uint16_t color) override
+    {
+        assert(canvas);
+        assert(cbuf);
+
+        lv_color_t lv_color = lv_from16Bit(color);
+        lv_canvas_fill_bg(canvas, lv_color, LV_OPA_COVER);
+    }
 
     // AMOLED is a full color panel but we want a different default theme
-    virtual bool IsMonochrome() const override { return false; }
-    virtual uint16_t GetTextColor() const override { return Screen::to16bit(CRGB(100, 255, 20)); }
-    virtual uint16_t GetBkgndColor() const override { return Screen::to16bit(CRGB::Black); }
-    virtual uint16_t GetBorderColor() const override { return Screen::to16bit(CRGB::Red); }
-
-    };
+    virtual bool IsMonochrome() const override
+    {
+        return false;
+    }
+    virtual uint16_t GetTextColor() const override
+    {
+        return Screen::to16bit(CRGB(100, 255, 20));
+    }
+    virtual uint16_t GetBkgndColor() const override
+    {
+        return Screen::to16bit(CRGB::Black);
+    }
+    virtual uint16_t GetBorderColor() const override
+    {
+        return Screen::to16bit(CRGB::Red);
+    }
+};
 #endif
 
 #if USE_OLED && !USE_SSD1306
 
-    // OLEDScreen
-    //
-    // Display code for the blue OLED display on the Heltect Wifi Kit 32 Original
+// OLEDScreen
+//
+// Display code for the blue OLED display on the Heltect Wifi Kit 32
+// Original
 
-    #include <U8g2lib.h>                // Library for monochrome displays
-    #include <gfxfont.h>                // Adafruit GFX font structs
-    #include <Adafruit_GFX.h>           // GFX wrapper so we can draw on screen
+    #include <U8g2lib.h>      // Library for monochrome displays
+    #include <gfxfont.h>      // Adafruit GFX font structs
+    #include <Adafruit_GFX.h> // GFX wrapper so we can draw on screen
 
-    class OLEDScreen : public Screen
+class OLEDScreen : public Screen
+{
+    U8G2_SSD1306_128X64_NONAME_F_HW_I2C oled;
+
+  public:
+    #if ARDUINO_HELTEC_WIFI_LORA_32_V3
+    OLEDScreen(int w, int h) :
+        Screen(w, h), oled(U8G2_R2, /*reset*/ 21, /*clk*/ 18, /*data*/ 17)
+    #else
+    OLEDScreen(int w, int h) :
+        Screen(w, h), oled(U8G2_R2, /*reset*/ 16, /*clk*/ 15, /*data*/ 4)
+    #endif
     {
-        U8G2_SSD1306_128X64_NONAME_F_HW_I2C oled;
+        oled.begin();
+        oled.clear();
+    }
 
-    public:
-        #if ARDUINO_HELTEC_WIFI_LORA_32_V3
-            OLEDScreen(int w, int h) : Screen(w, h), oled(U8G2_R2, /*reset*/ 21, /*clk*/ 18, /*data*/ 17)
-        #else
-            OLEDScreen(int w, int h) : Screen(w, h), oled(U8G2_R2, /*reset*/ 16, /*clk*/ 15, /*data*/ 4)
-        #endif
-        {
-            oled.begin();
-            oled.clear();
-        }
+    virtual void StartFrame() override
+    {
+        oled.clearBuffer();
+    }
 
-        virtual void StartFrame() override
-        {
-            oled.clearBuffer();
-        }
+    virtual void EndFrame() override
+    {
+        oled.sendBuffer();
+    }
+    virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
+    {
+        oled.setDrawColor(color == BLACK16 ? 0 : 1);
+        oled.drawPixel(x, y);
+    }
 
-        virtual void EndFrame() override
-        {
-            oled.sendBuffer();
-        }
-        virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
-        {
-            oled.setDrawColor(color == BLACK16 ? 0  : 1);
-            oled.drawPixel(x, y);
-        }
-
-        virtual void fillScreen(uint16_t color) override
-        {
-            oled.clearDisplay();
-        }
+    virtual void fillScreen(uint16_t color) override
+    {
+        oled.clearDisplay();
+    }
 
     // Monochrome OLED defaults
-    virtual bool IsMonochrome() const override { return true; }
-    virtual uint16_t GetTextColor() const override { return WHITE16; }
-    virtual uint16_t GetBkgndColor() const override { return BLACK16; }
-    virtual uint16_t GetBorderColor() const override { return WHITE16; }
-    };
+    virtual bool IsMonochrome() const override
+    {
+        return true;
+    }
+    virtual uint16_t GetTextColor() const override
+    {
+        return WHITE16;
+    }
+    virtual uint16_t GetBkgndColor() const override
+    {
+        return BLACK16;
+    }
+    virtual uint16_t GetBorderColor() const override
+    {
+        return WHITE16;
+    }
+};
 #endif
 
 #if USE_SSD1306
 
-    // SSD1306Screen
-    //
-    // Display code for the SSD1306 display on supported Heltec ESP32 boards
+// SSD1306Screen
+//
+// Display code for the SSD1306 display on supported Heltec ESP32 boards
 
-    #include <U8g2lib.h>                // Library for monochrome displays
-    #include <gfxfont.h>                // Adafruit GFX font structs
-    #include <Adafruit_GFX.h>           // GFX wrapper so we can draw on screen
-    #include <heltec.h>                // Display
+    #include <U8g2lib.h>      // Library for monochrome displays
+    #include <gfxfont.h>      // Adafruit GFX font structs
+    #include <Adafruit_GFX.h> // GFX wrapper so we can draw on screen
+    #include <heltec.h>       // Display
 
-    class SSD1306Screen : public Screen
+class SSD1306Screen : public Screen
+{
+  public:
+    SSD1306Screen(int w, int h) : Screen(w, h)
     {
-    public:
+        Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/,
+                     false /*Serial Enable*/);
+    #if ROTATE_SCREEN
+        Heltec.display->screenRotate(ANGLE_180_DEGREE);
+    #endif
+    }
 
-        SSD1306Screen(int w, int h) : Screen(w, h)
-        {
-            Heltec.begin(true /*DisplayEnable Enable*/, false /*LoRa Enable*/, false /*Serial Enable*/);
-            #if ROTATE_SCREEN
-                Heltec.display->screenRotate(ANGLE_180_DEGREE);
-            #endif
-        }
+    virtual void StartFrame() override
+    {
+    }
 
-        virtual void StartFrame() override
-        {
-        }
+    virtual void EndFrame() override
+    {
+        Heltec.display->display();
+    }
 
-        virtual void EndFrame() override
-        {
-            Heltec.display->display();
-        }
+    virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
+    {
+        if (color == BLACK16)
+            Heltec.display->clearPixel(x, y);
+        else
+            Heltec.display->setPixel(x, y);
+    }
 
-        virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
-        {
-            if (color == BLACK16)
-                Heltec.display->clearPixel(x,y);
-            else
-                Heltec.display->setPixel(x,y);
-        }
-
-        virtual void fillScreen(uint16_t color) override
-        {
-            Heltec.display->clear();
-        }
+    virtual void fillScreen(uint16_t color) override
+    {
+        Heltec.display->clear();
+    }
 
     // Monochrome OLED defaults
-    virtual bool IsMonochrome() const override { return true; }
-    virtual uint16_t GetTextColor() const override { return WHITE16; }
-    virtual uint16_t GetBkgndColor() const override { return BLACK16; }
-    virtual uint16_t GetBorderColor() const override { return WHITE16; }
-    };
+    virtual bool IsMonochrome() const override
+    {
+        return true;
+    }
+    virtual uint16_t GetTextColor() const override
+    {
+        return WHITE16;
+    }
+    virtual uint16_t GetBkgndColor() const override
+    {
+        return BLACK16;
+    }
+    virtual uint16_t GetBorderColor() const override
+    {
+        return WHITE16;
+    }
+};
 #endif
 
 #if ELECROW
-    // ElecrowScreen
-    //
-    // Display code for the Elecrow display on their 3.5"
+// ElecrowScreen
+//
+// Display code for the Elecrow display on their 3.5"
 
     #define LGFX_USE_V1
 
-    #include <U8g2lib.h>                // Library for monochrome displays
-    #include <gfxfont.h>                // Adafruit GFX font structs
-    #include <Adafruit_GFX.h>           // GFX wrapper so we can draw on screen
-    #include <LovyanGFX.hpp>            // For the Elecrow display
+    #include <U8g2lib.h>      // Library for monochrome displays
+    #include <gfxfont.h>      // Adafruit GFX font structs
+    #include <Adafruit_GFX.h> // GFX wrapper so we can draw on screen
+    #include <LovyanGFX.hpp>  // For the Elecrow display
 
-    // TFT Pinout
+                              // TFT Pinout
 
     #define LCD_MOSI 13
     #define LCD_MISO 14
     #define LCD_SCK  12
-    #define LCD_CS    3
+    #define LCD_CS   3
     #define LCD_RST  -1
     #define LCD_DC   42
 
-    class ElecrowScreen : public Screen, lgfx::LGFX_Device
+class ElecrowScreen : public Screen, lgfx::LGFX_Device
+{
+    lgfx::Panel_ILI9488 _panel_instance;
+    lgfx::Bus_SPI _bus_instance;
+
+  public:
+    ElecrowScreen(int w, int h) : Screen(w, h)
     {
-        lgfx::Panel_ILI9488 _panel_instance;
-        lgfx::Bus_SPI _bus_instance;
+        // I'm not a fan of these local clauses but it keeps it the same
+        // as the original sample code
 
-    public:
-
-        ElecrowScreen(int w, int h) : Screen(w, h)
         {
-             // I'm not a fan of these local clauses but it keeps it the same as the original sample code
-
-             {
-                auto cfg = _bus_instance.config();
-                cfg.spi_host = SPI3_HOST;
-                cfg.spi_mode = 0;
-                cfg.freq_write = 60000000;
-                cfg.freq_read = 16000000;
-                cfg.spi_3wire = true;
-                cfg.use_lock = true;
-                cfg.dma_channel = SPI_DMA_CH_AUTO;
-                cfg.pin_sclk = LCD_SCK;
-                cfg.pin_mosi = LCD_MOSI;
-                cfg.pin_miso = LCD_MISO;
-                cfg.pin_dc = LCD_DC;
-                _bus_instance.config(cfg);
-                _panel_instance.setBus(&_bus_instance);
-            }
-
-            {
-                auto cfg = _panel_instance.config();
-
-                cfg.pin_cs = LCD_CS;
-                cfg.pin_rst = LCD_RST;
-                cfg.pin_busy = -1;
-                cfg.memory_width = h;
-                cfg.memory_height = w;
-                cfg.panel_width = h;
-                cfg.panel_height = w;
-                cfg.offset_x = 0;
-                cfg.offset_y = 0;
-                cfg.offset_rotation = 0;
-                cfg.dummy_read_pixel = 8;
-                cfg.dummy_read_bits = 1;
-                cfg.readable = true;
-                cfg.invert = false;
-                cfg.rgb_order = false;
-                cfg.dlen_16bit = false;
-                cfg.bus_shared = true;
-                _panel_instance.config(cfg);
-            }
-            setPanel(&_panel_instance);
-
-            constexpr auto LCD_BL = 46;
-            lgfx::LGFX_Device::init();
-            lgfx::LGFX_Device::setRotation( 1 );
-            pinMode(LCD_BL, OUTPUT);
-            digitalWrite(LCD_BL, HIGH);
-            lgfx::LGFX_Device::fillScreen(TFT_BLUE);
-            lgfx::LGFX_Device::setTextDatum(lgfx::baseline_left);
+            auto cfg        = _bus_instance.config();
+            cfg.spi_host    = SPI3_HOST;
+            cfg.spi_mode    = 0;
+            cfg.freq_write  = 60000000;
+            cfg.freq_read   = 16000000;
+            cfg.spi_3wire   = true;
+            cfg.use_lock    = true;
+            cfg.dma_channel = SPI_DMA_CH_AUTO;
+            cfg.pin_sclk    = LCD_SCK;
+            cfg.pin_mosi    = LCD_MOSI;
+            cfg.pin_miso    = LCD_MISO;
+            cfg.pin_dc      = LCD_DC;
+            _bus_instance.config(cfg);
+            _panel_instance.setBus(&_bus_instance);
         }
 
-        virtual void startWrite(void) override
         {
-            lgfx::LGFX_Device::startWrite();
-        }
+            auto cfg = _panel_instance.config();
 
-        virtual void endWrite(void) override
-        {
-            lgfx::LGFX_Device::endWrite();
+            cfg.pin_cs           = LCD_CS;
+            cfg.pin_rst          = LCD_RST;
+            cfg.pin_busy         = -1;
+            cfg.memory_width     = h;
+            cfg.memory_height    = w;
+            cfg.panel_width      = h;
+            cfg.panel_height     = w;
+            cfg.offset_x         = 0;
+            cfg.offset_y         = 0;
+            cfg.offset_rotation  = 0;
+            cfg.dummy_read_pixel = 8;
+            cfg.dummy_read_bits  = 1;
+            cfg.readable         = true;
+            cfg.invert           = false;
+            cfg.rgb_order        = false;
+            cfg.dlen_16bit       = false;
+            cfg.bus_shared       = true;
+            _panel_instance.config(cfg);
         }
+        setPanel(&_panel_instance);
 
-        virtual void StartFrame() override
-        {
-            lgfx::LGFX_Device::startWrite();
-        }
+        constexpr auto LCD_BL = 46;
+        lgfx::LGFX_Device::init();
+        lgfx::LGFX_Device::setRotation(1);
+        pinMode(LCD_BL, OUTPUT);
+        digitalWrite(LCD_BL, HIGH);
+        lgfx::LGFX_Device::fillScreen(TFT_BLUE);
+        lgfx::LGFX_Device::setTextDatum(lgfx::baseline_left);
+    }
 
-        virtual void EndFrame() override
-        {
-            lgfx::LGFX_Device::endWrite();
-        }
+    virtual void startWrite(void) override
+    {
+        lgfx::LGFX_Device::startWrite();
+    }
 
-        virtual void writePixel(int16_t x, int16_t y, uint16_t color) override
-        {
-            lgfx::LGFX_Device::writePixel(x, y, color);
-        }
+    virtual void endWrite(void) override
+    {
+        lgfx::LGFX_Device::endWrite();
+    }
 
-        virtual void writeFillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override
-        {
-            lgfx::LGFX_Device::writeFillRect(x, y, w, h, color);
-        }
+    virtual void StartFrame() override
+    {
+        lgfx::LGFX_Device::startWrite();
+    }
 
-        virtual void writeFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) override
-        {
-            lgfx::LGFX_Device::writeFastVLine(x, y, h, color);
-        }
+    virtual void EndFrame() override
+    {
+        lgfx::LGFX_Device::endWrite();
+    }
 
-        virtual void writeFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) override
-        {
-            lgfx::LGFX_Device::writeFastHLine(x, y, w, color);
-        }
+    virtual void writePixel(int16_t x, int16_t y, uint16_t color) override
+    {
+        lgfx::LGFX_Device::writePixel(x, y, color);
+    }
 
-        virtual void writeLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color) override
-        {
-            lgfx::LGFX_Device::drawLine(x0, y0, x1, y1, color);
-        }
+    virtual void writeFillRect(int16_t x, int16_t y, int16_t w, int16_t h,
+                               uint16_t color) override
+    {
+        lgfx::LGFX_Device::writeFillRect(x, y, w, h, color);
+    }
 
-        virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
-        {
-            lgfx::LGFX_Device::drawPixel(x, y, color);
-        }
+    virtual void writeFastVLine(int16_t x, int16_t y, int16_t h,
+                                uint16_t color) override
+    {
+        lgfx::LGFX_Device::writeFastVLine(x, y, h, color);
+    }
 
-        virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override
-        {
-            lgfx::LGFX_Device::fillRect(x, y, w, h, color);
-        }
+    virtual void writeFastHLine(int16_t x, int16_t y, int16_t w,
+                                uint16_t color) override
+    {
+        lgfx::LGFX_Device::writeFastHLine(x, y, w, color);
+    }
 
-        virtual void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override
-        {
-            lgfx::LGFX_Device::drawRect(x, y, w, h, color);
-        }
+    virtual void writeLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                           uint16_t color) override
+    {
+        lgfx::LGFX_Device::drawLine(x0, y0, x1, y1, color);
+    }
 
-        virtual void fillScreen(uint16_t color) override
-        {
-            lgfx::LGFX_Device::fillScreen(color);
-        }
-    };
+    virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
+    {
+        lgfx::LGFX_Device::drawPixel(x, y, color);
+    }
+
+    virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h,
+                          uint16_t color) override
+    {
+        lgfx::LGFX_Device::fillRect(x, y, w, h, color);
+    }
+
+    virtual void drawRect(int16_t x, int16_t y, int16_t w, int16_t h,
+                          uint16_t color) override
+    {
+        lgfx::LGFX_Device::drawRect(x, y, w, h, color);
+    }
+
+    virtual void fillScreen(uint16_t color) override
+    {
+        lgfx::LGFX_Device::fillScreen(color);
+    }
+};
 #endif
 
 #if USE_LCD
 
     #include <Adafruit_ILI9341.h>
 
-    // LCDScreen
-    //
-    // Screen class that works with the WROVER devkit board
+// LCDScreen
+//
+// Screen class that works with the WROVER devkit board
 
-    class LCDScreen : public Screen
+class LCDScreen : public Screen
+{
+    SPIClass hspi;
+    std::unique_ptr<Adafruit_ILI9341> pLCD;
+
+  public:
+    LCDScreen(int w, int h) : Screen(w, h), hspi(HSPI)
     {
-        SPIClass hspi;
-        std::unique_ptr<Adafruit_ILI9341> pLCD;
+        hspi.begin(TFT_SCK, TFT_MISO, TFT_MOSI, -1);
 
-    public:
+    #ifdef TFT_BL
+        pinMode(TFT_BL, OUTPUT); // initialize BL
+    #endif
 
-        LCDScreen(int w, int h) : Screen(w, h), hspi(HSPI)
-        {
-            hspi.begin(TFT_SCK, TFT_MISO, TFT_MOSI, -1);
+        pLCD = std::make_unique<Adafruit_ILI9341>(&hspi, TFT_DC, TFT_CS,
+                                                  TFT_RST);
+        pLCD->begin();
+        pLCD->setRotation(1);
+        pLCD->fillScreen(GREEN16);
+    }
 
-            #ifdef TFT_BL
-            pinMode(TFT_BL, OUTPUT); //initialize BL
-            #endif
+    virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
+    {
+        pLCD->writePixel(x, y, color);
+    }
 
-            pLCD = std::make_unique<Adafruit_ILI9341>(&hspi, TFT_DC, TFT_CS, TFT_RST);
-            pLCD->begin();
-            pLCD->setRotation(1);
-            pLCD->fillScreen(GREEN16);
-        }
-
-        virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
-        {
-            pLCD->writePixel(x, y, color);
-        }
-
-        virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override
-        {
-            pLCD->fillRect(x, y, w, h, color);
-        }
-
-    };
+    virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h,
+                          uint16_t color) override
+    {
+        pLCD->fillRect(x, y, w, h, color);
+    }
+};
 #endif

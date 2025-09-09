@@ -2,7 +2,8 @@
 //
 // File:        ws281xgfx.cpp
 //
-// NightDriverStrip - (c) 2018 Plummer's Software LLC.  All Rights Reserved.
+// NightDriverStrip - (c) 2018 Plummer's Software LLC.  All Rights
+// Reserved.
 //
 // This file is part of the NightDriver software project.
 //
@@ -32,9 +33,11 @@
 #include "ws281xgfx.h"
 #include "systemcontainer.h"
 
-void WS281xGFX::PostProcessFrame(uint16_t localPixelsDrawn, uint16_t wifiPixelsDrawn)
+void WS281xGFX::PostProcessFrame(uint16_t localPixelsDrawn,
+                                 uint16_t wifiPixelsDrawn)
 {
-    auto pixelsDrawn = wifiPixelsDrawn > 0 ? wifiPixelsDrawn : localPixelsDrawn;
+    auto pixelsDrawn =
+        wifiPixelsDrawn > 0 ? wifiPixelsDrawn : localPixelsDrawn;
 
     // If we drew no pixels, there's nothing to post process
     if (pixelsDrawn == 0)
@@ -53,20 +56,28 @@ void WS281xGFX::PostProcessFrame(uint16_t localPixelsDrawn, uint16_t wifiPixelsD
         return;
     }
 
-    auto& effectManager = g_ptrSystem->EffectManager();
+    auto &effectManager = g_ptrSystem->EffectManager();
 
     for (int i = 0; i < NUM_CHANNELS; i++)
     {
         FastLED[i].setLeds(effectManager.g(i)->leds, pixelsDrawn);
-        fadeLightBy(FastLED[i].leds(), FastLED[i].size(), 255 - g_ptrSystem->DeviceConfig().GetBrightness());
+        fadeLightBy(FastLED[i].leds(), FastLED[i].size(),
+                    255 - g_ptrSystem->DeviceConfig().GetBrightness());
     }
-    FastLED.show(g_Values.Fader); //Shows the pixels
+    FastLED.show(g_Values.Fader); // Shows the pixels
 
     g_Values.FPS = FastLED.getFPS();
-    #ifdef POWER_LIMIT_MW
-        g_Values.Brite = 100.0 * calculate_max_brightness_for_power_mW(g_ptrSystem->DeviceConfig().GetBrightness(), POWER_LIMIT_MW) / 255;
-    #else
-        g_Values.Brite = 100.0 * g_ptrSystem->DeviceConfig().GetBrightness() / 255;
-    #endif
-    g_Values.Watts = calculate_unscaled_power_mW(effectManager.g()->leds, pixelsDrawn) / 1000; // 1000 for mw->W
+#ifdef POWER_LIMIT_MW
+    g_Values.Brite =
+        100.0 *
+        calculate_max_brightness_for_power_mW(
+            g_ptrSystem->DeviceConfig().GetBrightness(), POWER_LIMIT_MW) /
+        255;
+#else
+    g_Values.Brite =
+        100.0 * g_ptrSystem->DeviceConfig().GetBrightness() / 255;
+#endif
+    g_Values.Watts = calculate_unscaled_power_mW(effectManager.g()->leds,
+                                                 pixelsDrawn) /
+                     1000; // 1000 for mw->W
 }
