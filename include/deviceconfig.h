@@ -35,7 +35,7 @@
 #include "jsonserializer.h"
 #include "types.h"
 
-#if ENABLE_WIFI
+//#if ENABLE_WIFI
 // Make sure we have a secrets.h and that it contains everything we need.
 
 #if __has_include("secrets.h")
@@ -86,7 +86,7 @@
 #error A definition for cszTimeZone is missing from secrets.h
 #endif
 
-#endif // ENABLE_WIFI
+// #endif // ENABLE_WIFI
 
 // Define this to true to make the DeviceConfig ignore any JSON-persisted config that may be on the device.
 // Note that effect settings are not impacted by this setting. Their persisted config is part of the effects
