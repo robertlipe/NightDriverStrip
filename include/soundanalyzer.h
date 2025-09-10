@@ -251,9 +251,6 @@ class SoundAnalyzer : public ISoundAnalyzer // Non-audio case stub
 
 #else // Audio case
 
-void IRAM_ATTR AudioSamplerTaskEntry(void *);
-void IRAM_ATTR AudioSerialTaskEntry(void *);
-
 // SoundAnalyzer
 //
 // The SoundAnalyzer class uses I2S to read samples from the microphone and then runs an FFT on the
@@ -265,8 +262,8 @@ class SoundAnalyzer : public ISoundAnalyzer
 {
   public:
     // Give internal audio task functions access to private members
-    friend void IRAM_ATTR AudioSamplerTaskEntry(void *);
-    friend void IRAM_ATTR AudioSerialTaskEntry(void *);
+    friend void AudioSamplerTaskEntry(void *);
+    friend void AudioSerialTaskEntry(void *);
 
     float _VURatio = 1.0f;
     float _VURatioFade = 1.0f;
@@ -349,7 +346,7 @@ class SoundAnalyzer : public ISoundAnalyzer
                 bytesRead = bytesExpected;
             if (bytesRead != bytesExpected)
             {
-                debugW("Could only read %u bytes of %u in FillBufferI2S()\n", bytesRead, bytesExpected);
+                debugW("Could only read %zu bytes of %zu in FillBufferI2S()\n", bytesRead, bytesExpected);
                 return;
             }
         #elif ELECROW || USE_I2S_AUDIO
@@ -364,7 +361,7 @@ class SoundAnalyzer : public ISoundAnalyzer
                     ESP_ERROR_CHECK(i2s_read(I2S_NUM_0, (void *)raw32, bytesExpected32, &bytesRead, 100 / portTICK_PERIOD_MS));
                     if (bytesRead != bytesExpected32)
                     {
-                        debugW("Only read %u of %u bytes from I2S\n", bytesRead, bytesExpected32);
+                        debugW("Only read %zu of %zu bytes from I2S\n", bytesRead, bytesExpected32);
                         return;
                     }
                     // Decide which channel has signal (0 or 1 within each frame)

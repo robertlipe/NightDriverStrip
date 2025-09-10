@@ -221,7 +221,7 @@ void PrintOutputHeader()
 
     debugI("Version %u: Wifi SSID: \"%s\" - ESP32 Free Memory: %lu, PSRAM:%lu, PSRAM Free: %lu",
             FLASH_VERSION, cszSSID, ESP.getFreeHeap(), ESP.getPsramSize(), ESP.getFreePsram());
-    debugI("ESP32 Clock Freq : %ld MHz", ESP.getCpuFreqMHz());
+    debugI("ESP32 Clock Freq : %lu MHz", ESP.getCpuFreqMHz());
 }
 
 // TerminateHandler

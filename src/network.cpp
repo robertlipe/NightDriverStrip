@@ -152,9 +152,9 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
             auto& bufferManager = g_ptrSystem->BufferManagers()[0];
 
             debugA("Displaying statistics....");
-            debugA("%s:%zux%d %uK", FLASH_VERSION_NAME, g_ptrSystem->Devices().size(), NUM_LEDS, ESP.getFreeHeap() / 1024);
+            debugA("%s:%zux%lu %luK", FLASH_VERSION_NAME, g_ptrSystem->Devices().size(), NUM_LEDS, ESP.getFreeHeap() / 1024);
             debugA("%sdB:%s",String(WiFi.RSSI()).substring(1).c_str(), WiFi.isConnected() ? WiFi.localIP().toString().c_str() : "None");
-            debugA("BUFR:%02zu/%02zu [%dfps]", bufferManager.Depth(), bufferManager.BufferCount(), g_Values.FPS);
+            debugA("BUFR:%02zu/%02zu [%lufps]", bufferManager.Depth(), bufferManager.BufferCount(), g_Values.FPS);
             debugA("DATA:%+04.2lf-%+04.2lf", bufferManager.AgeOfOldestBuffer(), bufferManager.AgeOfNewestBuffer());
 
             #if ENABLE_AUDIO
@@ -371,7 +371,7 @@ void IRAM_ATTR RemoteLoopEntry(void *)
                 WiFi.disconnect();
                 debugV("Wifi.mode");
                 WiFi.mode(WIFI_STA);
-                debugW("Connecting to Wifi SSID: \"%s\" - ESP32 Free Memory: %u, PSRAM:%u, PSRAM Free: %u\n",
+                debugW("Connecting to Wifi SSID: \"%s\" - ESP32 Free Memory: %lu, PSRAM:%lu, PSRAM Free: %lu\n",
                        WiFi_ssid.c_str(), ESP.getFreeHeap(), ESP.getPsramSize(), ESP.getFreePsram());
 
                 WiFi.begin(WiFi_ssid.c_str(), WiFi_password.c_str());
@@ -474,7 +474,7 @@ void IRAM_ATTR RemoteLoopEntry(void *)
                     uint64_t seconds   = ULONGFromMemory(&payloadData[8]);
                     uint64_t micros    = ULONGFromMemory(&payloadData[16]);
 
-                debugV("ProcessIncomingData -- Bands: %u, Length: %u, Seconds: %llu, Micros: %llu ... ",
+                debugV("ProcessIncomingData -- Bands: %u, Length: %lu, Seconds: %llu, Micros: %llu ... ",
                        numbands,
                        length32,
                        seconds,
@@ -507,7 +507,7 @@ void IRAM_ATTR RemoteLoopEntry(void *)
                 uint64_t seconds   = ULONGFromMemory(&payloadData[8]);
                 uint64_t micros    = ULONGFromMemory(&payloadData[16]);
 
-                debugV("ProcessIncomingData -- Channel: %u, Length: %u, Seconds: %llu, Micros: %llu ... ",
+                debugV("ProcessIncomingData -- Channel: %u, Length: %lu, Seconds: %llu, Micros: %llu ... ",
                     channel16,
                     length32,
                     seconds,

@@ -645,7 +645,7 @@ public:
                 _clearTempEffectWhenExpired = false;
             }
 
-            debugV("%ldms elapsed: Next Effect", millis() - _effectStartTime);
+            debugV("%lums elapsed: Next Effect", millis() - _effectStartTime);
             NextEffect();
             debugV("Current Effect: %s", GetCurrentEffectName().c_str());
         }

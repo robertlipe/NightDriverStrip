@@ -83,11 +83,11 @@ bool SocketServer::ProcessIncomingConnectionsLoop()
             uint32_t compressedSize = _pBuffer[7] << 24  | _pBuffer[6] << 16  | _pBuffer[5] << 8  | _pBuffer[4];
             uint32_t expandedSize   = _pBuffer[11] << 24 | _pBuffer[10] << 16 | _pBuffer[9] << 8  | _pBuffer[8];
             uint32_t reserved       = _pBuffer[15] << 24 | _pBuffer[14] << 16 | _pBuffer[13] << 8 | _pBuffer[12];
-            debugV("Compressed Header: compressedSize: %u, expandedSize: %u, reserved: %u", compressedSize, expandedSize, reserved);
+            debugV("Compressed Header: compressedSize: %lu, expandedSize: %lu, reserved: %lu", compressedSize, expandedSize, reserved);
 
             if (expandedSize > MAXIMUM_PACKET_SIZE)
             {
-                debugE("Expanded packet would be %u but buffer is only %u !!!!\n", expandedSize, MAXIMUM_PACKET_SIZE);
+                debugE("Expanded packet would be %lu but buffer is only %u !!!!\n", expandedSize, MAXIMUM_PACKET_SIZE);
                 break;
             }
 
@@ -96,7 +96,7 @@ bool SocketServer::ProcessIncomingConnectionsLoop()
                 debugW("Could not read compressed data from stream\n");
                 break;
             }
-            debugV("Successfully read %u bytes", COMPRESSED_HEADER_SIZE + compressedSize);
+            debugV("Successfully read %lu bytes", COMPRESSED_HEADER_SIZE + compressedSize);
 
             // If our buffer is in PSRAM it would be expensive to decompress in place, as the SPIRAM doesn't like
             // non-linear access from what I can tell.  I bet it must send addr+len to request each unique read, so
@@ -190,7 +190,7 @@ bool SocketServer::ProcessIncomingConnectionsLoop()
                 uint64_t seconds   = ULONGFromMemory(&_pBuffer.get()[8]);
                 uint64_t micros    = ULONGFromMemory(&_pBuffer.get()[16]);
 
-                debugV("Uncompressed Header: channel16=%u, length=%u, seconds=%llu, micro=%llu", channel16, length32, seconds, micros);
+                debugV("Uncompressed Header: channel16=%u, length=%lu, seconds=%llu, micro=%llu", channel16, length32, seconds, micros);
 
                 size_t totalExpected = STANDARD_DATA_HEADER_SIZE + length32 * LED_DATA_SIZE;
                 if (totalExpected > MAXIMUM_PACKET_SIZE)

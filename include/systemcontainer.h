@@ -169,16 +169,16 @@ class SystemContainer
 
         if (cBuffers < MIN_BUFFERS)
         {
-            debugI("Not enough memory, could only allocate %ld buffers and need %d\n", cBuffers, MIN_BUFFERS);
+            debugI("Not enough memory, could only allocate %lu buffers and need %d\n", cBuffers, MIN_BUFFERS);
             throw std::runtime_error("Could not allocate all buffers");
         }
         if (cBuffers > MAX_BUFFERS)
         {
-            debugI("Could allocate %ld buffers but limiting it to %d\n", cBuffers, MAX_BUFFERS);
+            debugI("Could allocate %lu buffers but limiting it to %d\n", cBuffers, MAX_BUFFERS);
             cBuffers = MAX_BUFFERS;
         }
 
-        debugW("Reserving %ld LED buffers for a total of %ld bytes...", cBuffers, memtoalloc * cBuffers);
+        debugW("Reserving %lu LED buffers for a total of %lu bytes...", cBuffers, memtoalloc * cBuffers);
 
         SC_MEMBER(BufferManagers) = make_unique_psram<std::vector<LEDBufferManager, psram_allocator<LEDBufferManager>>>();
 
