@@ -43,12 +43,6 @@ const int starWidth = 1;
 class Star : public MovingFadingPaletteObject, public ObjectSize
 {
   public:
-
-    static int GetStarTypeNumber()
-    {
-        return EFFECT_STAR;
-    }
-
     virtual float GetStarSize()
     {
         return _objectSize;
@@ -569,3 +563,4 @@ class TwinkleStarEffect : public EffectWithId<TwinkleStarEffect>
         buffer[NUM_TWINKLES - 1] = iNew;
     }
 };
+
