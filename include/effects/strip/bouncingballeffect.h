@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include "ledstripeffect.h"
 #include "effects.h"
 
 // BouncingBallEffect
@@ -47,9 +48,9 @@ static constexpr auto ballColors = to_array(
     CRGB::Indigo,
 });
 
-class BouncingBallEffect : public LEDStripEffect
+class BouncingBallEffect : public EffectWithId<BouncingBallEffect>
 {
-private:
+  private:
 
     size_t  _iOffset;
     size_t  _cLength;
@@ -61,6 +62,7 @@ private:
 
     static constexpr float Gravity = -9.81f;
     static constexpr float StartHeight = 1.0f;
+    // Note: VSCode flags sqrt() for calling a non-constexpr builtin function, but it compiles and runs
     static constexpr float ImpactVelocityStart = sqrt(-2.0f * Gravity * StartHeight);
 
     std::vector<double> ClockTimeSinceLastBounce;
@@ -73,7 +75,7 @@ private:
   public:
 
     BouncingBallEffect(size_t ballCount = 3, bool bMirrored = true, bool bErase = false, int ballSize = 5)
-        : LEDStripEffect(EFFECT_STRIP_BOUNCING_BALL, "Bouncing Balls"),
+        : EffectWithId<BouncingBallEffect>("Bouncing Balls"),
           _cBalls(ballCount),
           _cBallSize(ballSize),
           _bMirrored(bMirrored),
@@ -82,7 +84,7 @@ private:
     }
 
     BouncingBallEffect(const JsonObjectConst&  jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<BouncingBallEffect>(jsonObject),
           _cBalls(jsonObject["blc"]),
           _cBallSize(jsonObject["bls"]),
           _bMirrored(jsonObject[PTY_MIRORRED]),
@@ -92,7 +94,7 @@ private:
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize + 128> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -102,9 +104,7 @@ private:
         jsonDoc[PTY_MIRORRED] = _bMirrored;
         jsonDoc[PTY_ERASE] = _bErase;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     virtual size_t DesiredFramesPerSecond() const override

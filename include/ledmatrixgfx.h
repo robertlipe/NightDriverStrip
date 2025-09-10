@@ -34,7 +34,11 @@
 
 #if USE_HUB75
 
-#include <SmartMatrix.h>
+#include "globals.h"
+#include <cmath>
+#include <memory>
+#include <mutex>
+#include "types.h"
 
 //
 // Matrix Panel
@@ -70,6 +74,64 @@ public:
 
     ~LEDMatrixGFX() override
     = default;
+
+    // A 3-byte struct will have one byte of padding so each element
+    // begins on a NA boundary. Making this
+    // struct __attribute__((packed)) PolarMap
+    // might conserve 25% of this buffer, but it might also force
+    // single elements to be split across a (locked) cache line.
+    // We'll thus leave this naturally aligned unless we have a
+    // really great reason not to.
+    struct PolarMap {
+        uint8_t angle;
+        uint8_t scaled_radius;
+        uint8_t unscaled_radius;
+    };
+
+    using PolarMapArray = PolarMap[kMatrixWidth][kMatrixHeight];
+
+    static const PolarMapArray& getPolarMap() {
+        static std::unique_ptr<PolarMapArray> rMap_ptr;
+        static std::mutex rMap_mutex;
+
+        // Double-checked locking for thread-safe, on-demand initialization
+        if (!rMap_ptr) {
+            std::lock_guard<std::mutex> lock(rMap_mutex);
+            if (!rMap_ptr) {
+                // Allocate from PSRAM using the project's helper
+                rMap_ptr = make_unique_psram<PolarMapArray>();
+
+                auto& rMap = *rMap_ptr;
+                const uint8_t C_X = kMatrixWidth / 2;
+                const uint8_t C_Y = kMatrixHeight / 2;
+                const float mapp = 255.0f / kMatrixWidth;
+
+                for (int8_t x = -C_X; x < C_X + (kMatrixWidth % 2); x++) {
+                    for (int8_t y = -C_Y; y < C_Y + (MATRIX_HEIGHT % 2); y++) {
+                        float angle_rad = atan2f(static_cast<float>(y), static_cast<float>(x));
+                        float radius_float = hypotf(static_cast<float>(x), static_cast<float>(y));
+
+                        rMap[x + C_X][y + C_Y].angle = 128.0f * (angle_rad / (float)M_PI);
+                        rMap[x + C_X][y + C_Y].scaled_radius = radius_float * mapp;
+                        rMap[x + C_X][y + C_Y].unscaled_radius = radius_float;
+                    }
+                }
+
+                // A note on the radius calculations:
+                //
+                // `unscaled_radius` is the true geometric distance from the center of the
+                // matrix to the pixel. This is useful for effects that need the real
+                // physical distance.
+                //
+                // `scaled_radius` maps the geometric radius to a range that is more
+                // suitable for use with 8-bit FastLED functions (like inoise8).
+                // The scaling is normalized by the matrix width, which is a common
+                // technique to make radial effects work consistently across different
+                // matrix sizes.
+            }
+        }
+        return *rMap_ptr;
+    }
 
     static void InitializeHardware(std::vector<std::shared_ptr<GFXBase>>& devices)
     {
@@ -119,7 +181,7 @@ public:
         return (int) totalPower;
     }
 
-    uint16_t xy(uint16_t x, uint16_t y) const override
+    __attribute__((always_inline)) uint16_t xy(uint16_t x, uint16_t y) const noexcept override
     {
         // Note the x,y are unsigned so can't be less than zero
         if (x < _width && y < _height)
@@ -151,16 +213,17 @@ public:
         //     before them on the next buffer swap.  So we clear the backbuffer and then the leds, which point to
         //     the current front buffer.  TLDR:  We clear both the front and back buffers to avoid flicker between effects.
 
-        if (color == CRGB::Black)
+        if (color.g == color.r && color.r == color.b)
         {
-            memset((void *) backgroundLayer.backBuffer(), 0, sizeof(LEDMatrixGFX::SM_RGB) * _width * _height);
-            memset((void *) leds, 0, sizeof(CRGB) * _width * _height);
+            memset((void *) leds, color.r, sizeof(CRGB) * _ledcount);
+            memset((void *) backgroundLayer.backBuffer(), color.r, sizeof(LEDMatrixGFX::SM_RGB) * _ledcount);
         }
         else
         {
-            for (int i = 0; i < NUM_LEDS; i++)
+            SM_RGB* buf = (SM_RGB*)backgroundLayer.backBuffer();
+            for (int i = 0; i < _ledcount; ++i)
             {
-                backgroundLayer.backBuffer()[i] = rgb24(color.r, color.g, color.b);
+                buf[i]  = rgb24(color.r, color.g, color.b);
                 leds[i] = color;
             }
         }

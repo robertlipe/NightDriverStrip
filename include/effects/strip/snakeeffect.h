@@ -34,8 +34,10 @@
 #include "effects.h"
 #include "globals.h"
 
-class SnakeEffect : public LEDStripEffect
+class SnakeEffect : public EffectWithId<SnakeEffect>
 {
+  private:
+
     void construct()
     {
         lastLEDIndex = LEDCount - 1;
@@ -43,6 +45,7 @@ class SnakeEffect : public LEDStripEffect
     }
 
   protected:
+
     int     LEDCount;             // Number of LEDs total
     int     SnakeSpeed;           // Max duration between iterations.
 
@@ -65,7 +68,7 @@ class SnakeEffect : public LEDStripEffect
   public:
 
     SnakeEffect(const char * strName, int ledCount = NUM_LEDS, int snakeSpeed = dSnakeSpeed)
-        : LEDStripEffect(EFFECT_STRIP_SNAKE, strName),
+        : EffectWithId<SnakeEffect>(strName),
           LEDCount(ledCount),
           SnakeSpeed(snakeSpeed)
     {
@@ -73,7 +76,7 @@ class SnakeEffect : public LEDStripEffect
     }
 
     SnakeEffect(const JsonObjectConst& jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<SnakeEffect>(jsonObject),
           LEDCount(jsonObject[PTY_LEDCOUNT]),
           SnakeSpeed(jsonObject[PTY_SPEED])
     {
@@ -82,7 +85,7 @@ class SnakeEffect : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        AllocatedJsonDocument jsonDoc(LEDStripEffect::_jsonSize + 64);
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -90,9 +93,7 @@ class SnakeEffect : public LEDStripEffect
         jsonDoc[PTY_LEDCOUNT] = LEDCount;
         jsonDoc[PTY_SPEED] = SnakeSpeed;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     virtual ~SnakeEffect()

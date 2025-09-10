@@ -6,32 +6,29 @@
 // N Glowing balls in orbit around each other around a rotating plane.
 // BUGBUG: Harvest possible speed fx from https://pastebin.com/VTAg4QAZ
 
-class PatternSMMetaBalls : public LEDStripEffect
+class PatternSMMetaBalls : public EffectWithId<PatternSMMetaBalls>
 {
   private:
+
     uint8_t bx[5];
     uint8_t by[5];
 
-    byte dist(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
+    uint8_t dist(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2)
     {
         int a = y2 - y1;
         int b = x2 - x1;
         a *= a;
         b *= b;
-        //    byte dist = 220 / (sqrt16(a + b) + 1);
+        //    uint8_t dist = 220 / (sqrt16(a + b) + 1);
         // Avoid a div/0 crash.
-        byte dist = 220 / (sqrt16(a + b + 1));
+        uint8_t dist = 220 / (sqrt16(a + b + 1));
         return dist;
     }
 
   public:
-    PatternSMMetaBalls() : LEDStripEffect(EFFECT_MATRIX_SMMETA_BALLS, "MetaBalls")
-    {
-    }
 
-    PatternSMMetaBalls(const JsonObjectConst &jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternSMMetaBalls() : EffectWithId<PatternSMMetaBalls>("MetaBalls") {}
+    PatternSMMetaBalls(const JsonObjectConst &jsonObject) : EffectWithId<PatternSMMetaBalls>(jsonObject) {}
 
     void Start() override
     {
@@ -49,7 +46,7 @@ class PatternSMMetaBalls : public LEDStripEffect
         {
             for (unsigned j = 0; j < MATRIX_HEIGHT - 1; j++)
             {
-                byte sum = dist(i, j, bx[0], by[0]);
+                uint8_t sum = dist(i, j, bx[0], by[0]);
                 for (uint8_t a = 1; a < 5; a++)
                 {
                     sum = qadd8(sum, dist(i, j, bx[a], by[a]));

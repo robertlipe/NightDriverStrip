@@ -34,12 +34,14 @@
 
 class LaserShot
 {
+  private:
+
     float         _position = 0.0;
     float         _speed    = 10.0;
     float         _size     = 10.0;
     uint8_t       _hue      = 0;
 
-public:
+  public:
 
     LaserShot(float position, float speed, float size, uint8_t hue)
     {
@@ -65,9 +67,10 @@ public:
     }
 };
 
-class LaserLineEffect : public BeatEffectBase, public LEDStripEffect
+class LaserLineEffect : public BeatEffectBase, public EffectWithId<LaserLineEffect>
 {
   private:
+
     std::vector<LaserShot>      _shots;
     std::shared_ptr<GFXBase>    _gfx;
     float                      _defaultSize;
@@ -77,7 +80,7 @@ class LaserLineEffect : public BeatEffectBase, public LEDStripEffect
 
     LaserLineEffect(float speed, float size)
         : BeatEffectBase(1.50, 0.00),
-          LEDStripEffect(EFFECT_STRIP_LASER_LINE, "LaserLine"),
+          EffectWithId<LaserLineEffect>("LaserLine"),
           _defaultSize(size),
           _defaultSpeed(speed)
     {
@@ -85,7 +88,7 @@ class LaserLineEffect : public BeatEffectBase, public LEDStripEffect
 
     LaserLineEffect(const JsonObjectConst& jsonObject)
         : BeatEffectBase(1.50, 0.00),
-          LEDStripEffect(jsonObject),
+          EffectWithId<LaserLineEffect>(jsonObject),
           _defaultSize(jsonObject[PTY_SIZE]),
           _defaultSpeed(jsonObject[PTY_SPEED])
     {
@@ -93,7 +96,7 @@ class LaserLineEffect : public BeatEffectBase, public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -101,9 +104,7 @@ class LaserLineEffect : public BeatEffectBase, public LEDStripEffect
         jsonDoc[PTY_SIZE] = _defaultSize;
         jsonDoc[PTY_SPEED] = _defaultSpeed;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     bool Init(std::vector<std::shared_ptr<GFXBase>>& gfx) override

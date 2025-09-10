@@ -32,7 +32,7 @@
 
 #include "effects.h"
 
-class DoublePaletteEffect : public LEDStripEffect
+class DoublePaletteEffect : public EffectWithId<DoublePaletteEffect>
 {
   private:
 
@@ -42,14 +42,14 @@ class DoublePaletteEffect : public LEDStripEffect
   public:
 
     DoublePaletteEffect()
-     :  LEDStripEffect(EFFECT_STRIP_DOUBLE_PALETTE, "Double Palette"),
+     :  EffectWithId<DoublePaletteEffect>("Double Palette"),
         _PaletteEffect1(RainbowColors_p, 1.0,  0.03,  4.0, 3, 3, LINEARBLEND, false, 0.5),
         _PaletteEffect2(RainbowColors_p, 1.0, -0.03, -4.0, 3, 3, LINEARBLEND, false, 0.5)
     {
     }
 
     DoublePaletteEffect(const JsonObjectConst&  jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<DoublePaletteEffect>(jsonObject),
         _PaletteEffect1(jsonObject["pt1"].as<JsonObjectConst>()),
         _PaletteEffect2(jsonObject["pt2"].as<JsonObjectConst>())
     {
@@ -57,19 +57,17 @@ class DoublePaletteEffect : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        AllocatedJsonDocument jsonDoc(LEDStripEffect::_jsonSize + 768);
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
 
-        JsonObject paletteObj = jsonDoc.createNestedObject("pt1");
+        JsonObject paletteObj = jsonDoc["pt1"].to<JsonObject>();
         _PaletteEffect1.SerializeToJSON(paletteObj);
-        paletteObj = jsonDoc.createNestedObject("pt2");
+        paletteObj = jsonDoc["pt2"].to<JsonObject>();
         _PaletteEffect2.SerializeToJSON(paletteObj);
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     bool Init(std::vector<std::shared_ptr<GFXBase>>& gfx) override

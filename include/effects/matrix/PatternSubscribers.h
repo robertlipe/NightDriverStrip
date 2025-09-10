@@ -1,3 +1,4 @@
+
 //+--------------------------------------------------------------------------
 //
 // File:        PatternSubscribers.h
@@ -32,6 +33,8 @@
 #ifndef PatternSub_H
 #define PatternSub_H
 
+#if USE_HUB75
+
 #include <UrlEncode.h>
 #include "systemcontainer.h"
 
@@ -43,9 +46,10 @@
 #define DEFAULT_CHANNEL_GUID "9558daa1-eae8-482f-8066-17fa787bc0e4"
 #define DEFAULT_CHANNEL_NAME "Daves Garage"
 
-class PatternSubscribers : public LEDStripEffect
+class PatternSubscribers : public EffectWithId<PatternSubscribers>
 {
   private:
+
     // This requires a matching INIT_EFFECT_SETTING_SPECS() in effects.cpp or linker errors will ensue
     DECLARE_EFFECT_SETTING_SPECS(mySettingSpecs);
 
@@ -131,8 +135,6 @@ class PatternSubscribers : public LEDStripEffect
 
   protected:
 
-    static constexpr int _jsonSize = LEDStripEffect::_jsonSize + 192;
-
     // Create our SettingSpec instances if needed, and return (a pointer to) them
     EffectSettingSpecs* FillSettingSpecs() override
     {
@@ -163,20 +165,17 @@ class PatternSubscribers : public LEDStripEffect
 
   public:
 
-    PatternSubscribers() : LEDStripEffect(EFFECT_MATRIX_SUBSCRIBERS, "Subs")
+    PatternSubscribers() : EffectWithId<PatternSubscribers>("Subs") {}
+    PatternSubscribers(const JsonObjectConst& jsonObject) : EffectWithId<PatternSubscribers>(jsonObject)
     {
-    }
-
-    PatternSubscribers(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-        if (jsonObject.containsKey("ycg"))
+        if (jsonObject["ycg"].is<String>())
             youtubeChannelGuid = jsonObject["ycg"].as<String>();
 
-        if (jsonObject.containsKey("ycn"))
+        if (jsonObject["ycn"].is<String>())
             youtubeChannelName = jsonObject["ycn"].as<String>();
-        if (jsonObject.containsKey("bgc"))
+        if (jsonObject["bgc"].is<CRGB>())
             backgroundColor = jsonObject["bgc"].as<CRGB>();
-        if (jsonObject.containsKey("boc"))
+        if (jsonObject["boc"].is<CRGB>())
             borderColor = jsonObject["boc"].as<CRGB>();
     }
 
@@ -187,7 +186,7 @@ class PatternSubscribers : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -197,9 +196,7 @@ class PatternSubscribers : public LEDStripEffect
         jsonDoc["bgc"] = backgroundColor;
         jsonDoc["boc"] = borderColor;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     bool RequiresDoubleBuffering() const override
@@ -256,7 +253,7 @@ class PatternSubscribers : public LEDStripEffect
     // Extension override to serialize our settings on top of those from LEDStripEffect
     bool SerializeSettingsToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeSettingsToJSON(root);
@@ -266,10 +263,7 @@ class PatternSubscribers : public LEDStripEffect
         jsonDoc[NAME_OF(backgroundColor)] = backgroundColor;
         jsonDoc[NAME_OF(borderColor)] = borderColor;
 
-        if (jsonDoc.overflowed())
-            debugE("JSON buffer overflow while serializing settings for PatternSubscribers - object incomplete!");
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     // Extension override to accept our settings on top of those known by LEDStripEffect
@@ -284,4 +278,5 @@ class PatternSubscribers : public LEDStripEffect
     }
 };
 
+#endif
 #endif

@@ -1,3 +1,4 @@
+
 //+--------------------------------------------------------------------------
 //
 // File:        PatternWeather.h
@@ -41,7 +42,6 @@
 #include <ledmatrixgfx.h>
 #include <ArduinoJson.h>
 #include "systemcontainer.h"
-#include <FontGfx_apple5x7.h>
 #include <array>
 #include <chrono>
 #include <thread>
@@ -49,6 +49,10 @@
 #include "TJpg_Decoder.h"
 #include "effects.h"
 #include "types.h"
+
+#if USE_HUB75
+  #include <FontGfx_apple5x7.h>
+#endif
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
@@ -121,10 +125,9 @@ static std::map<const String, EmbeddedFile, std::less<const String>, psram_alloc
  * @brief This class implements the Weather Data effect
  *
  */
-class PatternWeather : public LEDStripEffect
+class PatternWeather : public EffectWithId<PatternWeather>
 {
-
-private:
+  private:
 
     String strLocationName    = "";
     String strLocation        = "";
@@ -247,7 +250,7 @@ private:
             return false;
         }
 
-        AllocatedJsonDocument doc(4096);
+        auto doc = CreateJsonDocument();
         deserializeJson(doc, http.getString());
         JsonObject coordinates = configLocationIsZip ? doc.as<JsonObject>() : doc[0].as<JsonObject>();
 
@@ -283,7 +286,7 @@ private:
         if (httpResponseCode > 0)
         {
             // Needs to be this large to process all the returned JSON
-            AllocatedJsonDocument doc(10240);
+            auto doc = CreateJsonDocument();
             deserializeJson(doc, http.getString());
             JsonArray list = doc["list"];
 
@@ -367,7 +370,7 @@ private:
         if (httpResponseCode > 0)
         {
             iconToday = "";
-            AllocatedJsonDocument jsonDoc(4096);
+            auto jsonDoc = CreateJsonDocument();
             deserializeJson(jsonDoc, http.getString());
 
             // Once we have a non-zero temp we can start displaying things
@@ -439,18 +442,14 @@ public:
      * @brief Construct a new Pattern Weather object
      *
      */
-    PatternWeather() : LEDStripEffect(EFFECT_MATRIX_WEATHER, "Weather")
-    {
-    }
+    PatternWeather() : EffectWithId<PatternWeather>("Weather") {}
 
     /**
      * @brief Construct a new Pattern Weather object
      *
      * @param jsonObject Configuration JSON Object
      */
-    PatternWeather(const JsonObjectConst&  jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternWeather(const JsonObjectConst&  jsonObject) : EffectWithId<PatternWeather>(jsonObject) {}
 
     /**
      * @brief Destroy the Pattern Weather object
@@ -493,7 +492,9 @@ public:
         g()->fillScreen(BLACK16);
         g()->fillRect(0, 0, MATRIX_WIDTH, 9, g()->to16bit(CRGB(0,0,128)));
 
-        g()->setFont(&Apple5x7);
+        #if USE_HUB75
+            g()->setFont(&Apple5x7);
+        #endif
 
         auto now = system_clock::now();
 

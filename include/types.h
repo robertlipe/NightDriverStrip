@@ -32,8 +32,10 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <sys/time.h>
+#include <memory>                      // for std::shared_ptr
+#include <type_traits>
 #include <optional>
+#include <sys/time.h>
 #include <WString.h>
 #include <memory.h>
 
@@ -61,8 +63,6 @@ class CAppTime
 
     void NewFrame()
     {
-        timeval tv;
-        gettimeofday(&tv, nullptr);
         double current = CurrentTime();
         _deltaTime = current - _lastFrame;
 
@@ -237,9 +237,16 @@ struct SettingSpec
 //
 // Will return PSRAM if it's available, regular ram otherwise
 
+// Cache PSRAM availability and prefer it when allocating large buffers.
 inline void * PreferPSRAMAlloc(size_t s)
 {
 #if LATER
+    // Compute PSRAM availability once in a thread-safe way (I believe C++11+ guarantees thread-safe initialization of function-local statics).
+    static const int s_psramAvailable = []() noexcept -> int {
+        return psramInit() ? 1 : 0;
+    }();
+
+    if (s_psramAvailable)
     if (psramInit())
     {
         debugV("PSRAM Array Request for %u bytes\n", s);
@@ -259,7 +266,7 @@ inline void * PreferPSRAMAlloc(size_t s)
         {
 //            debugE("RAM Allocation failed for %u bytes\n", s);
             throw std::bad_alloc();
-        }   
+        }
         return p;
     }
 }
@@ -295,17 +302,18 @@ public:
     template <class U> struct rebind { typedef psram_allocator<U> other; };
     template <class U> explicit psram_allocator(const psram_allocator<U>&){}
 
-    pointer address(reference x) const {return &x;}
-    const_pointer address(const_reference x) const {return &x;}
-    size_type max_size() const throw() {return size_t(-1) / sizeof(value_type);}
+    size_type max_size() const noexcept { return size_t(-1) / sizeof(value_type); }
 
     pointer allocate(size_type n, const void * hint = 0)
     {
-        void * pmem = PreferPSRAMAlloc(n*sizeof(T));
+        (void)hint;
+        if (n > max_size())
+            throw std::bad_array_new_length();
+        void * pmem = PreferPSRAMAlloc(n * sizeof(T));
         return static_cast<pointer>(pmem) ;
     }
 
-    void deallocate(pointer p, size_type n)
+    void deallocate(pointer p, size_type /*n*/)
     {
         free(p);
     }
@@ -342,8 +350,10 @@ struct psram_deleter
 // a deleter, because we know that PSRAM can be freed with the regular free() call and does not require
 // special handling.
 
+// Overload for single objects (non-array types)
 template<typename T, typename... Args>
-std::unique_ptr<T> make_unique_psram(Args&&... args)
+std::enable_if_t<!std::is_array<T>::value, std::unique_ptr<T>>
+make_unique_psram(Args&&... args)
 {
     psram_allocator<T> allocator;
     T* ptr = allocator.allocate(1);
@@ -351,13 +361,30 @@ std::unique_ptr<T> make_unique_psram(Args&&... args)
     return std::unique_ptr<T>(ptr);
 }
 
+// Overload for unknown-bound arrays: make_unique_psram<U[]>(n)
 template<typename T>
-std::unique_ptr<T[]> make_unique_psram_array(size_t size)
+std::enable_if_t<std::is_array<T>::value && std::extent<T>::value == 0, std::unique_ptr<T>>
+make_unique_psram(size_t size)
 {
-    psram_allocator<T> allocator;
-    T* ptr = allocator.allocate(size);
-    // No need to call construct since arrays don't have constructors
-    return std::unique_ptr<T[]>(ptr);
+    using U = typename std::remove_extent<T>::type; // element type
+    psram_allocator<U> allocator;
+    U* ptr = allocator.allocate(size);
+    // NOTE: This returns a std::unique_ptr with the default deleter which will call delete[].
+    // On our toolchain, delete[] ultimately routes to free() and is compatible with ps_malloc().
+    // If that ever changes, consider introducing a custom deleter and updating call sites to use it.
+    return std::unique_ptr<T>(ptr);
+}
+
+// Overload for 2D arrays
+template<typename T>
+std::enable_if_t<std::rank<T>::value == 2, std::unique_ptr<T>>
+make_unique_psram()
+{
+    using U = typename std::remove_all_extents<T>::type;
+    size_t size = std::extent<T, 0>::value * std::extent<T, 1>::value;
+    psram_allocator<U> allocator;
+    U* ptr = allocator.allocate(size);
+    return std::unique_ptr<T>(reinterpret_cast<T*>(ptr));
 }
 
 // make_shared_psram
@@ -371,10 +398,4 @@ std::shared_ptr<T> make_shared_psram(Args&&... args)
     return std::allocate_shared<T>(allocator, std::forward<Args>(args)...);
 }
 
-template<typename T>
-std::shared_ptr<T> make_shared_psram_array(size_t size)
-{
-    psram_allocator<T> allocator;
-    return std::allocate_shared<T>(allocator, size);
-}
 

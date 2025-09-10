@@ -35,6 +35,8 @@
 #ifndef PatternStocks_H
 #define PatternStocks_H
 
+#if USE_HUB75
+
 #include <Arduino.h>
 #include <gfxfont.h>                // Adafruit GFX font structs
 #include <string.h>
@@ -71,6 +73,7 @@ using namespace std::chrono_literals;
 class AnimatedText
 {
   private:
+
     int startX;
     int startY;
     int endX;
@@ -85,6 +88,7 @@ class AnimatedText
 
 
   public:
+
     AnimatedText(String text, CRGB color, const GFXfont * pfont, float animationTime, int startX, int startY, int endX, int endY)
     {
         startTime = system_clock::now();
@@ -179,7 +183,7 @@ public:
 //
 // Retrieves stock quotes from private server and displays them
 
-class PatternStocks : public LEDStripEffect
+class PatternStocks : public EffectWithId<PatternStocks>
 {
     AnimatedText textSymbol = AnimatedText("STOCK",  CRGB::White, &Apple5x7,  1.0f, MATRIX_WIDTH, 0,  0, 0);
     AnimatedText textPrice  = AnimatedText("PRICE",  CRGB::Grey,  &Apple5x7,  1.0f, MATRIX_WIDTH, 8,  0, 8);
@@ -216,7 +220,7 @@ private:
         {
             debugI("HTTP GET OK");
             String payload = http.getString(); // Get the response payload
-            AllocatedJsonDocument doc(8192);
+            auto doc = CreateJsonDocument();
             DeserializationError error = deserializeJson(doc, payload);
             debugV("JSON: %s", payload.c_str());
 
@@ -332,8 +336,6 @@ private:
 
   protected:
 
-    static constexpr int _jsonSize = LEDStripEffect::_jsonSize + 192;
-
     // Create our SettingSpec instances if needed, and return (a pointer to) them
     EffectSettingSpecs* FillSettingSpecs() override
     {
@@ -353,15 +355,13 @@ private:
 
 public:
 
-    PatternStocks() : LEDStripEffect(EFFECT_MATRIX_STOCKS, "Stocks")
-    {
-    }
+    PatternStocks() : EffectWithId<PatternStocks>("Stocks") {}
 
-    PatternStocks(const JsonObjectConst&  jsonObject) : LEDStripEffect(jsonObject)
+    PatternStocks(const JsonObjectConst&  jsonObject) : EffectWithId<PatternStocks>(jsonObject)
     {
-        if (jsonObject.containsKey("sds"))
+        if (jsonObject["sds"].is<String>())
             stockServer = jsonObject["sds"].as<String>();
-        if (jsonObject.containsKey("tsl"))
+        if (jsonObject["tsl"].is<String>())
             tickerSymbols = jsonObject["tsl"].as<String>();
     }
 
@@ -372,7 +372,7 @@ public:
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -380,9 +380,7 @@ public:
         jsonDoc["sds"] = stockServer;
         jsonDoc["tsl"] = tickerSymbols;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
 
@@ -465,11 +463,11 @@ public:
             // We have the high and low data in the stock, but let's not trust it and calculate it ourselves
             // If this works, Davepl wrote it.  If not, Robert made me do it!
 
-            auto [minpoint, maxpoint] = 
-                std::minmax_element(currentStock.points.begin(), currentStock.points.end(), [](const StockPoint& a, const StockPoint& b) 
-                { 
-                        return a.val < b.val; 
-                }); 
+            auto [minpoint, maxpoint] =
+                std::minmax_element(currentStock.points.begin(), currentStock.points.end(), [](const StockPoint& a, const StockPoint& b)
+                {
+                        return a.val < b.val;
+                });
 
             // We're comparing against the previous day's close, so make sure we include that in the range
             float min = std::min(minpoint->val, currentStock.previousClose);
@@ -553,7 +551,7 @@ public:
     // Extension override to serialize our settings on top of those from LEDStripEffect
     bool SerializeSettingsToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeSettingsToJSON(root);
@@ -561,10 +559,7 @@ public:
         jsonDoc[NAME_OF(stockServer)] = stockServer;
         jsonDoc[NAME_OF(tickerSymbols)] = tickerSymbols;
 
-        if (jsonDoc.overflowed())
-            debugE("JSON buffer overflow while serializing settings for PatternStocks - object incomplete!");
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     // Extension override to accept our settings on top of those known by LEDStripEffect
@@ -588,4 +583,5 @@ public:
 
 };
 
+#endif
 #endif

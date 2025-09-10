@@ -1,3 +1,4 @@
+
 //+--------------------------------------------------------------------------
 //
 // File:        PatternPongClock.h
@@ -66,6 +67,8 @@
 #ifndef PatternPongClock_H
 #define PatternPongClock_H
 
+#if USE_HUB75
+
 #include "systemcontainer.h"
 
 #define BAT1_X 2 // Pong left bat x pos (this is where the ball collision occurs, the bat is drawn 1 behind these coords)
@@ -74,7 +77,7 @@
 #define SPEEDUP 1.15
 #define MAXSPEED 4.0f
 
-class PatternPongClock : public LEDStripEffect
+class PatternPongClock : public EffectWithId<PatternPongClock>
 {
   private:
     float ballpos_x, ballpos_y;
@@ -95,13 +98,8 @@ class PatternPongClock : public LEDStripEffect
 
   public:
 
-    PatternPongClock() : LEDStripEffect(EFFECT_MATRIX_PONG_CLOCK, "PongClock")
-    {
-    }
-
-    PatternPongClock(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternPongClock() : EffectWithId<PatternPongClock>("PongClock") {}
+    PatternPongClock(const JsonObjectConst& jsonObject) : EffectWithId<PatternPongClock>(jsonObject) {}
 
     virtual size_t DesiredFramesPerSecond() const override
     {
@@ -502,5 +500,5 @@ class PatternPongClock : public LEDStripEffect
         return newY;
     }
 };
-
+#endif
 #endif

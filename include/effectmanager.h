@@ -36,11 +36,17 @@
 #pragma once
 
 #include <set>
+#include <algorithm>
+#include <functional>
+#include <math.h>
 
 #include "effectfactories.h"
 
 #define JSON_FORMAT_VERSION         1
 #define CURRENT_EFFECT_CONFIG_FILE  "/current.cfg"
+
+#define INFORM_EVENT_LISTENERS(listeners, function, ...) \
+    std::for_each(listeners.begin(), listeners.end(), [&](auto& listener) { std::invoke(&function, listener __VA_OPT__(,) __VA_ARGS__); })
 
 // Forward references to functions in our accompanying CPP file
 
@@ -48,6 +54,50 @@ void InitSplashEffectManager();
 void InitEffectsManager();
 void SaveEffectManagerConfig();
 void RemoveEffectManagerConfig();
+
+// IFrameEventListener
+//
+// Abstract class that can be used to listen to frame-related events.
+
+class IFrameEventListener
+{
+public:
+    virtual void OnNewFrameAvailable() = 0;
+};
+
+// IEffectEventListener
+//
+// Abstract class that can be used to listen to effect-related events.
+
+class IEffectEventListener
+{
+public:
+    virtual void OnCurrentEffectChanged(size_t currentEffectIndex) = 0;
+    virtual void OnEffectListDirty() = 0;
+    virtual void OnEffectEnabledStateChanged(size_t effectIndex, bool newState) = 0;
+    virtual void OnIntervalChanged(uint interval) = 0;
+};
+
+// BaseFrameEventListener
+//
+// Basic implementation of IFrameEventListener that remembers it's been called and allows
+// that recollection to be read and cleared.
+
+class BaseFrameEventListener : public IFrameEventListener
+{
+    std::atomic<bool> _newFrameAvailable = false;
+
+public:
+    void OnNewFrameAvailable() override
+    {
+        _newFrameAvailable = true;
+    }
+
+    bool CheckAndClearNewFrameAvailable()
+    {
+        return _newFrameAvailable.exchange(false);
+    }
+};
 
 // EffectManager
 //
@@ -63,10 +113,12 @@ class  EffectManager : public IJSONSerializable
     bool _bPlayAll;
     bool _clearTempEffectWhenExpired = false;
     std::atomic_bool _newFrameAvailable = false;
-    int _effectSetVersion = 1;
+    String _effectSetHashString = "";
 
     std::vector<std::shared_ptr<GFXBase>> _gfx;
     std::shared_ptr<LEDStripEffect> _tempEffect;
+    std::vector<std::reference_wrapper<IFrameEventListener>> _frameEventListeners;
+    std::vector<std::reference_wrapper<IEffectEventListener>> _effectEventListeners;
 
     void construct(bool clearTempEffect)
     {
@@ -100,7 +152,7 @@ class  EffectManager : public IJSONSerializable
     }
 
     // Implementation is in effects.cpp
-    void LoadJSONAndMissingEffects(const JsonArrayConst& effectsArray);
+    void LoadJSONEffects(const JsonArrayConst& effectsArray);
 
     static void SaveCurrentEffectIndex();
     static bool ReadCurrentEffectIndex(size_t& index);
@@ -156,23 +208,27 @@ public:
     }
 
     // GetBaseGraphics - Returns the vector of GFXBase objects that the effects use to draw
-    
+
     std::vector<std::shared_ptr<GFXBase>> & GetBaseGraphics()
     {
         return _gfx;
     }
 
-    bool IsNewFrameAvailable() const
+    void ReportNewFrameAvailable()
     {
-        return _newFrameAvailable;
+        INFORM_EVENT_LISTENERS(_frameEventListeners, IFrameEventListener::OnNewFrameAvailable);
     }
 
-    void SetNewFrameAvailable(bool available)
+    void AddFrameEventListener(IFrameEventListener& listener)
     {
-        _newFrameAvailable = available;
+        _frameEventListeners.emplace_back(listener);
     }
 
-    // Implementation is in effects.cpp
+    void AddEffectEventListener(IEffectEventListener& listener)
+    {
+        _effectEventListeners.emplace_back(listener);
+    }
+
     void LoadDefaultEffects();
 
     // DeserializeFromJSON
@@ -215,14 +271,14 @@ public:
         }
 
         // Check if there's a persisted effect set version, and remember it if so
-        if (jsonObject.containsKey(PTY_EFFECTSETVER))
-            _effectSetVersion = jsonObject[PTY_EFFECTSETVER];
+        if (jsonObject[PTY_EFFECTSETVER].is<String>())
+            _effectSetHashString = jsonObject[PTY_EFFECTSETVER].as<String>();
 
-        LoadJSONAndMissingEffects(effectsArray);
+        LoadJSONEffects(effectsArray);
 
         // "eef" was the array of effect enabled flags. They have now been integrated in the effects themselves;
         //   this code is there to "migrate" users who already had a serialized effect config on their device
-        if (jsonObject.containsKey("eef"))
+        if (jsonObject["eef"].is<JsonArrayConst>())
         {
             // Try to load effect enabled state from JSON also, default to "enabled" otherwise
             JsonArrayConst enabledArray = jsonObject["eef"].as<JsonArrayConst>();
@@ -238,10 +294,10 @@ public:
         }
 
         // "ivl" contains the effect interval in ms
-        SetInterval(jsonObject.containsKey("ivl") ? jsonObject["ivl"] : DEFAULT_EFFECT_INTERVAL, true);
+        SetInterval(jsonObject["ivl"].is<uint>() ? jsonObject["ivl"] : DEFAULT_EFFECT_INTERVAL, true);
 
         // Try to read the effectindex from its own file. If that fails, "cei" may contain the current effect index instead
-        if (!ReadCurrentEffectIndex(_iCurrentEffect) && jsonObject.containsKey("cei"))
+        if (!ReadCurrentEffectIndex(_iCurrentEffect) && jsonObject["cei"].is<size_t>())
             _iCurrentEffect = jsonObject["cei"];
 
         // Make sure that if we read an index, it's sane
@@ -262,11 +318,7 @@ public:
     // The function then sets the "ivl" and "cei" fields in the JSON object to the current effect interval
     // and the current effect index, respectively.
     //
-    // The function creates a nested array ("eef") in the JSON object to store the enabled state of each effect.
-    // It iterates through all effects, and for each effect, it adds a value of 1 to the array if the effect
-    // is enabled, and 0 if it is not.
-    //
-    // Next, the function creates another nested array ("efs") in the JSON object to store the effects themselves.
+    // Next, the function creates a nested array ("efs") in the JSON object to store the effects themselves.
     // It iterates through all effects, and for each effect, it creates a nested object in the effects array
     // and attempts to serialize the effect into this object. If serialization of any effect fails, the function
     // immediately returns false.
@@ -279,13 +331,13 @@ public:
         jsonObject[PTY_VERSION] = JSON_FORMAT_VERSION;
         jsonObject["ivl"] = _effectInterval;
         jsonObject[PTY_PROJECT] = PROJECT_NAME;
-        jsonObject[PTY_EFFECTSETVER] = _effectSetVersion;
+        jsonObject[PTY_EFFECTSETVER] = _effectSetHashString;
 
-        JsonArray effectsArray = jsonObject.createNestedArray("efs");
+        JsonArray effectsArray = jsonObject["efs"].to<JsonArray>();
 
         for (auto & effect : _vEffects)
         {
-            JsonObject effectObject = effectsArray.createNestedObject();
+            JsonObject effectObject = effectsArray.add<JsonObject>();
             if (!(effect->SerializeToJSON(effectObject)))
                 return false;
         }
@@ -348,6 +400,8 @@ public:
 
             if (!skipSave)
                 SaveEffectManagerConfig();
+
+            INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnEffectEnabledStateChanged, i, true);
         }
     }
 
@@ -370,6 +424,8 @@ public:
 
             if (!skipSave)
                 SaveEffectManagerConfig();
+
+            INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnEffectEnabledStateChanged, i, false);
         }
     }
 
@@ -415,6 +471,8 @@ public:
         }
 
         SaveEffectManagerConfig();
+
+        INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnEffectListDirty);
     }
 
     // Creates a copy of an existing effect in the list. Note that the effect is created but not yet added to the effect list;
@@ -432,6 +490,8 @@ public:
         EnableEffect(_vEffects.size() - 1, true);
 
         SaveEffectManagerConfig();
+
+        INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnEffectListDirty);
 
         return true;
     }
@@ -463,6 +523,8 @@ public:
 
         SaveEffectManagerConfig();
 
+        INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnEffectListDirty);
+
         return true;
     }
 
@@ -481,6 +543,8 @@ public:
 
         if (!skipSave)
             SaveEffectManagerConfig();
+
+        INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnIntervalChanged, interval);
     }
 
     const std::vector<std::shared_ptr<LEDStripEffect>> & EffectsList() const
@@ -530,6 +594,8 @@ public:
 
         StartEffect();
         SaveCurrentEffectIndex();
+
+        INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnCurrentEffectChanged, i);
     }
 
     uint GetTimeUsedByCurrentEffect() const
@@ -610,6 +676,8 @@ public:
 
         StartEffect();
         SaveCurrentEffectIndex();
+
+        INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnCurrentEffectChanged, _iCurrentEffect);
     }
 
     // Go back to the previous effect and abort the current one.
@@ -629,6 +697,8 @@ public:
 
         StartEffect();
         SaveCurrentEffectIndex();
+
+        INFORM_EVENT_LISTENERS(_effectEventListeners, IEffectEventListener::OnCurrentEffectChanged, _iCurrentEffect);
     }
 
     bool Init();

@@ -43,16 +43,17 @@
 //
 // Fills the spokes with a rainbow palette, skipping dots as specified
 
-class SimpleRainbowTestEffect : public LEDStripEffect
+class SimpleRainbowTestEffect : public EffectWithId<SimpleRainbowTestEffect>
 {
   private:
+
     uint8_t     _EveryNth;
     uint8_t     _SpeedDivisor;
 
   public:
 
     SimpleRainbowTestEffect(uint8_t speedDivisor = 8, uint8_t everyNthPixel = 12)
-      : LEDStripEffect(EFFECT_STRIP_SIMPLE_RAINBOW_TEST, "Simple Rainbow"),
+        : EffectWithId<SimpleRainbowTestEffect>("Simple Rainbow"),
           _EveryNth(everyNthPixel),
           _SpeedDivisor(speedDivisor)
     {
@@ -60,7 +61,7 @@ class SimpleRainbowTestEffect : public LEDStripEffect
     }
 
     SimpleRainbowTestEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+        : EffectWithId<SimpleRainbowTestEffect>(jsonObject),
           _EveryNth(jsonObject[PTY_EVERYNTH]),
           _SpeedDivisor(jsonObject[PTY_SPEEDDIVISOR])
     {
@@ -69,7 +70,7 @@ class SimpleRainbowTestEffect : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -77,9 +78,7 @@ class SimpleRainbowTestEffect : public LEDStripEffect
         jsonDoc[PTY_EVERYNTH] = _EveryNth;
         jsonDoc[PTY_SPEEDDIVISOR] = _SpeedDivisor;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     void Draw() override
@@ -93,16 +92,17 @@ class SimpleRainbowTestEffect : public LEDStripEffect
 //
 // Fills the spokes with a rainbow palette, skipping dots as specified
 
-class RainbowTwinkleEffect : public LEDStripEffect
+class RainbowTwinkleEffect : public EffectWithId<RainbowTwinkleEffect>
 {
   private:
+
     float _speedDivisor;
     int   _deltaHue;
 
   public:
 
     RainbowTwinkleEffect(float speedDivisor = 12.0f, int deltaHue = 14)
-      : LEDStripEffect(EFFECT_STRIP_RAINBOW_TWINKLE, "Rainbow Twinkle"),
+      : EffectWithId<RainbowTwinkleEffect>("Rainbow Twinkle"),
         _speedDivisor(speedDivisor),
         _deltaHue(deltaHue)
     {
@@ -110,7 +110,7 @@ class RainbowTwinkleEffect : public LEDStripEffect
     }
 
     RainbowTwinkleEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<RainbowTwinkleEffect>(jsonObject),
         _speedDivisor(jsonObject[PTY_SPEEDDIVISOR]),
         _deltaHue(jsonObject[PTY_DELTAHUE])
     {
@@ -119,7 +119,7 @@ class RainbowTwinkleEffect : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -127,9 +127,7 @@ class RainbowTwinkleEffect : public LEDStripEffect
         jsonDoc[PTY_SPEEDDIVISOR] = _speedDivisor;
         jsonDoc[PTY_DELTAHUE] = _deltaHue;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     void Draw() override
@@ -155,11 +153,9 @@ class RainbowTwinkleEffect : public LEDStripEffect
 // Fills the spokes with a rainbow palette
 
 
-class RainbowFillEffect : public LEDStripEffect
+class RainbowFillEffect : public EffectWithId<RainbowFillEffect>
 {
-  private:
-
-protected:
+  protected:
 
     float _speedDivisor;
     int   _deltaHue;
@@ -168,7 +164,7 @@ protected:
   public:
 
     RainbowFillEffect(float speedDivisor = 12.0f, int deltaHue = 14, bool mirrored = false)
-      : LEDStripEffect(EFFECT_STRIP_RAINBOW_FILL, "RainbowFill Rainbow"),
+  : EffectWithId<RainbowFillEffect>("RainbowFill Rainbow"),
         _speedDivisor(speedDivisor),
         _deltaHue(deltaHue),
         _mirrored(mirrored)
@@ -177,7 +173,7 @@ protected:
     }
 
     RainbowFillEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<RainbowFillEffect>(jsonObject),
         _speedDivisor(jsonObject[PTY_SPEEDDIVISOR]),
         _deltaHue(jsonObject[PTY_DELTAHUE]),
         _mirrored(jsonObject[PTY_MIRRORED])
@@ -187,7 +183,7 @@ protected:
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -196,9 +192,7 @@ protected:
         jsonDoc[PTY_DELTAHUE] = _deltaHue;
         jsonDoc[PTY_MIRRORED] = _mirrored;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     void Draw() override
@@ -223,11 +217,9 @@ protected:
 // Unless a user chooses to ignore the global color, the global color will be used instead when
 // DeviceConfig().ApplyGlobalColors() returns true.
 
-class ColorFillEffect : public LEDStripEffect
+class ColorFillEffect : public EffectWithId<ColorFillEffect>
 {
-  private:
-
-protected:
+  protected:
 
     int _everyNth;
     CRGB _color;
@@ -236,7 +228,7 @@ protected:
   public:
 
     ColorFillEffect(const String &name, CRGB color = CRGB(246,200,160), int everyNth = 10, bool ignoreGlobalColor = false)
-      : LEDStripEffect(EFFECT_STRIP_COLOR_FILL, name),
+  : EffectWithId<ColorFillEffect>(name),
         _everyNth(everyNth),
         _color(color),
         _ignoreGlobalColor(ignoreGlobalColor)
@@ -245,7 +237,7 @@ protected:
     }
 
     ColorFillEffect(CRGB color = CRGB(246,200,160), int everyNth = 10, bool ignoreGlobalColor = false)
-      : LEDStripEffect(EFFECT_STRIP_COLOR_FILL, "Color Fill"),
+  : EffectWithId<ColorFillEffect>("Color Fill"),
         _everyNth(everyNth),
         _color(color),
         _ignoreGlobalColor(ignoreGlobalColor)
@@ -254,7 +246,7 @@ protected:
     }
 
     ColorFillEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<ColorFillEffect>(jsonObject),
         _everyNth(jsonObject[PTY_EVERYNTH]),
         _color(jsonObject[PTY_COLOR].as<CRGB>()),
         _ignoreGlobalColor(jsonObject[PTY_IGNOREGLOBALCOLOR])
@@ -264,7 +256,7 @@ protected:
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -273,9 +265,7 @@ protected:
         jsonDoc[PTY_COLOR] = _color;
         jsonDoc[PTY_IGNOREGLOBALCOLOR] = _ignoreGlobalColor;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     void Draw() override
@@ -298,22 +288,23 @@ protected:
 extern const uint8_t logo_start[] asm("_binary_assets_bmp_lowreslogo_jpg_start");
 extern const uint8_t logo_end[]   asm("_binary_assets_bmp_lowreslogo_jpg_end");
 
-class SplashLogoEffect : public LEDStripEffect
+class SplashLogoEffect : public EffectWithId<SplashLogoEffect>
 {
   private:
+
     EmbeddedFile logo;
 
   public:
 
     SplashLogoEffect()
-      : LEDStripEffect(EFFECT_STRIP_SPLASH_LOGO, "Mesmerizer"),
+      : EffectWithId<SplashLogoEffect>("Mesmerizer"),
         logo(logo_start, logo_end)
     {
         debugV("Splash logo constructor");
     }
 
     SplashLogoEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<SplashLogoEffect>(jsonObject),
         logo(logo_start, logo_end)
     {
         debugV("Splash logo JSON constructor");
@@ -350,7 +341,7 @@ class SplashLogoEffect : public LEDStripEffect
 // Green     WiFi working but no clock yet
 // White     Ready!
 
-class StatusEffect : public LEDStripEffect
+class StatusEffect : public EffectWithId<StatusEffect>
 {
   protected:
 
@@ -360,7 +351,7 @@ class StatusEffect : public LEDStripEffect
   public:
 
     StatusEffect(CRGB color = CRGB(255,255,255), int everyNth = 10)     // Warmer: CRGB(246,200,160)
-      : LEDStripEffect(EFFECT_STRIP_STATUS, "Status Fill"),
+      : EffectWithId<StatusEffect>("Status Fill"),
         _everyNth(everyNth),
         _color(color)
     {
@@ -368,7 +359,7 @@ class StatusEffect : public LEDStripEffect
     }
 
     StatusEffect(const JsonObjectConst& jsonObject)     // Warmer: CRGB(246,200,160)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<StatusEffect>(jsonObject),
         _everyNth(jsonObject[PTY_EVERYNTH]),
         _color(jsonObject[PTY_COLOR].as<CRGB>())
     {
@@ -377,7 +368,7 @@ class StatusEffect : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -385,9 +376,7 @@ class StatusEffect : public LEDStripEffect
         jsonDoc[PTY_EVERYNTH] = _everyNth;
         jsonDoc[PTY_COLOR] = _color;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     void Draw() override
@@ -427,7 +416,7 @@ static constexpr auto TwinkleColors =  to_array(
 });
 #endif
 
-class TwinkleEffect : public LEDStripEffect
+class TwinkleEffect : public EffectWithId<TwinkleEffect>
 {
   protected:
 
@@ -438,7 +427,7 @@ class TwinkleEffect : public LEDStripEffect
   public:
 
     TwinkleEffect(int countToDraw = NUM_LEDS / 2, uint8_t fadeFactor = 10, int updateSpeed = 10)
-      : LEDStripEffect(EFFECT_STRIP_TWINKLE, "Twinkle"),
+      : EffectWithId<TwinkleEffect>("Twinkle"),
         _countToDraw(countToDraw),
         _fadeFactor(fadeFactor),
         _updateSpeed(updateSpeed)
@@ -446,7 +435,7 @@ class TwinkleEffect : public LEDStripEffect
     }
 
     TwinkleEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<TwinkleEffect>(jsonObject),
         _countToDraw(jsonObject["ctd"]),
         _fadeFactor(jsonObject[PTY_FADE]),
         _updateSpeed(jsonObject[PTY_SPEED])
@@ -455,7 +444,7 @@ class TwinkleEffect : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize + 64> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -464,9 +453,7 @@ class TwinkleEffect : public LEDStripEffect
         jsonDoc[PTY_FADE] = _fadeFactor;
         jsonDoc[PTY_SPEED] = _updateSpeed;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     const int Count = 99;
@@ -522,21 +509,17 @@ class TwinkleEffect : public LEDStripEffect
 //
 // A Battlestar Galactica inspired effect that moves red and green bars back and forth
 
-class SilonEffect : public LEDStripEffect
+class SilonEffect : public EffectWithId<SilonEffect>
 {
-  public:
-
-    SilonEffect() : LEDStripEffect(EFFECT_MATRIX_SILON, "SilonEffect")
-    {
-    }
-
-    SilonEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject)
-    {
-    }
+  private:
 
     int _offset = 0;
     int _direction = 1;
+
+  public:
+
+    SilonEffect() : EffectWithId<SilonEffect>("SilonEffect") {}
+    SilonEffect(const JsonObjectConst& jsonObject) : EffectWithId<SilonEffect>(jsonObject) {}
 
     virtual size_t DesiredFramesPerSecond() const
     {
@@ -570,40 +553,134 @@ class SilonEffect : public LEDStripEffect
 //
 // A Display for the front of the PDP-11/34
 
-class PDPGridEffect : public LEDStripEffect
+class PDPGridEffect : public EffectWithId<PDPGridEffect>
 {
-  public:
-
-    PDPGridEffect() : LEDStripEffect(EFFECT_MATRIX_PDPGRID, "PDPGridEffect")
-    {
-    }
-
-    PDPGridEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject)
-    {
-    }
+  private:
 
     int _offset = 0;
     int _direction = 1;
 
+  public:
+
+    PDPGridEffect() : EffectWithId<PDPGridEffect>("PDPGridEffect") {}
+    PDPGridEffect(const JsonObjectConst& jsonObject) : EffectWithId<PDPGridEffect>(jsonObject) {}
+
     virtual size_t DesiredFramesPerSecond() const
     {
-        return 20;
+        return 5;
+    }
+
+    bool RequiresDoubleBuffering() const override
+    {
+        return false;
+    }
+
+    virtual void Start() override
+    {
+        g()->Clear();
     }
 
     virtual void Draw() override
     {
-        fadeAllChannelsToBlackBy(255 * g_Values.AppTime.LastFrameTime());
+        fadeAllChannelsToBlackBy(60);
+        g()->MoveY(1);
+        for (int x = 0; x < MATRIX_WIDTH; x++)
+        {
+            // Pick a color, CRGB::Red 90% of the time, CRGB::Green 10% of the time
+            CRGB color = random(0, 100) > 20 ? CRGB::Black : CRGB(random(0, 100) < 90) ? CRGB::Red : CRGB::Orange;
+            setPixelOnAllChannels(x, MATRIX_HEIGHT-1, color);
+        }
+    }
+};
 
+// PDPCMXEffect
+//
+// Connection Machine 5 LED simulation for the PDP-11/34 CMX display
+
+class PDPCMXEffect : public EffectWithId<PDPCMXEffect>
+{
+  private:
+
+    static constexpr int GROUP_HEIGHT = 5; // Height of each logical group
+    static constexpr float LED_PROBABILITY = 0.30f; // 30% chance of LED being on
+
+    void scrollGroup(int groupStartY, bool scrollLeft)
+    {
+        // Scroll existing LEDs in the group
+        for (int y = groupStartY; y < groupStartY + GROUP_HEIGHT && y < MATRIX_HEIGHT; y++)
+        {
+            if (scrollLeft)
+            {
+                // Scroll left: move all pixels one position left
+                for (int x = 0; x < MATRIX_WIDTH - 1; x++)
+                {
+                    CRGB color = _GFX[0]->getPixel(x + 1, y);
+                    setPixelOnAllChannels(x, y, color);
+                }
+                // Clear the rightmost pixel (will be populated with new random data)
+                setPixelOnAllChannels(MATRIX_WIDTH - 1, y, CRGB::Black);
+            }
+            else
+            {
+                // Scroll right: move all pixels one position right
+                for (int x = MATRIX_WIDTH - 1; x > 0; x--)
+                {
+                    CRGB color = _GFX[0]->getPixel(x - 1, y);
+                    setPixelOnAllChannels(x, y, color);
+                }
+                // Clear the leftmost pixel (will be populated with new random data)
+                setPixelOnAllChannels(0, y, CRGB::Black);
+            }
+        }
+
+        // Add new random LEDs on the appropriate edge
+        for (int y = groupStartY; y < groupStartY + GROUP_HEIGHT && y < MATRIX_HEIGHT; y++)
+        {
+            if (random(100) < (LED_PROBABILITY * 100))
+            {
+                CRGB color = CRGB::Red;
+                if (scrollLeft)
+                    setPixelOnAllChannels(MATRIX_WIDTH - 1, y, color);
+                else
+                    setPixelOnAllChannels(0, y, color);
+            }
+        }
+    }
+
+  public:
+
+    PDPCMXEffect() : EffectWithId<PDPCMXEffect>("PDPCMXEffect") {}
+    PDPCMXEffect(const JsonObjectConst& jsonObject) : EffectWithId<PDPCMXEffect>(jsonObject) {}
+
+    virtual size_t DesiredFramesPerSecond() const
+    {
+        return 30; // Moderate speed for scrolling effect
+    }
+
+    virtual bool CanDisplayVUMeter() const override
+    {
+        return false;
+    }
+
+    virtual void Start() override
+    {
+        g()->Clear();
+    }
+
+    virtual void Draw() override
+    {
+        // Process each logical group
+        int numGroups = (MATRIX_HEIGHT + GROUP_HEIGHT - 1) / GROUP_HEIGHT; // Ceiling division
+
+        fadeAllChannelsToBlackBy(5);
         EVERY_N_MILLISECONDS(200)
         {
-          g()->MoveY(1);
-          for (int x = 0; x < MATRIX_WIDTH; x++)
+          for (int group = 0; group < numGroups; group++)
           {
-              if (random(0, 100) < 20)
-                  setPixelOnAllChannels(x, MATRIX_HEIGHT-1, CRGB::Red);
-              else
-                  setPixelOnAllChannels(x, MATRIX_HEIGHT-1, CRGB::Black);
+              int groupStartY = group * GROUP_HEIGHT;
+              bool scrollLeft = (group % 2 == 0); // Alternate direction: even groups scroll left, odd scroll right
+
+              scrollGroup(groupStartY, scrollLeft);
           }
         }
     }
@@ -614,18 +691,12 @@ class PDPGridEffect : public LEDStripEffect
 // Hexagon Effects
 ////////////////////////////////////////////////
 
-class OuterHexRingEffect : public LEDStripEffect
+class OuterHexRingEffect : public EffectWithId<OuterHexRingEffect>
 {
   public:
 
-    OuterHexRingEffect() : LEDStripEffect(EFFECT_HEXAGON_OUTER_RING, "OuterRingHexEffect")
-    {
-    }
-
-    OuterHexRingEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject)
-    {
-    }
+    OuterHexRingEffect() : EffectWithId<OuterHexRingEffect>("OuterRingHexEffect") {}
+    OuterHexRingEffect(const JsonObjectConst& jsonObject) : EffectWithId<OuterHexRingEffect>(jsonObject) {}
 
     virtual void Draw() override
     {

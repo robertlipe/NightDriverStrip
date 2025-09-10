@@ -150,11 +150,10 @@
     #define USE_M5 1
 #endif
 
+
 #if USE_M5
 #include "M5Unified.h"
-#undef min                                      // They define a min() on us
 #endif
-
 #define EFFECT_CROSS_FADE_TIME 1200.0    // How long for an effect to ramp brightness fader down and back during effect change
 
 // Thread priorities
@@ -224,1010 +223,56 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 
     #include "custom_globals.h"
 
-#elif DEMO
+#endif
+// This is a simple demo configuration used when no other project is defined; it's only purpose is
+// to serve as a build to be run for [all-deps]
 
-    // This is a simple demo configuration.  To build, simply connect the data lead from a WS2812B
-    // strip to pin 5 or other pin marked PIN0 below.  This does not use the OLED, LCD, or anything fancy, it simply drives the
-    // LEDs with a simple rainbow effect as specified in effects.cpp for DEMO.
-    //
-    // Please ensure you supply sufficent power to your strip, as even the DEMO of 144 LEDs, if set
-    // to white, would overload a USB port.
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Demo"
-    #endif
-
+#ifndef MATRIX_WIDTH
     #define MATRIX_WIDTH            144
-    #define MATRIX_HEIGHT           1
-    #define NUM_LEDS                (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define NUM_CHANNELS            1
-    #define ENABLE_AUDIO            0
-
-    // Once you have a working project, selectively enable various additional features by setting
-    // them to 1 in the list below.  This DEMO config assumes no audio (mic), or screen, etc.
-
-    #ifndef ENABLE_WIFI
-        #define ENABLE_WIFI             0   // Connect to WiFi
-    #endif
-
-    #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
-    #define TIME_BEFORE_LOCAL       0   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_NTP              0   // Set the clock from the web
-    #define ENABLE_OTA              0   // Accept over the air flash updates
-
-    #if USE_M5
-        #define LED_PIN0 32
-    #elif LILYGOTDISPLAYS3
-        #define LED_PIN0 21
-    #else
-        #define LED_PIN0 5
-    #endif
-
-    // The webserver serves files that are baked into the device firmware. When running you should be able to
-    // see/select the list of effects by visiting the chip's IP in a browser.  You can get the chip's IP by
-    // watching the serial output or checking your router for the DHCP given to a new device; often they're
-    // named "esp32-" followed by a seemingly random 6-digit hexadecimal number.
-
-    #ifndef ENABLE_WEBSERVER
-        #define ENABLE_WEBSERVER        0   // Turn on the internal webserver
-    #endif
-
-#elif M5DEMO
-
-    // This is the DEMO project customized for the M5 that includes screen support and other
-    // features that make it well suited to the demo strip that runs in Dave's Garage
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "M5Demo"
-    #endif
-
-    #define MATRIX_WIDTH            144*5+38
-    #define MATRIX_HEIGHT           1
-    #define NUM_LEDS                (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define NUM_CHANNELS            1
-    #define COLOR_ORDER             EOrder::RGB
-
-    #define ENABLE_AUDIOSERIAL          0   // Report peaks at 2400baud on serial port for PETRock consumption
-    #define ENABLE_WIFI                 1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED       1   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI               0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL           2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER            0   // Turn on the internal webserver
-    #define ENABLE_NTP                  1   // Set the clock from the web
-    #define ENABLE_OTA                  0   // Accept over the air flash updates
-    #define ENABLE_REMOTE               0   // IR Remote Control
-    #define ENABLE_AUDIO                1   // Listen for audio from the microphone and process it
-    #define COLORDATA_SERVER_ENABLED    0
-
-    #if USE_PSRAM
-        #define MAX_BUFFERS             500
-    #else
-        #define MAX_BUFFERS             24
-    #endif
-
-    #define DEFAULT_EFFECT_INTERVAL     (60*60*24*5)
-
-    #if USE_M5
-        #define LED_PIN0 32
-    #elif LILYGOTDISPLAYS3
-        #define LED_PIN0 21
-    #else
-        #define LED_PIN0 5
-    #endif
-
-    #define TOGGLE_BUTTON_1 37
-    #define TOGGLE_BUTTON_2 39
-
-    #if USE_M5
-        #define LED_PIN0 32
-    #elif LILYGOTDISPLAYS3
-        #define LED_PIN0 21
-    #else
-        #define LED_PIN0 5
-    #endif
-
-
-#elif LANTERN
-
-    // A railway-style lantern with concentric rings of light (16+12+8+1)
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Lantern"
-    #endif
-
-    #define NUM_FANS                1
-    #define NUM_RINGS               4
-    #define FAN_SIZE                (RING_SIZE_0 + RING_SIZE_1 + RING_SIZE_2 + RING_SIZE_3)
-    #define RING_SIZE_0             16
-    #define RING_SIZE_1             12
-    #define RING_SIZE_2             8
-    #define RING_SIZE_3             1
-    #define MATRIX_WIDTH            6
-    #define MATRIX_HEIGHT           2
-    #define NUM_LEDS                (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define NUM_CHANNELS            1
-    #define ENABLE_AUDIO            1
-
-    // Once you have a working project, selectively enable various additional features by setting
-    // them to 1 in the list below.  This config assumes no audio (mic), or screen, etc.
-
-    #define ENABLE_WIFI             0   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
-    #define TIME_BEFORE_LOCAL       0   // How many seconds before the lamp times out and shows local contexnt
-    #define ENABLE_NTP              0   // Set the clock from the web
-    #define ENABLE_OTA              0   // Accept over the air flash updates
-
-    #if M5STICKC
-        #define LED_PIN0 33
-    #elif M5STICKCPLUS || M5STACKCORE2 || M5STICKCPLUS2
-        #define LED_PIN0 32
-    #else
-        #define LED_PIN0 5
-    #endif
-
-    // The webserver serves files that are baked into the device firmware. When running you should be able to
-    // see/select the list of effects by visiting the chip's IP in a browser.  You can get the chip's IP by
-    // watching the serial output or checking your router for the DHCP given to a new device; often they're
-    // named "esp32-" followed by a seemingly random 6-digit hexadecimal number.
-
-
-    #define ENABLE_WEBSERVER        0                                       // Turn on the internal webserver
-    #define DEFAULT_EFFECT_INTERVAL 1000 * 60 * 60 * 24                     // One a day!
-
-    #define TOGGLE_BUTTON_1 37
-    #define TOGGLE_BUTTON_2 39
-
-#elif PDPGRID
-
-    // A matrix grid display for the front of the PDP-11
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "PDPGrid"
-    #endif
-
-    #define NUM_FANS                1
-    #define NUM_RINGS               4
-    #define FAN_SIZE                (RING_SIZE_0 + RING_SIZE_1 + RING_SIZE_2 + RING_SIZE_3)
-    #define RING_SIZE_0             16
-    #define RING_SIZE_1             12
-    #define RING_SIZE_2             8
-    #define RING_SIZE_3             1
-    #define MATRIX_WIDTH            14
-    #define MATRIX_HEIGHT           16
-    #define NUM_LEDS                (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define NUM_CHANNELS            1
-    #define ENABLE_AUDIO            1
-
-    #define POWER_LIMIT_MW          1000
-
-    // Once you have a working project, selectively enable various additional features by setting
-    // them to 1 in the list below.  This config assumes no audio (mic), or screen, etc.
-
-    #define ENABLE_WIFI             1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
-    #define TIME_BEFORE_LOCAL       1   // How many seconds before the lamp times out and shows local contexnt
-    #define ENABLE_NTP              1   // Set the clock from the web
-    #define ENABLE_OTA              1   // Accept over the air flash updates
-    #define ENABLE_WEBSERVER        1   // Turn on the internal webserver
-
-    #define LED_PIN0                32
-
-    // The webserver serves files that are baked into the device firmware. When running you should be able to
-    // see/select the list of effects by visiting the chip's IP in a browser.  You can get the chip's IP by
-    // watching the serial output or checking your router for the DHCP given to a new device; often they're
-    // named "esp32-" followed by a seemingly random 6-digit hexadecimal number.
-
-    #define DEFAULT_EFFECT_INTERVAL 0
-
-    #define TOGGLE_BUTTON_1 37
-    #define TOGGLE_BUTTON_2 39
-
-#elif TREESET
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Treeset"
-    #endif
-
-    #define ENABLE_WIFI             1  // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       0   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER        1   // Turn on the internal webserver
-    #define ENABLE_NTP              0   // Set the clock from the web
-    #define ENABLE_OTA              1   // Accept over the air flash updates
-    #define ENABLE_REMOTE           1   // IR Remote Control
-    #define ENABLE_AUDIO            1   // Listen for audio from the microphone and process it
-
-    #define LED_PIN0          26
-    #define NUM_CHANNELS      1
-    #define RING_SIZE_0       24
-    #define BONUS_PIXELS      0
-    #define MATRIX_WIDTH      5
-    #define MATRIX_HEIGHT     RING_SIZE_0
-    #define NUM_FANS          MATRIX_WIDTH
-    #define FAN_SIZE          MATRIX_HEIGHT
-    #define NUM_LEDS          (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define ENABLE_REMOTE     1                     // IR Remote Control
-    #define ENABLE_AUDIO      1                     // Listen for audio from the microphone and process it
-    #define IR_REMOTE_PIN     25
-    #define LED_FAN_OFFSET_BU 12
-
-    #define TOGGLE_BUTTON  37
-
-#elif WROVERKIT
-
-    #define MATRIX_WIDTH            144
-    #define MATRIX_HEIGHT           1
-    #define NUM_LEDS                (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define NUM_CHANNELS            1
-    #define NUM_RINGS               5
-    #define RING_SIZE_0             24
-
-    #define USE_LCD                 1
-
-    #define ENABLE_WIFI             1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1   // Doesn't work smoothly with the screen on for some reason!
-    #define TIME_BEFORE_LOCAL       2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_NTP              1   // Set the clock from the web
-    #define ENABLE_OTA              1   // Accept over the air flash updates
-    #define WAIT_FOR_WIFI           0   // Don't *need* it so don't wait for it
-
-    #define LED_PIN0 5
-
-    // The webserver serves files that are baked into the device firmware. When running you should be able to
-    // see/select the list of effects by visiting the chip's IP in a browser.  You can get the chip's IP by
-    // watching the serial output or checking your router for the DHCP given to a new device; often they're
-    // named "esp32-" followed by a seemingly random 6-digit hexadecimal number.
-
-    #define ENABLE_WEBSERVER        1   // Turn on the internal webserver
-
-
-#elif LASERLINE
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Laser Line"
-    #endif
-
-
-    #define ENABLE_AUDIOSERIAL      0   // Report peaks at 2400baud on serial port for PETRock consumption
-    #define ENABLE_WIFI             0   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       0   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER        0   // Turn on the internal webserver
-    #define ENABLE_NTP              0   // Set the clock from the web
-    #define ENABLE_OTA              0   // Accept over the air flash updates
-    #define ENABLE_REMOTE           0   // IR Remote Control
-    #define ENABLE_AUDIO            1   // Listen for audio from the microphone and process it
-
-    #define DEFAULT_EFFECT_INTERVAL     (60*60*24*5)
-
-    #define NUM_CHANNELS    1
-    #define RING_SIZE_0     24
-    #define BONUS_PIXELS    0
-    #define MATRIX_WIDTH    700
-    #define MATRIX_HEIGHT   1
-    #define NUM_FANS        MATRIX_WIDTH
-    #define FAN_SIZE        MATRIX_HEIGHT
-    #define NUM_LEDS        (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define LED_FAN_OFFSET_BU 6
-
-    #define TOGGLE_BUTTON_1 37
-    #define TOGGLE_BUTTON_2 39
-
-    #define LED_PIN0 32
-
-#elif MESMERIZER
-
-    // This project uses a HUB75 matrix (standard 64 pixels wide and 32 high), to show a wide range of
-    // effects. Its primary target device is the Mesmerizer board designed by Dave Plummer, but has been
-    // known to work with at least one other type of device as well.
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME                "Mesmerizer"
-    #endif
-
-    #define SHOW_FPS_ON_MATRIX          0
-    #define ENABLE_AUDIOSERIAL          0   // Report peaks at 2400baud on serial port for PETRock consumption
-    #define ENABLE_WIFI                 1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED       1   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI               0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL           2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER            1   // Turn on the internal webserver
-    #define ENABLE_NTP                  1   // Set the clock from the web
-    #define ENABLE_OTA                  1   // Accept over the air flash updates
-    #define ENABLE_REMOTE               1   // IR Remote Control
-    #define ENABLE_AUDIO                1   // Listen for audio from the microphone and process it
-    #define SCALE_AUDIO_EXPONENTIAL     0
-    #define EFFECT_PERSISTENCE_CRITICAL 1   // Require effects serialization to succeed
-
-    #define DEFAULT_EFFECT_INTERVAL     (MILLIS_PER_SECOND * 60 * 2)
-    #define MILLIS_PER_FRAME            0
-
-    #define NUM_CHANNELS                1
-    #define RING_SIZE_0                 24
-    #define BONUS_PIXELS                0
-    #define MATRIX_WIDTH                64
-    #define MATRIX_HEIGHT               32
-    #define NUM_FANS                    128
-    #define FAN_SIZE                    16
-    #define NUM_BANDS                   16
-    #define NUM_LEDS                    (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define IR_REMOTE_PIN               39
-    #define INPUT_PIN                   36
-    #define LED_FAN_OFFSET_BU           6
-
-    #define TOGGLE_BUTTON_1             0
-
-    // The mesmerizer mic isn't quite as sensitive as the M5 mic that the code was originally written for
-    // so we adjust by a scalar to get the same effect.
-    
-    #define AUDIO_MIC_SCALAR            1.5
-
-    #define COLOR_ORDER                 EOrder::RGB
-
-#elif TTGO
-
-    // Variant of Spectrum set up for a TTGO using a MAX4466 microphone on pin27
-
-    // This project is set up as a 48x16 matrix of 16x16 WS2812B panels such as: https://amzn.to/3ABs5DK
-    // It displays a spectrum analyzer and music visualizer
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "TTGO"
-    #endif
-
-    #define ENABLE_WIFI             1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER        1   // Turn on the internal webserver
-    #define ENABLE_NTP              1   // Set the clock from the web
-    #define ENABLE_OTA              0   // Accept over the air flash updates
-    #define ENABLE_REMOTE           1   // IR Remote Control
-    #define ENABLE_AUDIO            1   // Listen for audio from the microphone and process it
-
-    #define DEFAULT_EFFECT_INTERVAL     (60*60*24)
-
-    #define MAX_BUFFERS     20
-
-    #define LED_PIN0        21          // Note that TFT board on TFTGO uses pins 19, 18, 5, 16, 23, and 4
-    #define NUM_CHANNELS    1
-    #define RING_SIZE_0     24
-    #define BONUS_PIXELS    0
-    #define MATRIX_WIDTH    48
-    #define MATRIX_HEIGHT   16
-    #define NUM_FANS        MATRIX_WIDTH
-    #define FAN_SIZE        MATRIX_HEIGHT
-    #define NUM_LEDS        (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define IR_REMOTE_PIN   22
-    #define LED_FAN_OFFSET_BU 6
-
-    #define TOGGLE_BUTTON_1         35
-
-#elif XMASTREES
-
-    // This project is set up as a 48x16 matrix of 16x16 WS2812B panels such as: https://amzn.to/3ABs5DK
-    // It uses an M5StickCPlus which has a microphone and LCD built in:  https://amzn.to/3CrvCFh
-    // It displays a spectrum analyzer and music visualizer
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "X-mas Trees"
-    #endif
-
-    #define ENABLE_WIFI             1  // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER        1   // Turn on the internal webserver
-    #define ENABLE_NTP              1   // Set the clock from the web
-    #define ENABLE_OTA              0  // Accept over the air flash updates
-    #define ENABLE_REMOTE           1   // IR Remote Control
-    #define ENABLE_AUDIO            1   // Listen for audio from the microphone and process it
-
-    #define DEFAULT_EFFECT_INTERVAL     (60*60*24)
-
-    #define MAX_BUFFERS     20
-
-    #define LED_PIN0        26
-    #define NUM_CHANNELS    1
-    #define RING_SIZE_0     24
-    #define BONUS_PIXELS    0
-    #define MATRIX_WIDTH    24
-    #define MATRIX_HEIGHT   5
-    #define FAN_SIZE        MATRIX_WIDTH
-    #define NUM_FANS        MATRIX_HEIGHT
-    #define NUM_LEDS        (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define IR_REMOTE_PIN   25
-    #define LED_FAN_OFFSET_BU 6
-
-    #define TOGGLE_BUTTON_1         37
-    #define TOGGLE_BUTTON_2         39
-
-#elif ATOMLIGHT
-
-    // This is the "Tiki Atomic Fire Lamp" project, which is an LED lamp with 4 arms of 53 LEDs each.
-    // Each arm is wired as a separate channel.
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Atom Light"
-    #endif
-
-    #define ENABLE_WIFI             1               // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1               // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0               // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       3               // How many seconds before the lamp times out and shows local content
-
-    #define MAX_BUFFERS     30                      // Times 4 channels, but they're only NUM_LEDS big
-    #define NUM_CHANNELS    4                       // One per spoke
-    #define MATRIX_WIDTH    53                      // Number of pixels wide (how many LEDs per channel)
-    #define MATRIX_HEIGHT   1                       // Number of pixels tall
-    #define NUM_LEDS        (MATRIX_WIDTH * MATRIX_HEIGHT)
-    #define ENABLE_REMOTE   1                       // IR Remote Control
-    #define IR_REMOTE_PIN   35                      // Eric's is PIN 35
-    #define ENABLE_AUDIO    1                       // Listen for audio from the microphone and process it
-    #define USE_SCREEN      0                       // Normally we use a tiny board inside the lamp with no screen
-    #define FAN_SIZE        NUM_LEDS                // Allows us to use fan effects on the spokes
-    #define NUM_FANS        1                       // Our fans are on channels, not in sequential order, so only one "fan"
-    #define NUM_RINGS       1
-    #define LED_FAN_OFFSET_BU 0
-    #define BONUS_PIXELS      0
-
-    // Original Wiring:
-    //   Fine red     = 3.3v
-    //        brown   = gnd
-    //        orange  = IO15
-    //        yellow  = IO14
-    //        green   = IO13
-    //        blue    = IO12
-    //        purple  = IO4
-
-    // Wiring is:
-
-    #define LED_PIN0         5
-    #define LED_PIN1        16
-    #define LED_PIN2        17
-    #define LED_PIN3        18
-
-    #define DEFAULT_EFFECT_INTERVAL     (1000*60*5)
-
-#elif SPIRALLAMP
-
-    // This is the "Tiki Atomic Fire Lamp" project, which is an LED lamp with 4 arms of 53 LEDs each.
-    // Each arm is wired as a separate channel.
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Spiral Light"
-    #endif
-
-    #define ENABLE_WIFI             1              // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1              // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0              // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       3              // How many seconds before the lamp times out and shows local content
-
-    #define MAX_BUFFERS             30             // Times 4 channels, but they're only NUM_LEDS big
-    #define NUM_CHANNELS            2              // One per spoke
-    #define MATRIX_WIDTH            172            // Number of pixels wide (how many LEDs per channel)
-    #define MATRIX_HEIGHT           1              // Number of pixels tall
-    #define NUM_LEDS                (MATRIX_WIDTH * MATRIX_HEIGHT)
-    #define ENABLE_REMOTE           1              // IR Remote Control
-    #define IR_REMOTE_PIN           26
-    #define ENABLE_AUDIO            1              // Listen for audio from the microphone and process it
-    #define USE_SCREEN              1              // Normally we use a tiny board inside the lamp with no screen
-    #define FAN_SIZE                NUM_LEDS       // Allows us to use fan effects on the spokes
-    #define NUM_FANS                1              // Our fans are on channels, not in sequential order, so only one "fan"
-    #define NUM_RINGS               1
-    #define FULL_COLOR_REMOTE_FILL  1              // Remote control color buttons fill the whole strip
-    #define BRIGHTNESS_MIN          0              // Allow OFF button to turn lamp entirely off
-
-    // Wiring is:
-
-    #define TOGGLE_BUTTON_1         39
-    #define TOGGLE_BUTTON_2         37
-
-    #define LED_PIN0                32
-    #define LED_PIN1                33
-
-    #define DEFAULT_EFFECT_INTERVAL     (1000*60*5)
-
-#elif PLATECOVER
-
-    // This is the "Tiki Atomic Fire Lamp" project, which is an LED lamp with 4 arms of 53 LEDs each.
-    // Each arm is wired as a separate channel.
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Plate Cover"
-    #endif
-
-    #define ENABLE_ESPNOW           1               // Connect to ESPNOW and listen for packets
-    #define ENABLE_WIFI             0               // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   0               // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0               // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       3               // How many seconds before the lamp times out and shows local content
-    #define MAX_BUFFERS             60              // Times 4 channels, but they're only NUM_LEDS big
-    #define NUM_CHANNELS            1               // One per spoke
-    #define MATRIX_WIDTH            40              // Number of pixels wide (how many LEDs per channel)
-    #define MATRIX_HEIGHT           1               // Number of pixels tall
-    #define NUM_LEDS                40
-    #define ENABLE_REMOTE           1               // IR Remote Control
-    #define IR_REMOTE_PIN           26
-    #define ENABLE_AUDIO            1               // Listen for audio from the microphone and process it
-    #define USE_SCREEN              1               // Normally we use a tiny board inside the lamp with no screen
-    #define FAN_SIZE                NUM_LEDS        // Allows us to use fan effects on the spokes
-    // Wiring is:
-
-    #define TOGGLE_BUTTON_1         39
-    #define TOGGLE_BUTTON_2         37
-
-    #define LED_PIN0                32
-
-    #define DEFAULT_EFFECT_INTERVAL 0               // No scheduled effect changes
-
-#elif UMBRELLA
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Umbrella"
-    #endif
-
-    #define COLOR_ORDER     EOrder::RGB
-    #define ENABLE_WIFI             1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_OTA              1   // Enable over the air updates to the flash
-    #define ENABLE_REMOTE   1                     // IR Remote Control
-    #define IR_REMOTE_PIN   39
-    #define ENABLE_AUDIO    1                     // Listen for audio from the microphone and process it
-    #define MAX_BUFFERS     40
-
-    #define DEFAULT_EFFECT_INTERVAL     (1000*30 * 60)
-
-
-    // The "Tiki Fire Umbrella" project, with 8 channels
-
-    #define LED_PIN0                5   // Only one pin, it's routed to all 8 spokes.  Independent turned out not to be that useful.
-    #define NUM_CHANNELS    1
-    #define MATRIX_WIDTH    228                   // Number of pixels wide (how many LEDs per channel)
-    #define MATRIX_HEIGHT   1                     // Number of pixels tall
-
-    #define ONBOARD_LED_R    16
-    #define ONBOARD_LED_G    17
-    #define ONBOARD_LED_B    18
-
-    #define TOGGLE_BUTTON_2  0
-
-#elif MAGICMIRROR
-
-    // A magic infinity mirror such as: https://amzn.to/3lEZo2D
-    // I then replaced the white LEDs with a WS2812B strip and a heltec32 module:
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Magic Mirror"
-    #endif
-
-    #define ENABLE_WIFI             0   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       1   // How many seconds before the lamp times out and shows local content
-
-    #define DEFAULT_EFFECT_INTERVAL     (10*60*24)
-
-    #define LED_PIN0        26
-    #define NUM_CHANNELS    1
-    #define BONUS_PIXELS    0
-    #define NUM_FANS        1
-    #define FAN_SIZE        100
-    #define MATRIX_WIDTH    (NUM_FANS * FAN_SIZE + BONUS_PIXELS)
-    #define NUM_LEDS        (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define MATRIX_HEIGHT   NUM_FANS
-    #define ENABLE_REMOTE   1                     // IR Remote Control
-    #define ENABLE_AUDIO    1                     // Listen for audio from the microphone and process it
-    #define IR_REMOTE_PIN   15
-
-    #define LED_FAN_OFFSET_BU 6
-
-#elif HEXAGON
-
-    // The LED strips I use for Christmas lights under my eaves
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Hexagon"
-    #endif
-
-    #define ENABLE_WEBSERVER        1   // Turn on the internal webserver
-    #define ENABLE_WIFI             1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       1   // How many seconds before the lamp times out and shows local content
-
-    #define NUM_CHANNELS    1
-    #define MATRIX_WIDTH    (271)     // My maximum run, and about all you can do at 30fps
-    #define MATRIX_HEIGHT   1
-    #define NUM_LEDS        (MATRIX_WIDTH * MATRIX_HEIGHT)
-    #define ENABLE_REMOTE   0                     // IR Remote Control
-    #define ENABLE_AUDIO    0                     // Listen for audio from the microphone and process it
-    #define LED_PIN0        5
-
-    #define DEFAULT_EFFECT_INTERVAL     (1000*20)
-
-    #define HEX_MAX_DIMENSION 19                 // How big the hex is - it's biggest row and the number of rows
-    #define HEX_HALF_DIMENSION 10                // How many rows from top to middle inclusive
-
-#elif LEDSTRIP
-
-    // The LED strips I use for Christmas lights under my eaves
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Ledstrip"
-    #endif
-
-    #ifndef ENABLE_WEBSERVER
-    #define ENABLE_WEBSERVER            0   // Turn on the internal webserver
-    #endif
-
-    #define ENABLE_WIFI                 1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED       1   // Accepting incoming color data and commands
-
-    #define WAIT_FOR_WIFI               1   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL           5   // How many seconds before the lamp times out and shows local content
-    #define COLORDATA_SERVER_ENABLED    0   // Also provides a response packet
-    #define NUM_CHANNELS    1
-    #define MATRIX_WIDTH    (8*144)     // My maximum run, and about all you can do at 30fps
-    #define MATRIX_HEIGHT   1
-    #define NUM_LEDS        (MATRIX_WIDTH * MATRIX_HEIGHT)
-    #define ENABLE_REMOTE   0                     // IR Remote Control
-    #define ENABLE_AUDIO    0                     // Listen for audio from the microphone and process it
-
-    #ifndef LED_PIN0
-        #define LED_PIN0        5
-    #endif
-
-    #define DEFAULT_EFFECT_INTERVAL     (1000*20)
-
-    #define RING_SIZE_0 1
-    #define RING_SIZE_1 2
-    #define RING_SIZE_2 4
-    #define RING_SIZE_3 8
-    #define RING_SIZE_4 16
-
-#elif CHIEFTAIN
-
-    // The LED strips I use for Christmas lights under my eaves
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Chieftain"
-    #endif
-
-    #define ENABLE_WIFI             1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       5   // How many seconds before the lamp times out and shows local content
-
-    #define NUM_CHANNELS    1
-    #define MATRIX_WIDTH    (12)
-    #define MATRIX_HEIGHT   1
-    #define NUM_LEDS        (MATRIX_WIDTH * MATRIX_HEIGHT)
-    #define ENABLE_REMOTE   0                     // IR Remote Control
-    #define ENABLE_AUDIO    1                     // Listen for audio from the microphone and process it
-    #define LED_PIN0        5
-
-    #define DEFAULT_EFFECT_INTERVAL     (1000*20)
-
-    #define RING_SIZE_0 1
-    #define RING_SIZE_1 2
-    #define RING_SIZE_2 4
-    #define RING_SIZE_3 8
-    #define RING_SIZE_4 16
-
-#elif BELT
-
-    // I was asked to wear something sparkly once, so I made an LED belt...
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Belt"
-    #endif
-
-    #define ENABLE_WIFI             0   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       1   // How many seconds before the lamp times out and shows local content
-
-    #define NUM_CHANNELS    1
-    #define MATRIX_WIDTH    (1*144)
-    #define MATRIX_HEIGHT   1
-    #define NUM_LEDS        (MATRIX_WIDTH * MATRIX_HEIGHT)
-    #define ENABLE_REMOTE   0                     // IR Remote Control
-    #define ENABLE_AUDIO    0                     // Listen for audio from the microphone and process it
-    #define LED_PIN0        17
-    #define DEFAULT_EFFECT_INTERVAL     (1000*60*60*24)
-
-#elif SPECTRUM
-
-    // This project is set up as a 48x16 matrix of 16x16 WS2812B panels such as: https://amzn.to/3ABs5DK
-    // It uses an M5StickCPlus which has a microphone and LCD built in:  https://amzn.to/3CrvCFh
-    // It displays a spectrum analyzer and music visualizer
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME                    "Spectrum"
-    #endif
-
-    #define ENABLE_AUDIOSERIAL              0   // Report peaks at 2400baud on serial port for PETRock consumption
-    #define ENABLE_WIFI                     1   // Connect to WiFi
-    #define WAIT_FOR_WIFI                   0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL               2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER                1   // Turn on the internal webserver
-    #define ENABLE_NTP                      1   // Set the clock from the web
-    #define ENABLE_OTA                      0   // Accept over the air flash updates
-    #define ENABLE_REMOTE                   1   // IR Remote Control
-    #define ENABLE_AUDIO                    1   // Listen for audio from the microphone and process it
-
-    #if USE_PSRAM
-        #define INCOMING_WIFI_ENABLED       1   // Accepting incoming color data and commands
-        #define COLORDATA_SERVER_ENABLED    1
-        #define MAX_BUFFERS                 500
-    #else
-        #define INCOMING_WIFI_ENABLED       0   // Do not accept incoming color data and commands
-        #define COLORDATA_SERVER_ENABLED    0
-        #define MIN_BUFFERS                 1
-        #define MAX_BUFFERS                 1
-    #endif
-
-    #define DEFAULT_EFFECT_INTERVAL     (60*60*24*5)
-
-    #if SPECTRUM_WROVER_KIT
-        #define LED_PIN0                5
-    #elif ELECROW
-        #define LED_PIN0                19
-    #else
-        #define LED_PIN0                26
-    #endif
-
-    #if ELECROW
-        #define IR_REMOTE_PIN           20
-    #endif
-
-    #define NUM_CHANNELS                1
-    #define RING_SIZE_0                 24
-    #define BONUS_PIXELS                0
-    #define MATRIX_WIDTH                48
-    #define MATRIX_HEIGHT               16
-    #define NUM_FANS                    MATRIX_WIDTH
-    #define FAN_SIZE                    MATRIX_HEIGHT
-    #define NUM_BANDS                   16
-    #define NUM_LEDS                    (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define LED_FAN_OFFSET_BU           6
-
-    //#define MIN_VU                      400
-    //#define NOISE_FLOOR                 30
-    //#define NOISE_CUTOFF                5
-
-    #if !(ELECROW)
-        #define TOGGLE_BUTTON_1         37
-        #define TOGGLE_BUTTON_2         39
-    #endif
-
-#elif HELMET
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME                    "Helmet"
-    #endif
-
-    #define POWER_LIMIT_MW                  1000
-
-    #define ENABLE_AUDIOSERIAL              0   // Report peaks at 2400baud on serial port for PETRock consumption
-    #define ENABLE_WIFI                     1   // Connect to WiFi
-    #define WAIT_FOR_WIFI                   0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL               2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER                1   // Turn on the internal webserver
-    #define ENABLE_NTP                      1   // Set the clock from the web
-    #define ENABLE_OTA                      0   // Accept over the air flash updates
-    #define ENABLE_REMOTE                   1   // IR Remote Control
-    #define ENABLE_AUDIO                    1   // Listen for audio from the microphone and process it
-
-    #if USE_PSRAM
-        #define INCOMING_WIFI_ENABLED       1   // Accepting incoming color data and commands
-        #define COLORDATA_SERVER_ENABLED    1
-        #define MAX_BUFFERS                 500
-    #else
-        #define INCOMING_WIFI_ENABLED       0   // Do not accept incoming color data and commands
-        #define COLORDATA_SERVER_ENABLED    0
-        #define MIN_BUFFERS                 1
-        #define MAX_BUFFERS                 1
-    #endif
-
-    #define DEFAULT_EFFECT_INTERVAL         0   // Do not auto-advance unless the button is presssed
-
-    #define LED_PIN0                        26
-    #define NUM_CHANNELS                    1
-    #define RING_SIZE_0                     24
-    #define BONUS_PIXELS                    0
-    #define MATRIX_WIDTH                    32
-    #define MATRIX_HEIGHT                   8
-    #define NUM_FANS                        MATRIX_WIDTH
-    #define FAN_SIZE                        MATRIX_HEIGHT
-    #define NUM_BANDS                       16
-    #define NUM_LEDS                        (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define LED_FAN_OFFSET_BU               6
-
-    #define TOGGLE_BUTTON_1         39
-    #define TOGGLE_BUTTON_2         37
-
-#elif FANSET
-
-    // An M5 stick that controls the 10 RGB fans in my PC
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME                "Fan set"
-    #endif
-
-    #define ENABLE_AUDIOSERIAL          0   // Report peaks at 2400baud on serial port for PETRock consumption
-    #define ENABLE_WIFI                 1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED       0   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI               0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL           2   // How many seconds before the lamp times out and shows local content
-    #define ENABLE_WEBSERVER            1   // Turn on the internal webserver
-    #define ENABLE_NTP                  0   // Set the clock from the web
-    #define ENABLE_OTA                  0   // Accept over the air flash updates
-    #define ENABLE_REMOTE               1   // IR Remote Control
-    #define ENABLE_AUDIO                1   // Listen for audio from the microphone and process it
-    #define COLORDATA_SERVER_ENABLED    0
-
-    #define MIN_BUFFERS                 1   // Keep buffers low because we have little memory to work with
-    #define MAX_BUFFERS                 1
-
-    #define DEFAULT_EFFECT_INTERVAL     (60*60*24*5)
-
-    #define LED_PIN0                    26
-
-    #define BONUS_PIXELS                32  // Extra pixels - in this case, my case strip
-    #define NUM_CHANNELS                1   // Everything wired sequentially on a single channel
-    #define NUM_FANS                    10  // My system has 10 fans.  Because RGB.
-    #define NUM_BANDS                   8
-    #define NUM_RINGS                   1   // Fans have a single outer ring of pixels
-    #define FAN_SIZE                    16  // Each fan's pixel ring has 16 LEDs
-    #define FAN_LEN                     (NUM_FANS * FAN_SIZE)
-    #define MATRIX_WIDTH                (NUM_FANS * FAN_SIZE + BONUS_PIXELS)
-    #define NUM_LEDS                    (MATRIX_WIDTH)
-    #define LED_FAN_OFFSET_BU           3
-    #define MATRIX_HEIGHT               1
-
-    // Being case-mounted normally, the FANSET needs a more sensitive mic so the NOISE_CUTOFF value is are lower than spectrum
-
-    #define NOISE_CUTOFF                0
-    #define NOISE_FLOOR                 0.0f
-
-    #define TOGGLE_BUTTON_1             37
-    #define TOGGLE_BUTTON_2             39
-
-#elif SINGLE_INSULATOR
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Single Insulator"
-    #endif
-
-    // A single glass insulator with a 12-pixel ring and then a 7=pixel "bonus" ring in the middle
-    #define ENABLE_WIFI             0   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       1   // How many seconds before the lamp times out and shows local content
-
-    #define DEFAULT_EFFECT_INTERVAL     (10*60*24)
-
-    #define NUM_CHANNELS    1
-    #define BONUS_PIXELS    7
-    #define NUM_FANS        1
-    #define FAN_SIZE        12
-    #define MATRIX_WIDTH    (NUM_FANS * FAN_SIZE + BONUS_PIXELS)
-    #define NUM_LEDS        (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define MATRIX_HEIGHT   NUM_FANS
-
-    #define ENABLE_REMOTE   0                     // IR Remote Control
-    #define ENABLE_AUDIO    1                     // Listen for audio from the microphone and process it
-
-    #define LED_FAN_OFFSET_BU 6
-
-    #if M5STICKC
-        #define LED_PIN0 26
-    #else
-        #define LED_PIN0 5
-    #endif
-
-#elif INSULATORS
-
-    // A set of 5 Hemmingray glass insulators that each have a ring of 12 LEDs.  Music reactive to the beat.
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Insulators"
-    #endif
-
-    #define ENABLE_WIFI             0   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   0   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       0   // How many seconds before the lamp times out and shows local content
-
-    #define DEFAULT_EFFECT_INTERVAL     (0)
-
-    #define LED_PIN0          26
-    #define NUM_CHANNELS      1
-    #define RING_SIZE_0       12
-    #define BONUS_PIXELS      0
-    #define MATRIX_WIDTH      5
-    #define MATRIX_HEIGHT     RING_SIZE_0
-    #define NUM_FANS          MATRIX_WIDTH
-    #define FAN_SIZE          MATRIX_HEIGHT
-    #define NUM_LEDS          (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define ENABLE_REMOTE     0                     // IR Remote Control
-    #define ENABLE_AUDIO      1                     // Listen for audio from the microphone and process it
-    #define IR_REMOTE_PIN     26
-    #define LED_FAN_OFFSET_BU 6
-
-    #define TOGGLE_BUTTON_1 37
-    #define TOGGLE_BUTTON_2 39
-
-#elif CUBE
-
-    // A cube of 5 x 5 x 5 LEDs
-
-    #ifndef PROJECT_NAME
-    #define PROJECT_NAME            "Cube"
-    #endif
-
-    #define ENABLE_WIFI             1   // Connect to WiFi
-    #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
-    #define WAIT_FOR_WIFI           0   // Hold in setup until we have WiFi - for strips without effects
-    #define TIME_BEFORE_LOCAL       5   // How many seconds before the cube times out and shows local content
-    #define ENABLE_WEBSERVER        1   // Enable the webserver to control the effects
-
-    #define DEFAULT_EFFECT_INTERVAL     (1000 * 60 * 10)    // 10 min
-
-    #define LED_PIN0          26
-    #define NUM_CHANNELS      1
-    #define RING_SIZE_0       25                    // Treat each layer as one ring
-    #define BONUS_PIXELS      0
-    #define MATRIX_WIDTH      5                     // 5 layers
-    #define MATRIX_HEIGHT     RING_SIZE_0
-    #define NUM_FANS          MATRIX_WIDTH
-    #define FAN_SIZE          MATRIX_HEIGHT
-    #define NUM_LEDS          (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define ENABLE_REMOTE     0                     // IR Remote Control
-    #define ENABLE_AUDIO      1                     // Listen for audio from the microphone and process it
-    #define IR_REMOTE_PIN     26
-    #define LED_FAN_OFFSET_BU 6
-    #define ENABLE_OTA        0
-
-    #define TOGGLE_BUTTON  37
-    #define COLOR_ORDER EOrder::RGB
-
-#else
-
-    // This is a simple demo configuration used when no other project is defined; it's only purpose is
-    // to serve as a build to be run for [all-deps]
-
-    #define MATRIX_WIDTH            144
+#endif
+#ifndef MATRIX_HEIGHT
     #define MATRIX_HEIGHT           8
+#endif
+#ifndef NUM_LEDS
     #define NUM_LEDS                (MATRIX_WIDTH*MATRIX_HEIGHT)
-    #define NUM_CHANNELS            8
-    #define NUM_RINGS               5
-    #define RING_SIZE_0             24
+#endif
+#ifndef NUM_CHANNELS
+    #define NUM_CHANNELS            1
+#endif
+#ifndef NUM_RINGS
+    #define NUM_RINGS               1
+#endif
+#ifndef RING_SIZE_0
+    #define RING_SIZE_0             MATRIX_WIDTH
+#endif
 
-    // Once you have a working project, selectively enable various additional features by setting
-    // them to 1 in the list below.  This DEMO config assumes no audio (mic), or screen, etc.
+// Once you have a working project, selectively enable various additional features by setting
+// them to 1 in the list below.  This DEMO config assumes no audio (mic), or screen, etc.
 
-    #define ENABLE_AUDIO            1
+#ifndef ENABLE_AUDIO
+    #define ENABLE_AUDIO            0
+#endif
+#ifndef ENABLE_WIFI
     #define ENABLE_WIFI             1   // Connect to WiFi
+#endif
+#ifndef INCOMING_WIFI_ENABLED
     #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
+#endif
+#ifndef TIME_BEFORE_LOCAL
     #define TIME_BEFORE_LOCAL       1   // How many seconds before the lamp times out and shows local content
+#endif
+#ifndef ENABLE_NTP
     #define ENABLE_NTP              1   // Set the clock from the web
+#endif
+#ifndef ENABLE_OTA
     #define ENABLE_OTA              1
+#endif
+#ifndef ENABLE_WEBSERVER
     #define ENABLE_WEBSERVER        1   // Turn on the internal webserver
+#endif
 
+#ifndef LED_PIN0
     #define LED_PIN0         5
-    #define LED_PIN1        16
-    #define LED_PIN2        17
-    #define LED_PIN3        18
-    #define LED_PIN4        32
-    #define LED_PIN5        33
-    #define LED_PIN6        23
-    #define LED_PIN7        22
 #endif
 
 #ifndef PROJECT_NAME
@@ -1261,7 +306,11 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 #endif
 
 #ifndef MAX_BUFFERS
-#define MAX_BUFFERS (180)           // Six seconds at 30fps
+    #if USE_PSRAM
+        #define MAX_BUFFERS             500
+    #else
+        #define MAX_BUFFERS             24
+    #endif
 #endif
 
 #ifndef ENABLE_WEBSERVER
@@ -1299,15 +348,6 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
     #ifndef NUM_BANDS              // How many bands in the spectrum analyzer
         #define NUM_BANDS 16
     #endif
-    #ifndef NOISE_FLOOR
-        #define NOISE_FLOOR 30
-    #endif
-    #ifndef NOISE_CUTOFF
-        #define NOISE_CUTOFF 10
-    #endif
-    #ifndef AUDIO_MIC_SCALAR
-        #define AUDIO_MIC_SCALAR 1.0
-    #endif
     #ifndef AUDIO_PEAK_REMOTE_TIMEOUT
         #define AUDIO_PEAK_REMOTE_TIMEOUT 1000.0f       // How long after remote PeakData before local microphone is used again
     #endif
@@ -1320,14 +360,9 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
     #ifndef SPECTRUMBARBEAT_ENHANCE
         #define SPECTRUMBARBEAT_ENHANCE 0.75            // How much the SpectrumBar effect "pulses" with the music
     #endif
-    #ifndef VU_REACTIVITY_RATIO 
+    #ifndef VU_REACTIVITY_RATIO
         #define VU_REACTIVITY_RATIO 10.0                // How much the VU meter reacts to the music going up vs down
-    #endif        
-#endif
-
-
-#ifndef LED_PIN0                // Which pin the LEDs are connected to
-#define LED_PIN0 5
+    #endif
 #endif
 
 #ifndef NUM_RINGS               // How many rings in each tree/insulator/etc
@@ -1377,7 +412,7 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 #endif
 
 #ifndef DEFAULT_EFFECT_INTERVAL
-#define DEFAULT_EFFECT_INTERVAL 1000*30
+#define DEFAULT_EFFECT_INTERVAL 1000*60
 #endif
 
 #ifndef MILLIS_PER_FRAME
@@ -1529,7 +564,11 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 #endif
 
 #ifndef NUM_INFO_PAGES
-#define NUM_INFO_PAGES 2
+#define NUM_INFO_PAGES 3
+#endif
+
+#ifndef DEFAULT_INFO_PAGE
+#define DEFAULT_INFO_PAGE 0
 #endif
 
 // When you press a color button on the remote, the color is used to create a temporary fill effect, but
@@ -1538,6 +577,31 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 
 #ifndef FULL_COLOR_REMOTE_FILL
 #define FULL_COLOR_REMOTE_FILL 0
+#endif
+
+// Convenience shortcut to avoid cluttering all the above with #if pretzels.
+// This allows single, easy setting from either a platform.ini (or override)
+// or allowing this to be set from the command line build. e.g.:
+// $ PLATFORMIO_BUILD_FLAGS="-DLED_PIN0=14 -DUSE_ALL_NETWORKING" \
+//   pio run --target upload -e lilygo-tdisplay-s3-demo
+
+#if USE_ALL_NETWORKING
+    #undef ENABLE_WIFI
+    #define ENABLE_WIFI             1   // Connect to WiFi
+
+    #undef INCOMING_WIFI_ENABLED
+    #define INCOMING_WIFI_ENABLED   1   // Accepting incoming color data and commands
+    #undef ENABLE_NTP
+    #define ENABLE_NTP              1   // Set the clock from the web
+
+    #undef ENABLE_OTA
+    #define ENABLE_OTA              1
+
+    #undef ENABLE_WEBSERVER
+    #define ENABLE_WEBSERVER        1   // Turn on the internal webserver
+
+    #undef ENABLE_WEB_UI
+    #define ENABLE_WEB_UI           1   // Enable HTTP pathnames for the web UI
 #endif
 
 // Common globals
@@ -1580,6 +644,22 @@ extern DRAM_ATTR const int g_aRingSizeTable[];
   #endif
 #endif
 
+#ifndef COLORDATA_WEB_SOCKET_ENABLED
+  #if ENABLE_WIFI && ENABLE_WEBSERVER && COLORDATA_SERVER_ENABLED
+    #define COLORDATA_WEB_SOCKET_ENABLED 1
+  #else
+    #define COLORDATA_WEB_SOCKET_ENABLED 0
+  #endif
+#endif
+
+#ifndef EFFECTS_WEB_SOCKET_ENABLED
+  #if ENABLE_WIFI && ENABLE_WEBSERVER
+    #define EFFECTS_WEB_SOCKET_ENABLED 1
+  #else
+    #define EFFECTS_WEB_SOCKET_ENABLED 0
+  #endif
+#endif
+
 // Microphone
 //
 // The M5 mic is on Pin34, but when I wire up my own microphone module I usually put it on pin 36.
@@ -1605,6 +685,24 @@ extern DRAM_ATTR const int g_aRingSizeTable[];
 #define IR_REMOTE_PIN   25
 #endif
 
+// Set and use for I2S input.
+#if USE_I2S_AUDIO_PINS || ELECROW
+  // Bit clock
+  #ifndef I2S_BCLK_PIN
+    #define I2S_BCLK_PIN   39
+  #endif
+
+  // Word select clock.
+  #ifndef I2S_WS_PIN
+    #define I2S_WS_PIN     38
+  #endif
+
+  #ifndef I2S_DATA_PIN
+    #define I2S_DATA_PIN     INPUT_PIN
+  #endif
+#endif
+
+
 
 // Custom WiFi Commands
 //
@@ -1625,13 +723,12 @@ extern DRAM_ATTR const int g_aRingSizeTable[];
 // Given a time value for when the last frame took place and the current timestamp returns the number of
 // frames per second, as low as 0.  Never exceeds 999 so you can make some width assumptions.
 
-inline int FPS(uint32_t start, uint32_t end, uint32_t perSecond = MILLIS_PER_SECOND)
+inline int FPS(unsigned long duration, uint32_t perSecond = MILLIS_PER_SECOND)
 {
-    uint32_t duration = end - start;
     if (duration == 0)
         return 999;
 
-    float fpsf = 1.0f / (duration / (float) perSecond);
+    float fpsf = 1.0f / (duration / (float)perSecond);
     int FPS = (int)fpsf;
     if (FPS > 999)
         FPS = 999;
@@ -1684,6 +781,7 @@ inline String str_sprintf(const char *fmt, ...)
 
 #include <random>
 #include <type_traits>
+#include <iterator>
 
 template <typename T>
 inline static T random_range(T lower, T upper)
@@ -1800,6 +898,18 @@ constexpr std::array<T, N> to_array(const T (&arr)[N]) {
     return result;
 }
 
+// Provide a single-parameter std::accumulate overload for ranges/containers
+// This allows: auto total = std::accumulate(container);
+template <typename Range>
+inline auto accumulate(const Range& r)
+    -> std::remove_cv_t<std::remove_reference_t<decltype(*std::begin(r))>>
+{
+    using T = std::remove_cv_t<std::remove_reference_t<decltype(*std::begin(r))>>;
+    T total{};
+    for (const auto& v : r) total += v;
+    return total;
+}
+
 // 16-bit (5:6:5) color definitions for common colors
 
 #define BLACK16     0x0000
@@ -1824,6 +934,12 @@ constexpr std::array<T, N> to_array(const T (&arr)[N]) {
 
 #if USE_TFTSPI
     #define DISABLE_ALL_LIBRARY_WARNINGS 1
+    // If the project provides its own TFT_eSPI setup via USER_SETUP_LOADED
+    // and build_flags, do not include the TTGO default user setup to avoid
+    // macro redefinition warnings.
+    #if TTGO && !defined(USER_SETUP_LOADED)
+        #include <User_Setups/Setup25_TTGO_T_Display.h>
+    #endif
     #include <TFT_eSPI.h>
     #include <SPI.h>
 #endif

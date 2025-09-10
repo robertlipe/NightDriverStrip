@@ -35,9 +35,12 @@
 #include "musiceffect.h"
 #include "soundanalyzer.h"
 #include "systemcontainer.h"
+#include <numeric>
 
-class FireEffect : public LEDStripEffect
+class FireEffect : public EffectWithId<FireEffect>
 {
+  private:
+
     void construct()
     {
         heat.reset( psram_allocator<uint8_t>().allocate(CellCount()) );
@@ -65,14 +68,12 @@ class FireEffect : public LEDStripEffect
 
     static const uint8_t BlendTotal = (BlendSelf + BlendNeighbor1 + BlendNeighbor2 + BlendNeighbor3);
 
-    static constexpr int _jsonSize = LEDStripEffect::_jsonSize + 128;
-
     int CellCount() const { return LEDCount * CellsPerLED; }
 
   public:
 
     FireEffect(const String & strName, int ledCount = NUM_LEDS, int cellsPerLED = 1, int cooling = 20, int sparking = 100, int sparks = 3, int sparkHeight = 4,  bool breversed = false, bool bmirrored = false)
-        : LEDStripEffect(EFFECT_STRIP_FIRE, strName),
+    : EffectWithId<FireEffect>(strName),
           LEDCount(ledCount),
           CellsPerLED(cellsPerLED),
           Cooling(cooling),
@@ -89,7 +90,7 @@ class FireEffect : public LEDStripEffect
     }
 
     FireEffect(const JsonObjectConst& jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<FireEffect>(jsonObject),
           LEDCount(jsonObject[PTY_LEDCOUNT]),
           CellsPerLED(jsonObject[PTY_CELLSPERLED]),
           Cooling(jsonObject[PTY_COOLING]),
@@ -104,7 +105,7 @@ class FireEffect : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -118,9 +119,7 @@ class FireEffect : public LEDStripEffect
         jsonDoc[PTY_REVERSED] = bReversed;
         jsonDoc[PTY_MIRORRED] = bMirrored;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     virtual ~FireEffect()
@@ -185,9 +184,9 @@ class FireEffect : public LEDStripEffect
 
         for (int i = 0; i < LEDCount; i++)
         {
-            auto sum = 0;
-            for (int j = 0; j < CellsPerLED; j++)
-                sum += heat[i*CellsPerLED + j];
+            auto begin = &heat[i * CellsPerLED];
+            auto end = begin + CellsPerLED;
+            int sum = std::accumulate(begin, end, 0);
             auto avg = sum / CellsPerLED;
 
             #if LANTERN
@@ -208,15 +207,11 @@ class FireEffect : public LEDStripEffect
 
 class PaletteFlameEffect : public FireEffect
 {
+  private:
     CRGBPalette16 _palette;
     bool _ignoreGlobalColor;
 
-    void construct()
-    {
-        _effectNumber = EFFECT_STRIP_PALETTE_FLAME;
-    }
-
-public:
+  public:
     PaletteFlameEffect(const String & strName,
                        const CRGBPalette16 &palette,
                        bool ignoreGlobalColor = false,
@@ -232,7 +227,6 @@ public:
           _palette(palette),
           _ignoreGlobalColor(ignoreGlobalColor)
     {
-        construct();
     }
 
     PaletteFlameEffect(const JsonObjectConst& jsonObject)
@@ -240,12 +234,11 @@ public:
         _palette(jsonObject[PTY_PALETTE].as<CRGBPalette16>()),
         _ignoreGlobalColor(jsonObject[PTY_IGNOREGLOBALCOLOR])
     {
-        construct();
     }
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        AllocatedJsonDocument jsonDoc(FireEffect::_jsonSize + 512);
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         FireEffect::SerializeToJSON(root);
@@ -253,9 +246,7 @@ public:
         jsonDoc[PTY_PALETTE] = _palette;
         jsonDoc[PTY_IGNOREGLOBALCOLOR] = _ignoreGlobalColor;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     virtual CRGB GetBlackBodyHeatColor(float temp) const override
@@ -279,11 +270,6 @@ public:
 #if ENABLE_AUDIO
 class MusicalPaletteFire : public PaletteFlameEffect, protected BeatEffectBase
 {
-    void construct()
-    {
-        _effectNumber = EFFECT_STRIP_MUSICAL_PALETTE_FIRE;
-    }
-
   public:
 
     MusicalPaletteFire(const String & strName,
@@ -299,18 +285,13 @@ class MusicalPaletteFire : public PaletteFlameEffect, protected BeatEffectBase
                        bool mirrored = false)
         : PaletteFlameEffect(strName, palette, ignoreGlobalColor, ledCount, cellsPerLED, cooling, sparking, sparks, sparkHeight, reversed, mirrored),
           BeatEffectBase(1.00, 0.01)
-
-
     {
-        construct();
     }
 
     MusicalPaletteFire(const JsonObjectConst& jsonObject)
         : PaletteFlameEffect(jsonObject),
           BeatEffectBase(1.00, 0.01)
-
     {
-        construct();
     }
 
   protected:
@@ -318,13 +299,9 @@ class MusicalPaletteFire : public PaletteFlameEffect, protected BeatEffectBase
     virtual void HandleBeat(bool bMajor, float elapsed, float span) override
     {
         if (elapsed > 1)
-        {
             GenerateSparks(100);
-        }
         else
-        {
-            GenerateSparks(g_Analyzer._VURatio * 50);
-        }
+            GenerateSparks(g_Analyzer.VURatio() * 50);
     }
 
     virtual void Draw() override
@@ -335,16 +312,18 @@ class MusicalPaletteFire : public PaletteFlameEffect, protected BeatEffectBase
 };
 #endif
 
-class ClassicFireEffect : public LEDStripEffect
+class ClassicFireEffect : public EffectWithId<ClassicFireEffect>
 {
+  private:
+
     bool _Mirrored;
     bool _Reversed;
     int  _Cooling;
 
-public:
+  public:
 
     ClassicFireEffect(bool mirrored = false, bool reversed = false, int cooling = 5)
-        : LEDStripEffect(EFFECT_STRIP_CLASSIC_FIRE, "Classic Fire"),
+        : EffectWithId<ClassicFireEffect>("Classic Fire"),
           _Mirrored(mirrored),
           _Reversed(reversed),
           _Cooling(cooling)
@@ -352,7 +331,7 @@ public:
     }
 
     ClassicFireEffect(const JsonObjectConst& jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<ClassicFireEffect>(jsonObject),
           _Mirrored(jsonObject[PTY_MIRORRED]),
           _Reversed(jsonObject[PTY_REVERSED]),
           _Cooling(jsonObject[PTY_COOLING])
@@ -361,7 +340,7 @@ public:
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize + 64> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -370,9 +349,7 @@ public:
         jsonDoc[PTY_REVERSED] = _Reversed;
         jsonDoc[PTY_COOLING] = _Cooling;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     void Draw() override
@@ -383,7 +360,7 @@ public:
 
     void Fire(int Cooling, int Sparking, int Sparks)
     {
-        static std::unique_ptr<uint8_t []> heat = make_unique_psram_array<uint8_t>(NUM_LEDS);
+        static std::unique_ptr<uint8_t[]> heat = make_unique_psram<uint8_t[]>(NUM_LEDS);
         setAllOnAllChannels(0,0,0);
 
         // Step 1.  Cool down every cell a little
@@ -469,9 +446,10 @@ public:
 
 };
 
-class SmoothFireEffect : public LEDStripEffect
+class SmoothFireEffect : public EffectWithId<SmoothFireEffect>
 {
-private:
+  private:
+
     bool _Reversed;
     float _Cooling;
     int _Sparks;
@@ -483,7 +461,7 @@ private:
 
     float * _Temperatures = nullptr;
 
-public:
+  public:
     // Parameter:   Cooling   Sparks    driftPasses  drift sparkHeight   Turbo
     // Calm Fire:     0.75f        2         1         64       8          F
     // Full Red:      0.75f        8         1        128      16          F
@@ -498,7 +476,7 @@ public:
                      bool turbo = false,
                      bool mirrored = false)
 
-        : LEDStripEffect(EFFECT_STRIP_SMOOTH_FIRE, "Fire Sound Effect v2"),
+        : EffectWithId<SmoothFireEffect>("Fire Sound Effect v2"),
           _Reversed(reversed),
           _Cooling(cooling),
           _Sparks(sparks),
@@ -511,7 +489,7 @@ public:
     }
 
     SmoothFireEffect(const JsonObjectConst& jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<SmoothFireEffect>(jsonObject),
           _Reversed(jsonObject[PTY_REVERSED]),
           _Cooling(jsonObject[PTY_COOLING]),
           _Sparks(jsonObject[PTY_SPARKS]),
@@ -525,7 +503,7 @@ public:
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -539,9 +517,8 @@ public:
         jsonDoc["trb"] = _Turbo;
         jsonDoc[PTY_MIRORRED] = _Mirrored;
 
-        assert(!jsonDoc.overflowed());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
 
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
     }
 
     bool Init(std::vector<std::shared_ptr<GFXBase>>& gfx) override
@@ -579,7 +556,7 @@ public:
         {
             for (int k = _cLEDs - 1; k >= 3; k--)
             {
-                float amount = 0.2f + g_Analyzer._VURatio; // MIN(0.85f, _Drift * deltaTime);
+                float amount = 0.2f + g_Analyzer.VURatio(); // MIN(0.85f, _Drift * deltaTime);
                 float c0 = 1.0f - amount;
                 float c1 = amount * 0.33f;
                 float c2 = c1;
@@ -628,14 +605,17 @@ public:
 
 };
 
-class BaseFireEffect : public LEDStripEffect
+class BaseFireEffect : public EffectWithId<BaseFireEffect>
 {
+  private:
+
     void construct()
     {
         heat = std::make_unique<uint8_t []>(CellCount);
     }
 
   protected:
+
     int     Cooling;            // Rate at which the pixels cool off
     int     Sparks;             // How many sparks will be attempted each frame
     int     SparkHeight;        // If created, max height for a spark
@@ -661,7 +641,7 @@ class BaseFireEffect : public LEDStripEffect
   public:
 
     BaseFireEffect(int ledCount, int cellsPerLED = 1, int cooling = 20, int sparking = 100, int sparks = 3, int sparkHeight = 4, bool breversed = false, bool bmirrored = false)
-        : LEDStripEffect(EFFECT_STRIP_BASE_FIRE, "BaseFireEffect"),
+        : EffectWithId<BaseFireEffect>("BaseFireEffect"),
           Cooling(cooling),
           Sparks(sparks),
           SparkHeight(sparkHeight),
@@ -676,7 +656,7 @@ class BaseFireEffect : public LEDStripEffect
     }
 
     BaseFireEffect(const JsonObjectConst& jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<BaseFireEffect>(jsonObject),
           Cooling(jsonObject[PTY_COOLING]),
           Sparks(jsonObject[PTY_SPARKS]),
           SparkHeight(jsonObject[PTY_SPARKHEIGHT]),
@@ -695,7 +675,7 @@ class BaseFireEffect : public LEDStripEffect
 
     bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        StaticJsonDocument<LEDStripEffect::_jsonSize + 128> jsonDoc;
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
@@ -709,9 +689,7 @@ class BaseFireEffect : public LEDStripEffect
         jsonDoc[PTY_LEDCOUNT] = LEDCount;
         jsonDoc["clc"] = CellCount;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     virtual CRGB MapHeatToColor(uint8_t temperature)
@@ -771,9 +749,9 @@ class BaseFireEffect : public LEDStripEffect
         int cellsPerLED = CellCount / LEDCount;
         for (int i = 0; i < LEDCount; i++)
         {
-            int sum = 0;
-            for (int iCell = 0; iCell < cellsPerLED; iCell++)
-              sum += heat[i * cellsPerLED + iCell];
+            auto begin = &heat[i * cellsPerLED];
+            auto end = begin + cellsPerLED;
+            int sum = std::accumulate(begin, end, 0);
             int avg = sum / cellsPerLED;
             CRGB color = MapHeatToColor(heat[avg]);
             int j = bReversed ? (LEDCount - 1 - i) : i;

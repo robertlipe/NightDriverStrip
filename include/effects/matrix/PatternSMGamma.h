@@ -5,17 +5,14 @@
 // Derived from https://editor.soulmatelights.com/gallery/2091-q24
 // Simple, but interesting rolling depth with a blue lens flare.
 
-class PatternSMGamma : public LEDStripEffect
+class PatternSMGamma : public EffectWithId<PatternSMGamma>
 {
-  private:
   public:
-    PatternSMGamma() : LEDStripEffect(EFFECT_MATRIX_SMGAMMA, "Gamma")
-    {
-    }
 
-    PatternSMGamma(const JsonObjectConst &jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternSMGamma() : EffectWithId<PatternSMGamma>("Gamma") {}
+    PatternSMGamma(const JsonObjectConst &jsonObject) : EffectWithId<PatternSMGamma>(jsonObject) {}
+
+  private:
 
     void Start() override
     {

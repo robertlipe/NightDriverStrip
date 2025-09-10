@@ -35,6 +35,13 @@
 #include <deque>
 
 #include "effects.h"
+// Needed for FillRingPixels, DrawRingPixels, and fan/ring utilities
+#include "faneffects.h"
+
+#if ENABLE_AUDIO
+// Needed for BeatEffectBase and audio-driven particle effects
+#include "musiceffect.h"
+#endif
 
 // Lifespan
 //
@@ -147,14 +154,11 @@ class FadingCountDownObject : public FadingObject
 
   public:
 
-    FadingCountDownObject(unsigned long maxvalue)
-      : _maxValue(maxvalue)
-    {
-    }
+    FadingCountDownObject(unsigned long maxvalue) : _maxValue(maxvalue) {}
 
     virtual unsigned long CurrentCountdown()
     {
-        return map(Age(), 0, TotalLifetime(), _maxValue, 0);
+        return ::map(Age(), 0, TotalLifetime(), _maxValue, 0);
     }
 };
 
@@ -170,10 +174,7 @@ class FadingColoredObject : public FadingObject
 
   public:
 
-    FadingColoredObject(CRGB baseColor)
-      : _baseColor(baseColor)
-    {
-    }
+    FadingColoredObject(CRGB baseColor) : _baseColor(baseColor) {}
 
     virtual CRGB ObjectColor() const
     {
@@ -305,9 +306,7 @@ template <typename Type = DrawableParticle> class ParticleSystem
 
   public:
 
-    ParticleSystem()
-    {
-    }
+    ParticleSystem() {}
 
     virtual void Render(const std::vector<std::shared_ptr<GFXBase>>& _gfx)
     {
@@ -377,18 +376,26 @@ class RingParticle : public FadingColoredObject
 
 
 #if ENABLE_AUDIO
-class ColorBeatWithFlash : public BeatEffectBase, public ParticleSystem<RingParticle>, LEDStripEffect
+class ColorBeatWithFlash : public BeatEffectBase, public ParticleSystem<RingParticle>, public EffectWithId<ColorBeatWithFlash>
 {
+  private:
+
     int _iLastInsulator = 0;
     CRGB _baseColor = CRGB::Black;
 
   public:
 
-    ColorBeatWithFlash(const String & strName) : BeatEffectBase(), ParticleSystem<RingParticle>(), LEDStripEffect(EFFECT_STRIP_COLOR_BEAT_WITH_FLASH, strName)
+    ColorBeatWithFlash(const String & strName)
+      : BeatEffectBase(),
+        ParticleSystem<RingParticle>(),
+        EffectWithId<ColorBeatWithFlash>(strName)
     {
     }
 
-    ColorBeatWithFlash(const JsonObjectConst& jsonObject) : BeatEffectBase(), ParticleSystem<RingParticle>(), LEDStripEffect(jsonObject)
+    ColorBeatWithFlash(const JsonObjectConst& jsonObject)
+      : BeatEffectBase(),
+        ParticleSystem<RingParticle>(),
+        EffectWithId<ColorBeatWithFlash>(jsonObject)
     {
     }
 
@@ -411,7 +418,7 @@ class ColorBeatWithFlash : public BeatEffectBase, public ParticleSystem<RingPart
         } while (NUM_FANS > 3 && iInsulator == _iLastInsulator);
         _iLastInsulator = iInsulator;
 
-        CRGB c = CHSV(beatsin8(4), 255, 127.5*g_Analyzer._VURatio);
+        CRGB c = CHSV(beatsin8(4), 255, 127.5*g_Analyzer.VURatio());
         CRGB r = RandomSaturatedColor();
         LightInsulator(bMajor ? - 1: iInsulator, 0, bMajor ? r : c, bMajor);
       }
@@ -423,31 +430,33 @@ class ColorBeatWithFlash : public BeatEffectBase, public ParticleSystem<RingPart
       //
       setAllOnAllChannels(0,0,0);
 
-      uint8_t v = 16  * g_Analyzer._VURatio;
+      uint8_t v = 16  * g_Analyzer.VURatio();
       _baseColor += CRGB(CHSV(beatsin8(24), 255, v));
-      _baseColor.fadeToBlackBy(8 * g_Analyzer._VURatio);
+      _baseColor.fadeToBlackBy(8 * g_Analyzer.VURatio());
       setAllOnAllChannels(_baseColor.r, _baseColor.g, _baseColor.b);
       BeatEffectBase::ProcessAudio();
       ParticleSystem<RingParticle>::Render(_GFX);
     }
 };
 
-class ColorBeatOverRed : public LEDStripEffect, public BeatEffectBase, public ParticleSystem<RingParticle>
+class ColorBeatOverRed : public EffectWithId<ColorBeatOverRed>, public BeatEffectBase, public ParticleSystem<RingParticle>
 {
+  private:
+
     int  _iLastInsulator = 0;
     CRGB _baseColor = CRGB::Black;
 
   public:
 
     ColorBeatOverRed(const String & strName)
-      : LEDStripEffect(EFFECT_STRIP_COLOR_BEAT_OVER_RED, strName),
+      : EffectWithId<ColorBeatOverRed>(strName),
         BeatEffectBase(1.75, 0.2),
         ParticleSystem<RingParticle>()
     {
     }
 
     ColorBeatOverRed(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<ColorBeatOverRed>(jsonObject),
         BeatEffectBase(1.75, 0.2),
         ParticleSystem<RingParticle>()
     {
@@ -480,7 +489,7 @@ class ColorBeatOverRed : public LEDStripEffect, public BeatEffectBase, public Pa
       // also have to update and render the particle system, which does the actual pixel drawing.  We clear the scene ever
       // pass and rely on the fade effects of the particles to blend the
 
-      float amount = g_Analyzer._VU / 4096;
+      float amount = g_Analyzer.VU() / 4096;
 
       _baseColor = CRGB(500 * amount, 0, 0);
       setAllOnAllChannels(_baseColor.r, _baseColor.g, _baseColor.b);
@@ -692,8 +701,10 @@ class HotWhiteRingParticle : public FadingObject
 #if ENABLE_AUDIO
 
 
-class MoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase, public ParticleSystem<SpinningPaletteRingParticle>
+class MoltenGlassOnVioletBkgnd : public EffectWithId<MoltenGlassOnVioletBkgnd>, public BeatEffectBase, public ParticleSystem<SpinningPaletteRingParticle>
 {
+  private:
+
     int                    _iLastInsulator = 0;
     const CRGBPalette16 & _Palette;
     CRGB _baseColor = CRGB::Black;
@@ -701,7 +712,7 @@ class MoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase, p
   public:
 
     MoltenGlassOnVioletBkgnd(const String & strName, const CRGBPalette16 & Palette)
-      : LEDStripEffect(EFFECT_STRIP_MOLTEN_GLASS_ON_VIOLET_BKGND, strName),
+      : EffectWithId<MoltenGlassOnVioletBkgnd>(strName),
         BeatEffectBase(1.50, 0.05),
         ParticleSystem<SpinningPaletteRingParticle>(),
         _Palette(Palette)
@@ -709,7 +720,7 @@ class MoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase, p
     }
 
     MoltenGlassOnVioletBkgnd(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<MoltenGlassOnVioletBkgnd>(jsonObject),
         BeatEffectBase(1.50, 0.05),
         ParticleSystem<SpinningPaletteRingParticle>(),
         _Palette(jsonObject[PTY_PALETTE].as<CRGBPalette16>())
@@ -718,16 +729,14 @@ class MoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase, p
 
     virtual bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        AllocatedJsonDocument jsonDoc(LEDStripEffect::_jsonSize + 512);
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
 
         jsonDoc[PTY_PALETTE] = _Palette;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
 
@@ -774,7 +783,7 @@ class MoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase, p
       // also have to update and render the particle system, which does the actual pixel drawing.  We clear the scene ever
       // pass and rely on the fade effects of the particles to blend the
 
-      uint8_t v = 16  * g_Analyzer._VURatio;
+      uint8_t v = 16  * g_Analyzer.VURatio();
       _baseColor += CRGB(CHSV(200, 255, v));
       _baseColor.fadeToBlackBy((min(255.0, 1000.0 * g_Values.AppTime.LastFrameTime())));
       setAllOnAllChannels(_baseColor.r, _baseColor.g, _baseColor.b);
@@ -784,8 +793,10 @@ class MoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase, p
     }
 };
 
-class NewMoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase, public ParticleSystem<SpinningPaletteRingParticle>
+class NewMoltenGlassOnVioletBkgnd : public EffectWithId<NewMoltenGlassOnVioletBkgnd>, public BeatEffectBase, public ParticleSystem<SpinningPaletteRingParticle>
 {
+  private:
+
     int  _iLastInsulator = 0;
     const CRGBPalette16 & _Palette;
     CRGB _baseColor = CRGB::Black;
@@ -793,7 +804,7 @@ class NewMoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase
   public:
 
     NewMoltenGlassOnVioletBkgnd(const String & strName, const CRGBPalette16 & Palette)
-      : LEDStripEffect(EFFECT_STRIP_NEW_MOLTEN_GLASS_ON_VIOLET_BKGND, strName),
+      : EffectWithId<NewMoltenGlassOnVioletBkgnd>(strName),
         BeatEffectBase(1.0, 0.25 ),
         ParticleSystem<SpinningPaletteRingParticle>(),
         _Palette(Palette)
@@ -801,7 +812,7 @@ class NewMoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase
     }
 
     NewMoltenGlassOnVioletBkgnd(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<NewMoltenGlassOnVioletBkgnd>(jsonObject),
         BeatEffectBase(1.0, 0.25 ),
         ParticleSystem<SpinningPaletteRingParticle>(),
         _Palette(jsonObject[PTY_PALETTE].as<CRGBPalette16>())
@@ -810,16 +821,14 @@ class NewMoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase
 
     virtual bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        AllocatedJsonDocument jsonDoc(LEDStripEffect::_jsonSize + 512);
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
 
         jsonDoc[PTY_PALETTE] = _Palette;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     virtual void HandleBeat(bool bMajor, float elapsed, float span) override
@@ -866,7 +875,7 @@ class NewMoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase
       // also have to update and render the particle system, which does the actual pixel drawing.  We clear the scene ever
       // pass and rely on the fade effects of the particles to blend the
 
-       uint8_t v = 16  * g_Analyzer._VURatio;
+       uint8_t v = 16  * g_Analyzer.VURatio();
       _baseColor += CRGB(CHSV(200, 255, v));
       _baseColor.fadeToBlackBy((min(255.0, 1000.0 * g_Values.AppTime.LastFrameTime())));
       setAllOnAllChannels(_baseColor.r, _baseColor.g, _baseColor.b);
@@ -875,8 +884,10 @@ class NewMoltenGlassOnVioletBkgnd : public LEDStripEffect, public BeatEffectBase
     }
 };
 
-class SparklySpinningMusicEffect : public LEDStripEffect, public BeatEffectBase, public ParticleSystem<SpinningPaletteRingParticle>
+class SparklySpinningMusicEffect : public EffectWithId<SparklySpinningMusicEffect>, public BeatEffectBase, public ParticleSystem<SpinningPaletteRingParticle>
 {
+  private:
+
     int  _iLastInsulator = 0;
     const CRGBPalette16 & _Palette;
     CRGB _baseColor = CRGB::Black;
@@ -884,12 +895,12 @@ class SparklySpinningMusicEffect : public LEDStripEffect, public BeatEffectBase,
   public:
 
     SparklySpinningMusicEffect(const String & strName, const CRGBPalette16 & Palette)
-      : LEDStripEffect(EFFECT_STRIP_SPARKLY_SPINNING_MUSIC, strName), BeatEffectBase(), ParticleSystem<SpinningPaletteRingParticle>(), _Palette(Palette)
+      : EffectWithId<SparklySpinningMusicEffect>(strName), BeatEffectBase(), ParticleSystem<SpinningPaletteRingParticle>(), _Palette(Palette)
     {
     }
 
     SparklySpinningMusicEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<SparklySpinningMusicEffect>(jsonObject),
         BeatEffectBase(),
         ParticleSystem<SpinningPaletteRingParticle>(),
         _Palette(jsonObject[PTY_PALETTE].as<CRGBPalette16>())
@@ -898,16 +909,14 @@ class SparklySpinningMusicEffect : public LEDStripEffect, public BeatEffectBase,
 
     virtual bool SerializeToJSON(JsonObject& jsonObject) override
     {
-        AllocatedJsonDocument jsonDoc(LEDStripEffect::_jsonSize + 512);
+        auto jsonDoc = CreateJsonDocument();
 
         JsonObject root = jsonDoc.to<JsonObject>();
         LEDStripEffect::SerializeToJSON(root);
 
         jsonDoc[PTY_PALETTE] = _Palette;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     virtual void HandleBeat(bool bMajor, float elapsed, float span) override
@@ -929,7 +938,7 @@ class SparklySpinningMusicEffect : public LEDStripEffect, public BeatEffectBase,
       // also have to update and render the particle system, which does the actual pixel drawing.  We clear the scene ever
       // pass and rely on the fade effects of the particles to blend the
 
-      uint8_t v = 32  * g_Analyzer._VURatio;
+      uint8_t v = 32  * g_Analyzer.VURatio();
       _baseColor += CRGB(CHSV(beatsin8(1), 255, v));
       _baseColor.fadeToBlackBy((min(255.0, 2500.0 * g_Values.AppTime.LastFrameTime())));
       setAllOnAllChannels(_baseColor.r, _baseColor.g, _baseColor.b);
@@ -940,20 +949,18 @@ class SparklySpinningMusicEffect : public LEDStripEffect, public BeatEffectBase,
     }
 };
 
-class MusicalHotWhiteInsulatorEffect : public LEDStripEffect, public BeatEffectBase, public ParticleSystem<HotWhiteRingParticle>
+class MusicalHotWhiteInsulatorEffect : public EffectWithId<MusicalHotWhiteInsulatorEffect>, public BeatEffectBase, public ParticleSystem<HotWhiteRingParticle>
 {
+  private:
+
     int  _iLastInsulator = 0;
     CRGB _baseColor      = CRGB::Black;
 
   public:
 
-    MusicalHotWhiteInsulatorEffect(const String & strName) : LEDStripEffect(EFFECT_STRIP_MUSICAL_HOT_WHITE_INSULATOR, strName), BeatEffectBase(), ParticleSystem<HotWhiteRingParticle>()
-    {
-    }
+    MusicalHotWhiteInsulatorEffect(const String & strName) : EffectWithId<MusicalHotWhiteInsulatorEffect>(strName), BeatEffectBase(), ParticleSystem<HotWhiteRingParticle>() {}
 
-    MusicalHotWhiteInsulatorEffect(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject), BeatEffectBase(), ParticleSystem<HotWhiteRingParticle>()
-    {
-    }
+    MusicalHotWhiteInsulatorEffect(const JsonObjectConst& jsonObject) : EffectWithId<MusicalHotWhiteInsulatorEffect>(jsonObject), BeatEffectBase(), ParticleSystem<HotWhiteRingParticle>() {}
 
     virtual void HandleBeat(bool bMajor, float elapsed, float span) override
     {
@@ -974,7 +981,7 @@ class MusicalHotWhiteInsulatorEffect : public LEDStripEffect, public BeatEffectB
       // also have to update and render the particle system, which does the actual pixel drawing.  We clear the scene ever
       // pass and rely on the fade effects of the particles to blend the
 
-      uint8_t v = 32  * g_Analyzer._VURatio;
+      uint8_t v = 32  * g_Analyzer.VURatio();
       _baseColor += CRGB(CHSV(beatsin8(1), 255, v));
       _baseColor.fadeToBlackBy((min(255.0,1000.0 * g_Values.AppTime.LastFrameTime())));
       setAllOnAllChannels(_baseColor.r, _baseColor.g, _baseColor.b);

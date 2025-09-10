@@ -1,5 +1,6 @@
 #include "globals.h"
 #include "systemcontainer.h"
+#include "soundanalyzer.h"
 
 #if INCOMING_WIFI_ENABLED
 
@@ -47,7 +48,7 @@ bool SocketServer::ProcessIncomingConnectionsLoop()
         return false;
     }
 
-    if (_pBuffer == nullptr) 
+    if (_pBuffer == nullptr)
     {
         debugE("Buffer not allocated!");
         close(new_socket);
@@ -125,14 +126,14 @@ bool SocketServer::ProcessIncomingConnectionsLoop()
             bSendResponsePacket = true;
         }
         else
-        {     
+        {
             // Read the rest of the data
             uint16_t command16   = WORDFromMemory(&_pBuffer.get()[0]);
 
             if (command16 == WIFI_COMMAND_PEAKDATA)
             {
                 #if ENABLE_AUDIO
-
+                {
                     uint16_t numbands  = WORDFromMemory(&_pBuffer.get()[2]);
                     uint32_t length32  = DWORDFromMemory(&_pBuffer.get()[4]);
                     uint64_t seconds   = ULONGFromMemory(&_pBuffer.get()[8]);
@@ -165,7 +166,17 @@ bool SocketServer::ProcessIncomingConnectionsLoop()
 
                     // Consume the data by resetting the buffer
                     debugV("Consuming the data as WIFI_COMMAND_PEAKDATA by setting _cbReceived to from %zu down 0.", _cbReceived);
-
+                }
+                #else
+                    // Audio disabled: consume any declared payload to keep stream in sync, then ignore it
+                    uint32_t length32  = DWORDFromMemory(&_pBuffer.get()[4]);
+                    size_t totalExpected = STANDARD_DATA_HEADER_SIZE + length32;
+                    if (!ReadUntilNBytesReceived(new_socket, totalExpected))
+                    {
+                        debugW("Audio disabled, failed to skip PEAKDATA payload of %zu bytes", totalExpected);
+                        break;
+                    }
+                    debugV("Audio disabled; skipped PEAKDATA payload (%zu bytes)", totalExpected);
                 #endif
                 ResetReadBuffer();
 

@@ -35,24 +35,14 @@
 #include "jsonserializer.h"
 #include "types.h"
 
-//#if ENABLE_WIFI
+#if ENABLE_WIFI
 // Make sure we have a secrets.h and that it contains everything we need.
 
-#if __has_include("secrets.h")
-#include "secrets.h"
-#else
-#warning Copy include/secrets.example.h to include/secrets.h, edit to taste, and retry. Using silly defaults. Please see README.md.
-// Please preserve same order as tests below.
-#define cszSSID ""
-#define cszPassword ""
-#define cszHostname ""
-#define cszOpenWeatherAPIKey ""
-#define cszLocation ""
-#define bLocationIsZip false
-#define cszCountryCode ""
-#define cszTimeZone ""
+#if !__has_include("secrets.h")
+#error Copy include/secrets.example.h to include/secrets.h, edit to taste, and retry. Please see README.md.
 #endif
 
+#include "secrets.h"
 
 #if !defined(cszSSID)
 #error A definition for cszSSID is missing from secrets.h
@@ -85,8 +75,15 @@
 #if !defined(cszTimeZone)
 #error A definition for cszTimeZone is missing from secrets.h
 #endif
-
-// #endif // ENABLE_WIFI
+#else
+#define cszHostname ""
+#define cszLocation ""
+#define bLocationIsZip false
+#define cszCountryCode ""
+#define cszTimeZone ""
+#define cszOpenWeatherAPIKey ""
+#define cszSSID ""
+#endif // ENABLE_WIFI
 
 // Define this to true to make the DeviceConfig ignore any JSON-persisted config that may be on the device.
 // Note that effect settings are not impacted by this setting. Their persisted config is part of the effects
@@ -145,8 +142,6 @@ class DeviceConfig : public IJSONSerializable
     std::vector<std::reference_wrapper<SettingSpec>> settingSpecReferences;
     size_t writerIndex;
 
-    static constexpr int _jsonSize = 1024;
-
     void SaveToJSON() const;
 
     template <typename T>
@@ -163,7 +158,7 @@ class DeviceConfig : public IJSONSerializable
     template <typename T>
     void SetIfPresentIn(const JsonObjectConst& jsonObject, T& target, const char *tag)
     {
-        if (jsonObject.containsKey(tag))
+        if (jsonObject[tag].is<T>())
             target = jsonObject[tag].as<T>();
     }
 
@@ -202,7 +197,7 @@ class DeviceConfig : public IJSONSerializable
 
     bool SerializeToJSON(JsonObject& jsonObject, bool includeSensitive)
     {
-        AllocatedJsonDocument jsonDoc(_jsonSize);
+        auto jsonDoc = CreateJsonDocument();
 
         // Add serialization logic for additional settings to this code
         jsonDoc[HostnameTag] = hostname;
@@ -227,9 +222,7 @@ class DeviceConfig : public IJSONSerializable
         if (includeSensitive)
             jsonDoc[OpenWeatherApiKeyTag] = openWeatherApiKey;
 
-        assert(!jsonDoc.overflowed());
-
-        return jsonObject.set(jsonDoc.as<JsonObjectConst>());
+        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
     bool DeserializeFromJSON(const JsonObjectConst& jsonObject) override
@@ -266,7 +259,7 @@ class DeviceConfig : public IJSONSerializable
         if (ntpServer.isEmpty())
             ntpServer = NTP_SERVER_DEFAULT;
 
-        if (jsonObject.containsKey(TimeZoneTag))
+        if (jsonObject[TimeZoneTag].is<String>())
             return SetTimeZone(jsonObject[TimeZoneTag], true);
 
         if (!skipWrite)

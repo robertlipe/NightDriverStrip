@@ -28,7 +28,6 @@
 #pragma once
 
 #include <utility>
-
 // Retire this test once Arduino3 fully lands.
 #include <esp_arduino_version.h>
 #if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
@@ -62,14 +61,21 @@
       NoCredentials
     };
 
+    enum WifiCredSource
+    {
+      ImprovCreds = 0,
+      CompileTimeCreds = 1
+    };
+
     void processRemoteDebugCmd();
 
     WiFiConnectResult ConnectToWiFi(const String& ssid, const String& password);
     WiFiConnectResult ConnectToWiFi(const String* ssid, const String* password);
     void UpdateNTPTime();
     void SetupOTA(const String & strHostname);
-    bool ReadWiFiConfig(String& WiFi_ssid, String& WiFi_password);
-    bool WriteWiFiConfig(const String& WiFi_ssid, const String& WiFi_password);
+    bool ReadWiFiConfig(WifiCredSource source, String& WiFi_ssid, String& WiFi_password);
+    bool WriteWiFiConfig(WifiCredSource source, const String& WiFi_ssid, const String& WiFi_password);
+    bool ClearWiFiConfig(WifiCredSource source);
 
     // Static Helpers
     //

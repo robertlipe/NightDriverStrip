@@ -56,38 +56,38 @@
 
 #include "Vector.h"
 #include "Boid.h"
+#include "ledstripeffect.h"
 
-// Description: This file defines the PatternBounce class, a subclass of LEDStripEffect. 
-//              The class creates a bouncing effect on an LED matrix, where multiple points 
+#if MATRIX_HEIGHT > 1
+
+// Description: This file defines the PatternBounce class, a subclass of LEDStripEffect.
+//              The class creates a bouncing effect on an LED matrix, where multiple points
 //              (referred to as 'boids') bounce off the bottom edge of the matrix.
 //
-//              The PatternBounce class uses the PVector class for representing the gravity 
-//              affecting the boids. Each boid's velocity and position are calculated based 
+//              The PatternBounce class uses the PVector class for representing the gravity
+//              affecting the boids. Each boid's velocity and position are calculated based
 //              on this gravity, and their interaction with the bottom edge of the LED matrix.
 //
-//              The Start() method initializes the boids with a vertical velocity and positions 
-//              them along the top edge of the matrix. Each boid is assigned a unique color from 
+//              The Start() method initializes the boids with a vertical velocity and positions
+//              them along the top edge of the matrix. Each boid is assigned a unique color from
 //              the current color palette.
 //
-//              The Draw() method updates the position of each boid based on its velocity and 
-//              gravity. When a boid hits the bottom edge of the matrix, its velocity is inverted, 
-//              creating a bouncing effect. The method also handles dimming and blurring of the 
+//              The Draw() method updates the position of each boid based on its velocity and
+//              gravity. When a boid hits the bottom edge of the matrix, its velocity is inverted,
+//              creating a bouncing effect. The method also handles dimming and blurring of the
 //              LEDs to enhance the visual effect.
 
-class PatternBounce : public LEDStripEffect
+class PatternBounce : public EffectWithId<PatternBounce>
 {
 private:
+
     static const int count = MATRIX_WIDTH;
     PVector gravity = PVector(0, 0.0125);
 
 public:
-    PatternBounce() : LEDStripEffect(EFFECT_MATRIX_BOUNCE, "Bounce")
-    {
-    }
 
-    PatternBounce(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternBounce() : EffectWithId<PatternBounce>("Bounce") {}
+    PatternBounce(const JsonObjectConst& jsonObject) : EffectWithId<PatternBounce>(jsonObject) {}
 
     bool RequiresDoubleBuffering() const override
     {
@@ -136,7 +136,7 @@ public:
 
             g()->_boids[i] = boid;
         }
-        
+
         // If the combined velocity of all the boids is less than 1.0, restart the animation.
         // The value of 1.0 is arbitrary, but it seems to work well.
 
@@ -144,5 +144,7 @@ public:
             Start();
     }
 };
+
+#endif // MATRIX_HEIGHT > 1
 
 #endif

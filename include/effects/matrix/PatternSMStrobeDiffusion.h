@@ -13,12 +13,13 @@
 // magic for blur2d().
 
 #if ENABLE_AUDIO
-class PatternSMStrobeDiffusion : public BeatEffectBase, public LEDStripEffect
+class PatternSMStrobeDiffusion : public BeatEffectBase, public EffectWithId<PatternSMStrobeDiffusion>
 #else
-class PatternSMStrobeDiffusion : public LEDStripEffect
+class PatternSMStrobeDiffusion : public EffectWithId<PatternSMStrobeDiffusion>
 #endif
 {
   private:
+
     uint8_t hue, hue2; // gradual hue shift or some other cyclic counter
     uint8_t step { 0 }; // some counter of frames or sequences of operations
     std::bitset<MATRIX_WIDTH * MATRIX_HEIGHT> noise3d[MATRIX_WIDTH * MATRIX_HEIGHT]; // Locations of snowflakes.
@@ -34,21 +35,22 @@ class PatternSMStrobeDiffusion : public LEDStripEffect
 #endif
 
   public:
+
     PatternSMStrobeDiffusion()
-        :
+      :
 #if ENABLE_AUDIO
-          BeatEffectBase(1.50, 0.05),
+        BeatEffectBase(1.50, 0.05),
 #endif
-          LEDStripEffect(EFFECT_MATRIX_SMSTROBE_DIFFUSION, "Diffusion")
+        EffectWithId<PatternSMStrobeDiffusion>("Diffusion")
     {
     }
 
     PatternSMStrobeDiffusion(const JsonObjectConst &jsonObject)
-        :
+      :
 #if ENABLE_AUDIO
-          BeatEffectBase(1.50, 0.05),
+        BeatEffectBase(1.50, 0.05),
 #endif
-          LEDStripEffect(jsonObject)
+        EffectWithId<PatternSMStrobeDiffusion>(jsonObject)
     {
     }
 
@@ -96,13 +98,6 @@ class PatternSMStrobeDiffusion : public LEDStripEffect
             // randomly fill in the top row
             noise3d[x][top_line_offset] = (posX == x) && (step % 3 == 0);
         }
-    }
-
-    // функция получения цвета пикселя в матрице по его координатам
-    [[nodiscard]] CRGB getPixColorXY(uint8_t x, uint8_t y) const
-    {
-        // Just don't think about what this does to prefetch and prediction...
-        return g()->leds[XY(x, y)];
     }
 
     void Draw() override
@@ -190,11 +185,11 @@ class PatternSMStrobeDiffusion : public LEDStripEffect
             {
                 if (dir)
                 { // <==
-                    g()->drawPixel(x, y * 3 + DELTA, getPixColorXY(x, y * 3 + DELTA));
+                    g()->drawPixel(x, y * 3 + DELTA, g()->getPixel(x, y * 3 + DELTA));
                 }
                 else
                 { // ==>
-                    g()->drawPixel(MATRIX_WIDTH - x, y * 3 + DELTA, getPixColorXY(MATRIX_WIDTH - x, y * 3 + DELTA));
+                    g()->drawPixel(MATRIX_WIDTH - x, y * 3 + DELTA, g()->getPixel(MATRIX_WIDTH - x, y * 3 + DELTA));
                 }
             }
             dir = !dir;

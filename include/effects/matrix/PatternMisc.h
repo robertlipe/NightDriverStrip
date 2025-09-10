@@ -58,17 +58,12 @@
 
 #include "Geometry.h"
 
-class PatternSunburst : public LEDStripEffect
+class PatternSunburst : public EffectWithId<PatternSunburst>
 {
   public:
 
-    PatternSunburst() : LEDStripEffect(EFFECT_MATRIX_SUNBURST, "Sunburst")
-    {
-    }
-
-    PatternSunburst(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternSunburst() : EffectWithId<PatternSunburst>("Sunburst") {}
+    PatternSunburst(const JsonObjectConst& jsonObject) : EffectWithId<PatternSunburst>(jsonObject) {}
 
     virtual size_t DesiredFramesPerSecond() const override
     {
@@ -99,17 +94,12 @@ class PatternSunburst : public LEDStripEffect
     }
 };
 
-class PatternRose : public LEDStripEffect
+class PatternRose : public EffectWithId<PatternRose>
 {
   public:
 
-    PatternRose() : LEDStripEffect(EFFECT_MATRIX_ROSE, "Rose")
-    {
-    }
-
-    PatternRose(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternRose() : EffectWithId<PatternRose>("Rose") {}
+    PatternRose(const JsonObjectConst& jsonObject) : EffectWithId<PatternRose>(jsonObject) {}
 
     virtual size_t DesiredFramesPerSecond() const override
     {
@@ -153,17 +143,13 @@ class PatternRose : public LEDStripEffect
     }
 };
 
-class PatternPinwheel : public LEDStripEffect
+class PatternPinwheel : public EffectWithId<PatternPinwheel>
 {
   public:
 
-    PatternPinwheel() : LEDStripEffect(EFFECT_MATRIX_PINWHEEL, "Pinwheel")
-    {
-    }
+    PatternPinwheel() : EffectWithId<PatternPinwheel>("Pinwheel") {}
 
-    PatternPinwheel(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternPinwheel(const JsonObjectConst& jsonObject) : EffectWithId<PatternPinwheel>(jsonObject) {}
 
     void Start() override
     {
@@ -197,17 +183,12 @@ class PatternPinwheel : public LEDStripEffect
     }
 };
 
-class PatternInfinity : public LEDStripEffect
+class PatternInfinity : public EffectWithId<PatternInfinity>
 {
 public:
 
-    PatternInfinity() : LEDStripEffect(EFFECT_MATRIX_INFINITY, "Infinity")
-    {
-    }
-
-    PatternInfinity(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternInfinity() : EffectWithId<PatternInfinity>("Infinity") {}
+    PatternInfinity(const JsonObjectConst& jsonObject) : EffectWithId<PatternInfinity>(jsonObject) {}
 
     virtual size_t DesiredFramesPerSecond() const override
     {
@@ -257,22 +238,19 @@ public:
 };
 
 
-class PatternMunch : public LEDStripEffect
+class PatternMunch : public EffectWithId<PatternMunch>
 {
 private:
+
     uint8_t count = 0;
     uint8_t dir = 1;
     uint8_t flip = 0;
     uint8_t generation = 0;
 
 public:
-    PatternMunch() : LEDStripEffect(EFFECT_MATRIX_MUNCH, "Munch")
-    {
-    }
 
-    PatternMunch(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternMunch() : EffectWithId<PatternMunch>("Munch") {}
+    PatternMunch(const JsonObjectConst& jsonObject) : EffectWithId<PatternMunch>(jsonObject) {}
 
     virtual size_t DesiredFramesPerSecond() const override
     {

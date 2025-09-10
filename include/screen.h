@@ -35,10 +35,40 @@
 
 #include <mutex>
 #include "gfxbase.h"
+#include <string>
+#include <vector>
+#include <memory>
+#if defined(TOGGLE_BUTTON_0) || defined(TOGGLE_BUTTON_1)
+    #include "Bounce2.h"
+#endif
+
+class Screen; // forward declaration for Page interface
+
+// Page
+//
+// Abstract base for renderable pages on the small status screen.
+// Implement Draw to render the page into the provided Screen. Optional
+// hooks handle button presses and whether the page should pause effect
+// rotation while visible.
+
+class Page
+{
+  public:
+    virtual ~Page() = default;
+
+    // Human-readable name (for diagnostics)
+    virtual std::string Name() const { return std::string("Page"); }
+
+    // Render this page. bRedraw indicates a full redraw is requested.
+    virtual void Draw(Screen& display, bool bRedraw) = 0;
+
+    // Optional button hook. Default behavior is provided in screen.cpp.
+    virtual void OnButtonPress(uint8_t buttonIndex);
+};
 
 class Screen : public GFXBase
 {
-public:
+  public:
     static DRAM_ATTR std::mutex _screenMutex;
 
     Screen(int w, int h) : GFXBase(w, h)
@@ -55,16 +85,22 @@ public:
     {
     }
 
+    // Display capabilities and theme colors
+    // Default: color display with a blue theme and white/yellow accents.
+    virtual bool IsMonochrome() const { return false; }
+    virtual uint16_t GetTextColor() const { return WHITE16; }
+    virtual uint16_t GetBkgndColor() const { return BLUE16; }
+    virtual uint16_t GetBorderColor() const { return YELLOW16; }
+
     // Define the drawable area for the spectrum to render into the status area
 
     const int BottomMargin = 12;
 
     virtual void ScreenStatus(const String &strStatus)
     {
-        fillScreen(BLACK16);
-        //setFont();
+        fillScreen(GetBkgndColor());
         setTextSize(1);
-        setTextColor(0xFBE0, BLACK16);
+        setTextColor(GetTextColor(), GetBkgndColor());
         auto xh = 10;
         auto yh = 0;
         setCursor(xh, yh);
@@ -106,6 +142,28 @@ public:
         getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
         return w;
     }
+
+    // Render the current page into this screen.
+    void Update(bool bRedraw);
+
+    // Run the screen update loop (button handling + periodic redraw)
+    void RunUpdateLoop();
+
+    // Flip to the next page and handle effect-rotation pause/resume semantics.
+    // Safe to call from button handlers.
+    static void FlipToNextPage();
+
+  private:
+    // Page registry and page count helpers
+    static std::vector<std::unique_ptr<class Page>>& Pages();
+    static int ActivePageCount();
+
+    #if defined(TOGGLE_BUTTON_0)
+        Bounce2::Button _button0;
+    #endif
+    #if defined(TOGGLE_BUTTON_1)
+        Bounce2::Button _button1;
+    #endif
 };
 
 // Class specializations of the Screen class for various display types can implement hardware-specific versions of functions
@@ -296,6 +354,12 @@ public:
             lv_canvas_fill_bg(canvas, lv_color, LV_OPA_COVER);
         }
 
+    // AMOLED is a full color panel but we want a different default theme
+    virtual bool IsMonochrome() const override { return false; }
+    virtual uint16_t GetTextColor() const override { return Screen::to16bit(CRGB(100, 255, 20)); }
+    virtual uint16_t GetBkgndColor() const override { return Screen::to16bit(CRGB::Black); }
+    virtual uint16_t GetBorderColor() const override { return Screen::to16bit(CRGB::Red); }
+
     };
 #endif
 
@@ -343,6 +407,12 @@ public:
         {
             oled.clearDisplay();
         }
+
+    // Monochrome OLED defaults
+    virtual bool IsMonochrome() const override { return true; }
+    virtual uint16_t GetTextColor() const override { return WHITE16; }
+    virtual uint16_t GetBkgndColor() const override { return BLACK16; }
+    virtual uint16_t GetBorderColor() const override { return WHITE16; }
     };
 #endif
 
@@ -390,6 +460,12 @@ public:
         {
             Heltec.display->clear();
         }
+
+    // Monochrome OLED defaults
+    virtual bool IsMonochrome() const override { return true; }
+    virtual uint16_t GetTextColor() const override { return WHITE16; }
+    virtual uint16_t GetBkgndColor() const override { return BLACK16; }
+    virtual uint16_t GetBorderColor() const override { return WHITE16; }
     };
 #endif
 

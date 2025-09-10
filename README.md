@@ -193,6 +193,7 @@ Note: Some defines are board specific, this is noted below.
 | TIME_BEFORE_LOCAL     | How many seconds before the lamp times out and shows local content |
 | ENABLE_NTP            | Set the clock from the web                                         |
 | ENABLE_OTA            | Accept over the air flash updates                                  |
+| COLORDATA_SERVER_ENABLED | Turn on the internal color data server; allows TCP clients to receive updates on what's being displayed on the LEDs that the device is driving. |
 
 | Hardware Specific | Description                                         | Supported Boards             |
 | ----------------- | --------------------------------------------------- | ---------------------------- |
@@ -203,13 +204,23 @@ Note: Some defines are board specific, this is noted below.
 | ENABLE_AUDIO      | Listen for audio from the microphone and process it | M5Stick-C and M5Stick-C Plus |
 | ENABLE_REMOTE     | IR Remote Control                                   | Requires IR Hardware         |
 
-example in platformio.ini (prefix the flags with `-D`, e.g. `ENABLE_WIFI=1` becomes `-DENABLE_WIFI=1`)
+<!-- markdownlint-disable MD033 -->
+The webserver, which can be enabled using ENABLE_WEBSERVER as indicated, comes with a number of capabilities that can themselves be enabled or disabled individually. Each of them comes with a default enabled state that depends on the values of other defines. The defaults can be overridden by setting the defines explicitly. Do note that enabling a feature is only sensible if its prerequisites are met - those are the conditions that enable the feature by default.<br>The following table discusses this.
+<!-- markdownlint-enable MD033 -->
+
+| Webserver feature | Description | Enabled by default if... |
+| - | - | - |
+| ENABLE_WEB_UI | Enable the on-board web UI | ENABLE_WEBSERVER is 1 |
+| COLORDATA_WEB_SOCKET_ENABLED | Enable the WebSocket for sending color data to connected web UI clients (browsers); required for the effect preview feature of the web UI | ENABLE_WIFI is 1 and ENABLE_WEBSERVER is 1 and COLORDATA_SERVER_ENABLED is 1 |
+| EFFECTS_WEB_SOCKET_ENABLED | Enable the WebSocket for pushing updates to connected web UI clients (browsers) about effects, both activation state and configuration. | ENABLE_WIFI is 1 and ENABLE_WEBSERVER is 1 |
+
+Example in platformio.ini (prefix the flags with `-D`, e.g. `ENABLE_WIFI=1` becomes `-DENABLE_WIFI=1`):
 
 ```INI
 build_flags = -DENABLE_WIFI=1
 ```
 
-example in globals.h:
+Example in globals.h:
 
 ```C++
 #define ENABLE_WIFI 1
@@ -219,8 +230,8 @@ example in globals.h:
 
 To add new effects, you:
 
-1. Derive from `LEDStripEffect` (or an existing effect class) and the good stuff happens in the only important function, `Draw()`.
-Check out what the built in effects do, but in short you're basically drawing into an array of CRGB objects that each represent a 24-bit color triplet. Once you're done, the CRGB array is sent to the LEDs and you are asked for the next frame immediately. Your draw method should take somewhere around 30ms, ideally, and should `delay()` to sleep for the balance if it's quicker. You **can** draw repeatedly basically in a busy loop, but its not needed.
+1. Derive from `EffectWithId` (or an existing effect class) and the good stuff happens in the only important function, `Draw()`.
+Check out what the built-in effects do, but in short you're basically drawing into an array of CRGB objects that each represent a 24-bit color triplet. Once you're done, the CRGB array is sent to the LEDs and you are asked for the next frame immediately. Your draw method should take somewhere around 30ms, ideally, and should `delay()` to sleep for the balance if it's quicker. You **can** draw repeatedly basically in a busy loop, but its not needed.
 2. Add an effect number `#define` for your effect class to `effects.h`. Each effect class needs only one effect number, and please make sure the number you choose is not already used by another effect class! More information about the link between an effect class and its associated effect number can be found in `effects.h`.
 3. Add your class to the effect list created in the `LoadEffectFactories()` function in `effects.cpp` (under your build configuration section, like `DEMO`). The `ADD_EFFECT()` macro expects the effect number and type name of your new effect as parameters. Any additional parameters are passed to the effect's constructor when it's created.
 
@@ -247,19 +258,11 @@ to pio or in a menu option inside the PlatformIO IDE/VS Code.
 
 The effects table is persisted to a JSON file on SPIFFS at regular intervals, to retain the state of effects (and in fact the whole effect list) across reboots. This is largely in preparation for future updates to NightDriverStrip, where the composition of the effect list configuration of individual effects can be changed using the device web application. The API endpoints to facilitate this are already available and ready for use (see [Device web UI and API](#device-web-ui-and-api), below.)
 
-This makes that an override of `SerializeToJSON()` and a corresponding deserializing constructor must be provided for effects that need (or want) to persist more than the properties that are (de)serialized from/to JSON by `LEDStripEffect` by default.
+This makes that an override of `SerializeToJSON()` and a corresponding deserializing constructor must be provided for effects that need (or want) to persist more than the properties that are (de)serialized from/to JSON by `EffectWithId` (which derives from `LEDStripEffect`) by default.
 
-Throughout the project, the library used for JSON handling and (de)serialization is [ArduinoJson](https://arduinojson.org/). Among others, this means that:
+Throughout the project, the library used for JSON handling and (de)serialization is [ArduinoJson](https://arduinojson.org/). Among others, this means that `SerializeToJSON()` functions _must_ return `true` _except_ when an ArduinoJson function (like `JsonObject::set()`) returns `false` to indicate it ran out of buffer memory.
 
-- in line with the convention in ArduinoJson, `SerializeToJSON()` functions _must_ return `true` _except_ when an ArduinoJson function (like `JsonObject::set()`) returns `false` to indicate it ran out of buffer memory. Any `SerializeToJSON()` function returning `false` will trigger an increase in the overall serialization buffer and a restart of the serialization process.
-- the memory required for an individual class instance's (de)serialization operation needs to be reserved _beforehand_, by creating either:
-
-  - a `StaticJsonDocument<`_buffer size_`>()` that reserves memory on the stack. This can be used for small buffer sizes (smaller than 1024 bytes) only.
-  - an `AllocatedJsonDocument(`_buffer size_`)` that reserves memory on the heap.
-
-  How much memory is actually required depends on the number, type and contents of the (de)serialized properties, and is effectively a bit of a guessing game - which means the values you'll see throughout the codebase are educated guesses as well. When properties that are serialized last fail to show up in the JSON that is generated, it is reasonable to assume the serialization process ran out of buffer memory and that buffer memory thus needs to be increased.
-
-To get a better understanding of the specifics related to JSON (de)serialization, you could consider taking a look at the respective tutorials in the ["First contact" section](https://arduinojson.org/v6/doc/#first-contact) of the ArduinoJson documentation.
+To get a better understanding of the specifics related to JSON (de)serialization, you could consider taking a look at the respective tutorials in the ["First contact" section](https://arduinojson.org/v7/doc/#first-contact) of the ArduinoJson documentation.
 
 ## Resetting the effect list
 
