@@ -53,19 +53,20 @@
       Webserver  = 80
     };
 
+    // Despite the name, outside of ENABLE_WIFI for CompileTime and Improv.
+    enum WifiCredSource
+    {
+      ImprovCreds = 0,
+      CompileTimeCreds = 1,
+      CaptivePortal = 2
+    };
+
 #if ENABLE_WIFI
     enum class WiFiConnectResult
     {
       Connected,
       Disconnected,
       NoCredentials
-    };
-
-    enum WifiCredSource
-    {
-      ImprovCreds = 0,
-      CompileTimeCreds = 1,
-      CaptivePortal = 2
     };
 
     void ProcessRemoteDebugCmd();

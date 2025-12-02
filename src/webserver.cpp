@@ -29,6 +29,8 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
+
+#if ENABLE_WEBSERVER
 #include "webserver.h"
 
 #include <utility>
@@ -1055,3 +1057,4 @@ void CWebServer::HandleWifiSave(AsyncWebServerRequest *request)
         request->send(400, "text/plain", "SSID cannot be empty.");
     }
 }
+#endif //  ENABLE_WEBSERVER

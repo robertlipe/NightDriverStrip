@@ -97,7 +97,7 @@ bool expectStaConnection(const char* ssid, const char* password, uint32_t timeou
         }
         delay(reportInterval);
     }
-    
+
     // After the loop, check if the expected status was reached during polling
     if (expectedStatusReached) {
         debugI("TEST: STA connection to '%s' successful with expected status '%d'. Final status: %d (%s)", ssid, expectedStatus, WiFi.status(), WLtoString(WiFi.status()));
@@ -135,7 +135,7 @@ bool expectAPMode(uint32_t timeoutMs) {
         }
         delay(reportInterval);
     }
-    
+
     if (apModeActive) {
         debugI("TEST: AP mode active. SSID: %s", WiFi.softAPSSID().c_str());
     } else {
@@ -222,7 +222,7 @@ void WiFiTestLoopEntry(void* pvParameters) {
     debugI("Starting WiFi Test Loop Task.");
 
     // Give some time for system to fully initialize
-    delay(TEST_BOOT_STABILIZE_MS); 
+    delay(TEST_BOOT_STABILIZE_MS);
 
     backupWiFiCredentials();
 
@@ -253,11 +253,11 @@ void WiFiTestLoopEntry(void* pvParameters) {
                     clearAllWiFiCredentials();
                     stepPassed = true; // Clear credentials always passes unless NVS fails
                     break;
-                
+
                 case WiFiTestCommand::EXPECT_STA_CONNECTION:
                     stepPassed = expectStaConnection(step.ssid, step.password, step.timeoutMs, step.expectedStatus);
                     break;
-                
+
                 case WiFiTestCommand::EXPECT_AP_MODE:
                     stepPassed = expectAPMode(step.timeoutMs);
                     // After expecting AP mode, make sure to kick the webserver to start it
@@ -289,7 +289,7 @@ void WiFiTestLoopEntry(void* pvParameters) {
                     debugI("TEST: Requesting device reboot for next test phase.");
                     // This will restart the system, so the next loop iteration won't happen.
                     // The next test phase would start after reboot.
-                    ESP.restart(); 
+                    ESP.restart();
                     break;
 
                 default:
@@ -318,7 +318,7 @@ void WiFiTestLoopEntry(void* pvParameters) {
     }
 
     debugI("===== All WiFi Tests Completed: %u PASSED, %u FAILED of %u =====", passedCases, failedCases, g_numWiFiTestCases);
-    
+
     restoreWiFiCredentials();
 
     debugI("TEST: Starting main network loop to connect with restored credentials or run captive portal.");

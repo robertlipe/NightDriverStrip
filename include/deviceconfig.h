@@ -581,8 +581,6 @@ class DeviceConfig : public IJSONSerializable
         SetAndSave(applyGlobalColors, true);
     }
 
-
-
     void ClearApplyGlobalColors()
     {
         SetAndSave(applyGlobalColors, false);
