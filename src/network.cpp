@@ -28,18 +28,24 @@
 //
 //---------------------------------------------------------------------------
 
-#include <ArduinoOTA.h>             // Over-the-air helper object so we can be flashed via WiFi
+#include <algorithm>
+#include <atomic>
+
+#include <ArduinoOTA.h>
+#include <DNSServer.h>
 #include <ESPmDNS.h>
 #include <nvs.h>
-#include <algorithm>
 
 #include "globals.h"
-#include "ledviewer.h"                          // For the LEDViewer task and object
+#include "ledviewer.h" // For the LEDViewer task and object
 #include "network.h"
-#include "systemcontainer.h"
 #include "soundanalyzer.h"
+#include "systemcontainer.h"
+#include "wifi_test_config.h"
+#include "network_config.h"
 
 extern DRAM_ATTR std::mutex g_buffer_mutex;
+static std::atomic<bool> servicesStarted = false;
 
 static DRAM_ATTR WiFiUDP l_Udp;              // UDP object used for NNTP, etc
 
@@ -71,7 +77,7 @@ public:
     {
     }
 
-    constexpr Message()
+    constexpr Message() 
         : cbSize(sizeof(Message)), command(ESPNowCommand::ESPNOW_INVALID), arg1(0)
     {
     }
@@ -133,13 +139,36 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
 
 #endif
 
+#if ENABLE_WIFI
+void StartCaptivePortal()
+{
+    if (g_ptrSystem->WebServer().IsCaptivePortalActive())
+    {
+        return;
+    }
+    g_ptrSystem->WebServer().SetCaptivePortalActive(true);
+    servicesStarted = false; // Reset servicesStarted when entering captive portal
+
+    debugI("Stopping WiFi station mode to start Captive Portal.");
+    // Use the robust function to set AP mode
+    if (!SetWiFiMode(WIFI_AP))
+    {
+        debugE("Failed to robustly set WiFi mode to WIFI_AP for Captive Portal.");
+        g_ptrSystem->WebServer().SetCaptivePortalActive(false);
+        return; // Early exit if we can't get into AP mode
+    }
+
+    g_ptrSystem->WebServer().Begin(true);
+}
+#endif // ENABLE_WIFI
+
 // processRemoteDebugCmd
 //
 // Callback function that the debug library (which exposes a little console over telnet and serial) calls
 // in order to allow us to add custom commands.  I've added a clock reset and stats command, for example.
 
 #if ENABLE_WIFI
-    void processRemoteDebugCmd()
+    void ProcessRemoteDebugCmd()
     {
         String str = Debug.getLastCommand();
         if (str.equalsIgnoreCase("clock"))
@@ -167,13 +196,139 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
         }
         else if (str.equalsIgnoreCase("clearsettings"))
         {
-            debugA("Removing persisted settings....");
+            debugA("Removing persisted settings and rebooting to clear WiFi state....");
             g_ptrSystem->DeviceConfig().RemovePersisted();
             RemoveEffectManagerConfig();
+            ClearWiFiConfig(WifiCredSource::CompileTimeCreds);
+            ClearWiFiConfig(WifiCredSource::ImprovCreds);
+            ClearWiFiConfig(WifiCredSource::CaptivePortal);
+            // Explicitly de-initialize WiFi and force a reboot to ensure a clean state
+            WiFi.mode(WIFI_OFF);
+            WiFi.disconnect(true, true); // Disconnect and erase all credentials (if any remain)
+            delay(100); // Give time for operations to complete
+            ESP.restart(); // Force a hard reset to clear all state
         }
         else if (str.equalsIgnoreCase("uptime"))
         {
              NTPTimeClient::ShowUptime();
+        }
+        else if (str.equalsIgnoreCase("showWificreds"))
+        {
+            debugA("--- WiFi Credentials in NVS ---");
+
+            struct WifiCredSourceInfo {
+                WifiCredSource source;
+                const char* label;
+            };
+
+            static const WifiCredSourceInfo credSources[] = {
+                { WifiCredSource::CaptivePortal, "CaptivePortal" },
+                { WifiCredSource::ImprovCreds, "ImprovCreds" },
+                { WifiCredSource::CompileTimeCreds, "Persisted CompileTimeCreds" }
+            };
+
+            String ssid, password;
+            bool persistedCompileTimeCreds = false;
+
+            for (const auto& sourceInfo : credSources)
+            {
+                if (ReadWiFiConfig(sourceInfo.source, ssid, password))
+                {
+                    debugA("%s SSID: \"%s\"", sourceInfo.label, ssid.c_str());
+                    if (sourceInfo.source == WifiCredSource::CompileTimeCreds)
+                    {
+                        persistedCompileTimeCreds = true;
+                    }
+                }
+                else
+                {
+                    debugA("%s: No credentials found.", sourceInfo.label);
+                }
+            }
+
+            if (!persistedCompileTimeCreds)
+            {
+                 debugA("Using compiled-in SSID: \"%s\"", cszSSID);
+            }
+
+            debugA("-----------------------------");
+        }
+        else if (str.equalsIgnoreCase("reboot"))
+        {
+            debugA("Reboot command received via Telnet. Requesting restart...");
+            g_ptrSystem->WebServer().RequestReboot(0);
+        }
+        else if (str.equalsIgnoreCase("showWiFiState"))
+        {
+            uint32_t timeout = g_ptrSystem->DeviceConfig().GetPortalTimeoutSeconds();
+            if (timeout == 0)
+            {
+                debugA("WiFi Mode: AUTO");
+            }
+            else
+            {
+                debugA("WiFi Mode: Fixed timeout of %u seconds", timeout);
+            }
+        }
+        else {
+            str.toLowerCase();
+            if (str.startsWith("forcewifistate"))
+        {
+            struct WiFiStateMap
+            {
+                const char* name;
+                uint32_t timeout;
+            };
+
+            static const WiFiStateMap stateMap[] = {
+                { "auto", 0 },
+                { "patient", 900 },
+                { "impatient", 30 }
+            };
+
+            int spaceIndex = str.indexOf(' ');
+            if (spaceIndex != -1)
+            {
+                String mode = str.substring(spaceIndex + 1);
+                mode.trim();
+                bool found = false;
+                for (const auto& entry : stateMap)
+                {
+                    if (mode.equalsIgnoreCase(entry.name))
+                    {
+                        g_ptrSystem->DeviceConfig().SetPortalTimeoutSeconds(entry.timeout);
+                        debugA("WiFi Mode set to %s (%us)", entry.name, entry.timeout);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    // If not a named mode, treat it as a raw number
+                    uint32_t timeout = mode.toInt();
+                    g_ptrSystem->DeviceConfig().SetPortalTimeoutSeconds(timeout);
+                    debugA("WiFi Mode set to fixed timeout of %u seconds", timeout);
+                }
+            }
+            else
+            {
+                String help = "Usage: forceWiFiState <";
+                for (size_t i = 0; i < std::size(stateMap); ++i)
+                {
+                    help += stateMap[i].name;
+                    if (i < std::size(stateMap) - 1)
+                    {
+                        help += "|";
+                    }
+                }
+                help += "|seconds>";
+                debugA("%s", help.c_str());
+            }
+        }
+        else if (str.equalsIgnoreCase("startPortal"))
+        {
+            debugA("Forcing captive portal to start...");
+            StartCaptivePortal();
         }
         else
         {
@@ -182,7 +337,13 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
             debugA("stats               Display buffers, memory, etc");
             debugA("clearsettings       Reset persisted user settings");
             debugA("uptime              Show system uptime, reset reason");
+            debugA("reboot              Reboot the device");
+            debugA("showWificreds       Show stored WiFi credentials");
+            debugA("showWiFiState       Show current WiFi connection behavior");
+            debugA("forceWiFiState ...  Set WiFi behavior (run command for options)");
+            debugA("startPortal         Immediately start the captive portal");
         }
+    }
     }
 #endif
 
@@ -302,130 +463,101 @@ void IRAM_ATTR RemoteLoopEntry(void *)
 
     #define WIFI_WAIT_BASE      4000    // Initial time to wait for WiFi to come up, in ms
     #define WIFI_WAIT_INCREASE  1000    // Increase of WiFi waiting time per cycle, in ms
-    #define WIFI_WAIT_MAX       60000   // Maximum gap between retries, in ms
+    #define WIFI_WAIT_MAX       10000   // Maximum gap between retries, in ms
 
     #define WIFI_WAIT_INIT      (WIFI_WAIT_BASE - WIFI_WAIT_INCREASE)
 
-    // ConnectToWiFi
-    //
-    // Try to connect to WiFi using the SSID and password passed as arguments
-    WiFiConnectResult ConnectToWiFi(const String& ssid, const String& password)
+    static std::atomic<bool> g_isConnecting = false;
+
+    // A retained copy of the credentials last used to start a connection.
+    // Used to detect if we need to start a new connection attempt because
+    // the credentials have changed.
+    static String g_lastConnectedSsid;
+    static String g_lastConnectedPassword;
+
+
+    WiFiConnectResult LoadAndConnectToWiFiWithPriority()
     {
-        return ConnectToWiFi(&ssid, &password);
-    }
-
-    // ConnectToWiFi
-    //
-    // Try to connect to WiFi using either the SSID and password pointed to by arguments, or the credentials
-    // that were saved from an earlier call if no/nullptr arguments are passed.
-    WiFiConnectResult ConnectToWiFi(const String* ssid = nullptr, const String* password = nullptr)
-    {
-        static bool bPreviousConnection = false;
-        static unsigned long millisAtLastAttempt = 0;
-        static unsigned long retryDelay = WIFI_WAIT_INIT;
-        static String WiFi_ssid;
-        static String WiFi_password;
-
-        bool haveNewCredentials = (ssid != nullptr && password != nullptr && (WiFi_ssid != *ssid || WiFi_password != *password));
-
-        // If we have new credentials then always reconnect using them
-        if (haveNewCredentials)
+        if (WiFi.isConnected())
         {
-            WiFi_ssid = *ssid;
-            WiFi_password = *password;
-            retryDelay = WIFI_WAIT_INIT;
-            debugI("WiFi credentials passed for SSID \"%s\"", WiFi_ssid.c_str());
-        }
-        // If we're already connected and services are running then go no further
-        else if (bPreviousConnection && WiFi.isConnected())
-        {
+            g_isConnecting = false;
             return WiFiConnectResult::Connected;
         }
 
-        // (Re)connect if credentials have changed, or our last attempt was long enough ago
-        if (haveNewCredentials || millisAtLastAttempt == 0 || millis() - millisAtLastAttempt >= retryDelay)
-        {
-            millisAtLastAttempt = millis();
-            retryDelay = std::min<unsigned long>(retryDelay + WIFI_WAIT_INCREASE, WIFI_WAIT_MAX);
+        String current_ssid;
+        String current_password;
+        bool creds_loaded = false;
 
-            if (WiFi_ssid.length() == 0)
+        // Priority 1: Captive Portal credentials
+        if (ReadWiFiConfig(WifiCredSource::CaptivePortal, current_ssid, current_password))
+        {
+            debugI("Using Captive Portal credentials for connection attempt.");
+            creds_loaded = true;
+        }
+        // Priority 2: Improv credentials
+        else if (ReadWiFiConfig(WifiCredSource::ImprovCreds, current_ssid, current_password))
+        {
+            debugI("Using Improv credentials for connection attempt.");
+            creds_loaded = true;
+        }
+        // Priority 3: Compile-time credentials
+        else if (cszSSID && strlen(cszSSID) > 0 && cszPassword && strlen(cszPassword) > 0)
+        {
+            debugI("Using compile-time credentials for connection attempt.");
+            current_ssid = cszSSID;
+            current_password = cszPassword;
+            creds_loaded = true;
+        }
+        else
+        {
+            debugE("No WiFi credentials found. Cannot connect.");
+            return WiFiConnectResult::NoCredentials;
+        }
+
+        // Check if we need to start a new connection attempt.
+        // A new attempt is started if we are not currently trying to connect,
+        // or if the credentials have changed since the last attempt.
+        bool newCredentials = (current_ssid != g_lastConnectedSsid || current_password != g_lastConnectedPassword);
+        if (!g_isConnecting || newCredentials)
+        {
+            debugI("Starting a new WiFi connection process.");
+            if (newCredentials)
             {
-                debugW("WiFi credentials not set, cannot connect.");
-                return WiFiConnectResult::NoCredentials;
+                debugI("Credentials have changed. Old: '%s', New: '%s'", g_lastConnectedSsid.c_str(), current_ssid.c_str());
+            }
+
+            g_lastConnectedSsid = current_ssid;
+            g_lastConnectedPassword = current_password;
+
+            auto hostname = g_ptrSystem->DeviceConfig().GetHostname().c_str();
+            if (hostname[0] != '\0')
+            {
+                debugI("Setting host name to %s...", hostname);
+                WiFi.setHostname(hostname);
+            }
+
+            // Set the mode to STA. This is a "heavy" operation, so we only
+            // do it when starting a new connection cycle.
+            if (SetWiFiMode(WIFI_STA))
+            {
+                debugW("Attempting to connect to SSID: \"%s\"", current_ssid.c_str());
+                WiFi.begin(current_ssid.c_str(), current_password.c_str());
+                g_isConnecting = true; // We have now started the connection process.
             }
             else
             {
-                auto hostname = g_ptrSystem->DeviceConfig().GetHostname().c_str();
-
-                if (hostname[0] == '\0')
-                {
-                    debugI("No hostname configured, so skipping setting it.");
-                }
-                else
-                {
-                    debugI("Setting host name to %s...", hostname);
-                    WiFi.setHostname(hostname);
-                }
-
-                debugV("Wifi.disconnect");
-                WiFi.disconnect();
-                debugV("Wifi.mode");
-                WiFi.mode(WIFI_STA);
-                debugW("Connecting to Wifi SSID: \"%s\" - ESP32 Free Memory: %u, PSRAM:%u, PSRAM Free: %u\n",
-                       WiFi_ssid.c_str(), ESP.getFreeHeap(), ESP.getPsramSize(), ESP.getFreePsram());
-
-                WiFi.begin(WiFi_ssid.c_str(), WiFi_password.c_str());
-
-                debugV("Done Wifi.begin, waiting for connection...");
+                debugE("Failed to set WiFi mode to STA. Aborting connection attempt.");
+                // If we can't even set the mode, something is wrong.
+                // We'll return NoCredentials to prevent an endless loop of trying.
+                return WiFiConnectResult::NoCredentials;
             }
         }
-
-        if (WiFi.isConnected())
-        {
-            debugW("Connected to AP with BSSID: \"%s\", received IP: %s", WiFi.BSSIDstr().c_str(), WiFi.localIP().toString().c_str());
-        }
         else
-        // Additional services onwards are reliant on network so return if WiFi is not up (yet)
         {
-            debugW("Not yet connected to WiFi, waiting...");
-            return WiFiConnectResult::Disconnected;
+            debugW("Not yet connected to WiFi, waiting for background process to complete...");
         }
 
-        // If we were connected before, network-dependent services will have been started already
-        if (bPreviousConnection)
-            return WiFiConnectResult::Connected;
-
-        bPreviousConnection = true;
-
-        #if INCOMING_WIFI_ENABLED
-            auto& socketServer = g_ptrSystem->SocketServer();
-
-            // Start listening for incoming data
-            debugI("Starting/restarting Socket Server...");
-            socketServer.release();
-            if (false == socketServer.begin())
-                throw std::runtime_error("Could not start socket server!");
-
-            debugI("Socket server started.");
-        #endif
-
-        #if ENABLE_OTA
-            debugI("Publishing OTA...");
-            SetupOTA(String(WiFi.getHostname()));
-        #endif
-
-        #if ENABLE_NTP
-            debugI("Setting Clock...");
-            NTPTimeClient::UpdateClockFromWeb(&l_Udp);
-        #endif
-
-        #if ENABLE_WEBSERVER
-            debugI("Starting Web Server...");
-            g_ptrSystem->WebServer().begin();
-            debugI("Web Server begin called!");
-        #endif
-
-        return WiFiConnectResult::Connected;
+        return WiFiConnectResult::Disconnected;
     }
 
     #if ENABLE_NTP
@@ -724,6 +856,42 @@ void IRAM_ATTR RemoteLoopEntry(void *)
         return success;
     }
 
+    // SetWiFiModeRobustly
+    //
+    // Attempts to set the WiFi mode robustly by first disconnecting,
+    // applying a delay, setting the new mode, and then polling to
+    // confirm the mode change within a timeout.
+    bool SetWiFiMode(WiFiMode_t mode)
+    {
+        debugI("Attempting to set WiFi mode to %s", mode == WIFI_AP ? "WIFI_AP" : (mode == WIFI_STA ? "WIFI_STA" : "WIFI_OFF"));
+        
+        // Ensure previous STA connections and APs are down for a clean state before changing mode
+        WiFi.disconnect(true, true); 
+        WiFi.softAPdisconnect(true); // Explicitly disconnect from any existing AP
+        delay(200); // Give some time for disconnect to process
+
+        bool success = WiFi.mode(mode);
+        if (!success) {
+            debugE("Failed to set WiFi mode to %s", mode == WIFI_AP ? "WIFI_AP" : (mode == WIFI_STA ? "WIFI_STA" : "WIFI_OFF"));
+            return false;
+        }
+
+        // Wait for the mode to stabilize
+        unsigned long startTime = millis();
+        // Wait up to TEST_AP_STABILIZE_MS for the mode to change
+        while (WiFi.getMode() != mode && (millis() - startTime < TEST_AP_STABILIZE_MS)) { 
+            delay(50);
+        }
+
+        if (WiFi.getMode() != mode) {
+            debugW("WiFi mode did not stabilize to %s within timeout.", mode == WIFI_AP ? "WIFI_AP" : (mode == WIFI_STA ? "WIFI_STA" : "WIFI_OFF"));
+            return false;
+        }
+        debugI("Successfully set WiFi mode to %s", mode == WIFI_AP ? "WIFI_AP" : (mode == WIFI_STA ? "WIFI_STA" : "WIFI_OFF"));
+        delay(1000); // Another short delay after mode set for good measure
+        return true;
+    }
+
     // DebugLoopTaskEntry
     //
     // Entry point for the Debug task, pumps the Debug handler
@@ -739,7 +907,7 @@ void IRAM_ATTR RemoteLoopEntry(void *)
         Debug.setResetCmdEnabled(true);                         // Enable the reset command
         Debug.showProfiler(false);                              // Profiler (Good to measure times, to optimize codes)
         Debug.showColors(false);                                // Colors
-        Debug.setCallBackProjectCmds(&processRemoteDebugCmd);   // Func called to handle any debug extensions we add
+        Debug.setCallBackProjectCmds(&ProcessRemoteDebugCmd);   // Func called to handle any debug extensions we add
 
         while (!WiFi.isConnected())                             // Wait for wifi, no point otherwise
             delay(100);
@@ -761,7 +929,7 @@ void IRAM_ATTR RemoteLoopEntry(void *)
 
     void IRAM_ATTR SocketServerTaskEntry(void *)
     {
-        for (;;)
+        for (;;) 
         {
             if (WiFi.isConnected())
             {
@@ -868,9 +1036,11 @@ void IRAM_ATTR RemoteLoopEntry(void *)
     void IRAM_ATTR NetworkHandlingLoopEntry(void *)
     {
         static unsigned long millisAtLastConnected = millis();
+        static bool hasEverConnected = false;
 
         //debugI(">> NetworkHandlingLoopEntry\n");
-        if(!MDNS.begin("esp32")) {
+        if (!MDNS.begin("esp32"))
+        {
             Serial.println("Error starting mDNS");
         }
 
@@ -878,19 +1048,52 @@ void IRAM_ATTR RemoteLoopEntry(void *)
 
         for (;;)
         {
-            // Wait until we're woken up by a reader being flagged, or until we've reached the hold point
-            ulTaskNotifyTake(pdTRUE, notifyWait);
+            if (g_ptrSystem->WebServer().IsCaptivePortalActive())
+            {
+                g_ptrSystem->WebServer().ProcessDnsRequests();
+                delay(50);
+                continue;
+            }
 
-            // Every second we check WiFi, and reconnect if we've lost the connection. If we are unable to restart
-            // it for any reason, we reboot the chip in cases where its required, which we assume from WAIT_FOR_WIFI.
-
+            // This block handles WiFi connection and starting the captive portal.
+            // It should run every second regardless of connection state.
             EVERY_N_SECONDS(1)
             {
-                auto connectResult = ConnectToWiFi();
+                auto connectResult = LoadAndConnectToWiFiWithPriority();
 
                 if (connectResult == WiFiConnectResult::Connected)
                 {
                     millisAtLastConnected = millis();
+                    hasEverConnected = true;
+
+                    if (!servicesStarted)
+                    {
+                        #if INCOMING_WIFI_ENABLED
+                            auto& socketServer = g_ptrSystem->SocketServer();
+
+                            // Start listening for incoming data
+                            debugI("Starting/restarting Socket Server...");
+                            socketServer.release();
+                            if (false == socketServer.begin())
+                                throw std::runtime_error("Could not start socket server!");
+
+                            debugI("Socket server started.");
+                        #endif
+
+                        #if ENABLE_OTA
+                            debugI("Publishing OTA...");
+                            SetupOTA(String(WiFi.getHostname()));
+                        #endif
+
+                        #if ENABLE_NTP
+                            debugI("Setting Clock...");
+                            NTPTimeClient::UpdateClockFromWeb(&l_Udp);
+                        #endif
+
+                            debugI("Starting Web Server...");
+                            g_ptrSystem->WebServer().Begin();
+                        servicesStarted = true;
+                    }
 
                     #if WEB_SOCKETS_ANY_ENABLED
                         // It's recommended to clean up any stale web socket clients every second or so
@@ -900,85 +1103,101 @@ void IRAM_ATTR RemoteLoopEntry(void *)
                 else
                 {
                     debugV("Still waiting for WiFi to connect.");
-                    #if WAIT_FOR_WIFI
-                        // Reboot if we've been waiting for a connection for more than the maximum delay between
-                        // connection retries and we _do_ have credentials
-                        if (connectResult != WiFiConnectResult::NoCredentials && millis() - millisAtLastConnected > WIFI_WAIT_MAX)
-                        {
-                            debugE("Rebooting in 5 seconds due to no Wifi available.");
-                            delay(5000);
-                            throw new std::runtime_error("Rebooting due to no Wifi available.");
-                        }
-                    #endif
+
+                    unsigned long waitTime = millis() - millisAtLastConnected;
+                    uint32_t configuredTimeout = g_ptrSystem->DeviceConfig().GetPortalTimeoutSeconds();
+                    uint32_t actualTimeoutMs;
+
+                    wl_status_t currentWifiStatus = WiFi.status();
+
+                    if (connectResult == WiFiConnectResult::NoCredentials || !hasEverConnected || currentWifiStatus == WL_NO_SSID_AVAIL || currentWifiStatus == WL_CONNECT_FAILED)
+                    {
+                        actualTimeoutMs = AUTO_MODE_SHORT_TIMEOUT_SECONDS * 1000;
+                    }
+                    else if (configuredTimeout == 0) // AUTO mode
+                    {
+                        actualTimeoutMs = AUTO_MODE_LONG_TIMEOUT_SECONDS * 1000;
+                    }
+                    else
+                    { // Fixed timeout mode
+                        actualTimeoutMs = configuredTimeout * 1000;
+                    }
+
+                    debugI("WiFi wait time: %lu ms, timeout: %u ms", waitTime, actualTimeoutMs);
+                    if (actualTimeoutMs > 0 && waitTime > actualTimeoutMs)
+                    {
+                        StartCaptivePortal();
+                    }
                 }
             }
 
-            // If the reader container isn't available yet or WiFi isn't up yet, we'll sleep for a second before we check again
-            if (!g_ptrSystem->HasNetworkReader() || !WiFi.isConnected())
+            // This block handles the network readers and should only run when connected.
+            if (WiFi.isConnected() && g_ptrSystem->HasNetworkReader())
             {
-                notifyWait = pdMS_TO_TICKS(1000);
-                continue;
+                ulTaskNotifyTake(pdTRUE, notifyWait);
+                auto& networkReader = g_ptrSystem->NetworkReader();
+                unsigned long now = millis();
+
+                // Flag entries of which the read interval has passed
+                for (auto& entry : networkReader.readers)
+                {
+                    if (entry.canceled.load())
+                        continue;
+
+                    auto interval = entry.readInterval.load();
+                    unsigned long targetMs = entry.lastReadMs.load() + interval;
+
+                    // The last check captures cases where millis() returns bogus data; if the delta between now and lastReadMs is greater
+                    //   than the interval then something's up with our timekeeping, so we trigger the reader just to be sure
+                    if (interval && (targetMs <= now || (std::max(now, targetMs) - std::min(now, targetMs)) > interval))
+                        entry.flag.store(true);
+
+                    // Unset flag before we do the actual read. This makes that we don't miss another flag raise if it happens while reading
+                    if (entry.flag.exchange(false))
+                    {
+                        entry.reader();
+                        entry.lastReadMs.store(millis());
+                    }
+                }
+
+                // We wake up at least once every second
+                unsigned long holdMs = 1000;
+                now = millis();
+
+                // Calculate how long we can sleep. This is determined by the reader that is closest to its interval passing.
+                for (auto& entry : networkReader.readers)
+                {
+                    if (entry.canceled.load())
+                        continue;
+
+                    auto interval = entry.readInterval.load();
+                    auto lastReadMs = entry.lastReadMs.load();
+
+                    if (!interval)
+                        continue;
+
+                    // If one of the reader intervals passed then we're up for another read cycle right away, so we can stop looking further
+                    if (lastReadMs + interval <= now)
+                    {
+                        holdMs = 0;
+                        break;
+                    }
+                    else
+                    {
+                        unsigned long entryHoldMs = std::min(interval, interval - (now - lastReadMs));
+                        if (entryHoldMs < holdMs)
+                            holdMs = entryHoldMs;
+                    }
+                }
+                notifyWait = pdMS_TO_TICKS(holdMs);
             }
-
-            auto& networkReader = g_ptrSystem->NetworkReader();
-            unsigned long now = millis();
-
-            // Flag entries of which the read interval has passed
-            for (auto& entry : networkReader.readers)
+            else
             {
-                if (entry.canceled.load())
-                    continue;
-
-                auto interval = entry.readInterval.load();
-                unsigned long targetMs = entry.lastReadMs.load() + interval;
-
-                // The last check captures cases where millis() returns bogus data; if the delta between now and lastReadMs is greater
-                //   than the interval then something's up with our timekeeping, so we trigger the reader just to be sure
-                if (interval && (targetMs <= now || (std::max(now, targetMs) - std::min(now, targetMs)) > interval))
-                    entry.flag.store(true);
-
-                // Unset flag before we do the actual read. This makes that we don't miss another flag raise if it happens while reading
-                if (entry.flag.exchange(false))
-                {
-                    entry.reader();
-                    entry.lastReadMs.store(millis());
-                }
+                // If not connected, don't busy-wait.
+                delay(250);
             }
-
-            // We wake up at least once every second
-            unsigned long holdMs = 1000;
-            now = millis();
-
-            // Calculate how long we can sleep. This is determined by the reader that is closest to its interval passing.
-            for (auto& entry : networkReader.readers)
-            {
-                if (entry.canceled.load())
-                    continue;
-
-                auto interval = entry.readInterval.load();
-                auto lastReadMs = entry.lastReadMs.load();
-
-                if (!interval)
-                    continue;
-
-                // If one of the reader intervals passed then we're up for another read cycle right away, so we can stop looking further
-                if (lastReadMs + interval <= now)
-                {
-                    holdMs = 0;
-                    break;
-                }
-                else
-                {
-                    unsigned long entryHoldMs = std::min(interval, interval - (now - lastReadMs));
-                    if (entryHoldMs < holdMs)
-                        holdMs = entryHoldMs;
-                }
-            }
-
-            notifyWait = pdMS_TO_TICKS(holdMs);
         }
     }
-
     size_t NetworkReader::RegisterReader(const std::function<void()>& reader, unsigned long interval, bool flag)
     {
         // Add the reader with its flag unset

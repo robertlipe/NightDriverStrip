@@ -42,16 +42,20 @@
 #include "deviceconfig.h"
 #include "network.h"
 
+#include <atomic>
+#include <map>
+#include <memory>
+
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <AsyncJson.h>
 #include <AsyncTCP.h>
+#include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include <HTTPClient.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
-#include <map>
 
 class CWebServer
 {
@@ -66,6 +70,12 @@ class CWebServer
     };
 
   private:
+    struct WifiNetwork {
+        String ssid;
+        int32_t rssi;
+    };
+    std::vector<WifiNetwork> _availableNetworks;
+
     // Template for param to value converter function, used by PushPostParamIfPresent()
     template<typename Tv>
     using ParamValueGetter = std::function<Tv(const AsyncWebParameter *param)>;
@@ -110,6 +120,15 @@ class CWebServer
 
     AsyncWebServer _server;
     StaticStatistics _staticStats;
+    std::atomic<bool> _isInitialized = false;
+    std::atomic<bool> _captivePortalActive = false;
+    std::unique_ptr<DNSServer> _dnsServer;
+    std::atomic<bool> _reboot_requested = false;
+    std::atomic<unsigned long> _reboot_at_millis = 0;
+
+    void HandleWifiSave(AsyncWebServerRequest *request);
+    void SetupStationMode();
+    void SetupCaptivePortalMode();
 
     // Helper functions/templates
 
@@ -190,7 +209,7 @@ class CWebServer
     static void PreviousEffect(AsyncWebServerRequest * pRequest);
 
     // Not static because it uses member _staticStats
-    void GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType = StatisticsType::All) const;
+    virtual void GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType = StatisticsType::All) const;
 
     // This registers a handler for GET requests for one of the known files embedded in the firmware.
     void ServeEmbeddedFile(const char strUri[], EmbeddedWebFile &file)
@@ -209,17 +228,52 @@ class CWebServer
     }
 
   public:
+    virtual ~CWebServer() = default;
+
     CWebServer()
         : _server(NetworkPort::Webserver), _staticStats()
     {}
 
     // begin - register page load handlers and start serving pages
-    void begin();
+    virtual void Begin(bool captivePortalMode = false);
+    virtual void RegisterCaptivePortalHandlers();
+    virtual void ProcessDnsRequests();
+    virtual void SlowTick();
 
-    void AddWebSocket(AsyncWebSocket& webSocket)
+    virtual void AddWebSocket(AsyncWebSocket& webSocket)
     {
         _server.addHandler(&webSocket);
     }
+
+    virtual void SetCaptivePortalActive(bool active);
+
+    virtual bool IsCaptivePortalActive() const;
+
+    // Request a full boot, called from a safe context and performing
+    // some amount of shutdown, at least in_ms points in the future.
+    // The timing on this is coarse; a precisely timed reboot is silly.
+    virtual void RequestReboot(uint32_t in_ms = 3000);
+
+    virtual bool IsRebootRequested() const;
+
+    virtual unsigned long GetRebootTargetTime() const;
+};
+
+class NullWebServer final : public CWebServer
+{
+  public:
+    // Override all public virtual methods of CWebServer with do-nothing implementations
+    void Begin(bool captivePortalMode = false) override {}
+    void RegisterCaptivePortalHandlers() override {}
+    void ProcessDnsRequests() override {}
+    void SlowTick() override {}
+    void AddWebSocket(AsyncWebSocket& webSocket) override {} // Empty, as AsyncWebSocket might not be available
+    void SetCaptivePortalActive(bool active) override {}
+    bool IsCaptivePortalActive() const override { return false; }
+    void RequestReboot(uint32_t in_ms = 3000) override { ESP.restart(); }
+    bool IsRebootRequested() const override { return false; }
+    unsigned long GetRebootTargetTime() const override { return 0; }
+    void GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType = StatisticsType::All) const override {}
 };
 
 inline CWebServer::StatisticsType operator|(CWebServer::StatisticsType lhs, CWebServer::StatisticsType rhs)
