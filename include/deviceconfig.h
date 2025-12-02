@@ -235,6 +235,7 @@ class DeviceConfig : public IJSONSerializable
         bool portalTimeoutPresent = jsonObject[PortalTimeoutSecondsTag].is<uint32_t>();
         SetIfPresentIn(jsonObject, portalTimeoutSeconds, PortalTimeoutSecondsTag);
 
+        #if ENABLE_WIFI
         if (!portalTimeoutPresent) {
             String ssid, password;
             if (ReadWiFiConfig(WifiCredSource::CaptivePortal, ssid, password) ||
@@ -243,6 +244,7 @@ class DeviceConfig : public IJSONSerializable
                 portalTimeoutSeconds = 0; // AUTO mode for migrated devices
             }
         }
+        #endif
 
         if (ntpServer.isEmpty())
             ntpServer = NTP_SERVER_DEFAULT;
