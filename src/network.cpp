@@ -123,7 +123,7 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
 
         case ESPNowCommand::ESPNOW_PREVEFFECT:
             debugI("ESPNOW Previous effect");
-            g_ptrSystem->EffectManager().EffectManager().PreviousEffect();
+            g_ptrSystem->EffectManager().PreviousEffect();
             break;
 
         case ESPNowCommand::ESPNOW_SETEFFECT:
@@ -141,6 +141,7 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
 
 void StartCaptivePortal()
 {
+#if ENABLE_WEBSERVER
     if (g_ptrSystem->WebServer().IsCaptivePortalActive())
     {
         return;
@@ -158,6 +159,7 @@ void StartCaptivePortal()
     }
 
     g_ptrSystem->WebServer().Begin(true);
+#endif // ENABLE_WEBSERVER
 }
 
 // processRemoteDebugCmd
@@ -253,8 +255,13 @@ void StartCaptivePortal()
         }
         else if (str.equalsIgnoreCase("reboot"))
         {
+#if ENABLE_WEBSERVER
             debugA("Reboot command received via Telnet. Requesting restart...");
             g_ptrSystem->WebServer().RequestReboot(0);
+#else
+            debugA("Reboot command received. Rebooting now.");
+            ESP.restart();
+#endif
         }
         else if (str.equalsIgnoreCase("showWiFiState"))
         {
