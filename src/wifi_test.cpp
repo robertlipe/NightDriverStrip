@@ -4,7 +4,7 @@
 #include "wifi_test.h"
 #include "wifi_test_config.h" // For test configuration parameters
 
-#ifdef ENABLE_WIFI_TEST_MODE
+#if ENABLE_WIFI && ENABLE_WIFI_TEST_MODE
 
 // --- Globals for credential backup/restore ---
 static String g_backup_ssid;
@@ -328,4 +328,4 @@ void WiFiTestLoopEntry(void* pvParameters) {
     vTaskDelete(NULL); // Delete the current task
 }
 
-#endif // ENABLE_WIFI_TEST_MODE
+#endif // ENABLE_WIFI && ENABLE_WIFI_TEST_MODE
