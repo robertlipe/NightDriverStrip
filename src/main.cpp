@@ -530,15 +530,19 @@ void loop()
         #if ENABLE_WIFI
             EVERY_N_MILLIS(20)
             {
+               #if ENABLE_WIFI && ENABLE_WEBSERVER
                 if (!g_ptrSystem->WebServer().IsCaptivePortalActive())
                     g_pImprovSerial->loop();
+                #endif
             }
             // Keep low-priority tasks out of the high-running path. Tasks
             // should be brief and non-blocking. Can't really justify another
             // thread.
             EVERY_N_MILLIS(250)
             {
+                #if ENABLE_WIFI && ENABLE_WEBSERVER
                 g_ptrSystem->WebServer().SlowTick();
+                #endif
             }
         #endif
 

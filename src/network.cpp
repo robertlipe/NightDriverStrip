@@ -141,7 +141,7 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
 
 void StartCaptivePortal()
 {
-#if ENABLE_WEBSERVER
+#if ENABLE_WEBSERVER && ENABLE_WIFI
     if (g_ptrSystem->WebServer().IsCaptivePortalActive())
     {
         return;
@@ -1053,12 +1053,14 @@ void IRAM_ATTR RemoteLoopEntry(void *)
 
         for (;;)
         {
+            #if ENABLE_WEBSERVER
             if (g_ptrSystem->WebServer().IsCaptivePortalActive())
             {
                 g_ptrSystem->WebServer().ProcessDnsRequests();
                 delay(50);
                 continue;
             }
+            #endif
 
             // This block handles WiFi connection and starting the captive portal.
             // It should run every second regardless of connection state.
