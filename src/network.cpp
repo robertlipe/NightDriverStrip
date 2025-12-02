@@ -139,9 +139,9 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
 
 #endif
 
+#if ENABLE_WIFI
 void StartCaptivePortal()
 {
-#if ENABLE_WEBSERVER && ENABLE_WIFI
     if (g_ptrSystem->WebServer().IsCaptivePortalActive())
     {
         return;
@@ -159,8 +159,8 @@ void StartCaptivePortal()
     }
 
     g_ptrSystem->WebServer().Begin(true);
-#endif // ENABLE_WEBSERVER
 }
+#endif // ENABLE_WIFI
 
 // processRemoteDebugCmd
 //
@@ -255,13 +255,8 @@ void StartCaptivePortal()
         }
         else if (str.equalsIgnoreCase("reboot"))
         {
-#if ENABLE_WEBSERVER
             debugA("Reboot command received via Telnet. Requesting restart...");
             g_ptrSystem->WebServer().RequestReboot(0);
-#else
-            debugA("Reboot command received. Rebooting now.");
-            ESP.restart();
-#endif
         }
         else if (str.equalsIgnoreCase("showWiFiState"))
         {
@@ -1053,14 +1048,12 @@ void IRAM_ATTR RemoteLoopEntry(void *)
 
         for (;;)
         {
-            #if ENABLE_WEBSERVER
             if (g_ptrSystem->WebServer().IsCaptivePortalActive())
             {
                 g_ptrSystem->WebServer().ProcessDnsRequests();
                 delay(50);
                 continue;
             }
-            #endif
 
             // This block handles WiFi connection and starting the captive portal.
             // It should run every second regardless of connection state.
@@ -1097,10 +1090,8 @@ void IRAM_ATTR RemoteLoopEntry(void *)
                             NTPTimeClient::UpdateClockFromWeb(&l_Udp);
                         #endif
 
-                        #if ENABLE_WEBSERVER
                             debugI("Starting Web Server...");
                             g_ptrSystem->WebServer().Begin();
-                        #endif
                         servicesStarted = true;
                     }
 

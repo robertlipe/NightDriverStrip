@@ -30,7 +30,7 @@
 
 #include "globals.h"
 
-#if ENABLE_WEBSERVER
+#if ENABLE_WEBSERVER && ENABLE_WIFI
 #include "webserver.h"
 
 #include <utility>
@@ -1056,5 +1056,25 @@ void CWebServer::HandleWifiSave(AsyncWebServerRequest *request)
         debugE("Received empty SSID in /wifi POST.");
         request->send(400, "text/plain", "SSID cannot be empty.");
     }
+}
+
+void CWebServer::SetCaptivePortalActive(bool active)
+{
+    _captivePortalActive = active;
+}
+
+bool CWebServer::IsCaptivePortalActive() const
+{
+    return _captivePortalActive;
+}
+
+bool CWebServer::IsRebootRequested() const
+{
+    return _reboot_requested;
+}
+
+unsigned long CWebServer::GetRebootTargetTime() const
+{
+    return _reboot_at_millis;
 }
 #endif //  ENABLE_WEBSERVER

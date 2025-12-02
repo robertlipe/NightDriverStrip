@@ -209,7 +209,7 @@ class CWebServer
     static void PreviousEffect(AsyncWebServerRequest * pRequest);
 
     // Not static because it uses member _staticStats
-    void GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType = StatisticsType::All) const;
+    virtual void GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType = StatisticsType::All) const;
 
     // This registers a handler for GET requests for one of the known files embedded in the firmware.
     void ServeEmbeddedFile(const char strUri[], EmbeddedWebFile &file)
@@ -228,45 +228,52 @@ class CWebServer
     }
 
   public:
+    virtual ~CWebServer() = default;
+
     CWebServer()
         : _server(NetworkPort::Webserver), _staticStats()
     {}
 
     // begin - register page load handlers and start serving pages
-    void Begin(bool captivePortalMode = false);
-    void RegisterCaptivePortalHandlers();
-    void ProcessDnsRequests();
-    void SlowTick();
+    virtual void Begin(bool captivePortalMode = false);
+    virtual void RegisterCaptivePortalHandlers();
+    virtual void ProcessDnsRequests();
+    virtual void SlowTick();
 
-    void AddWebSocket(AsyncWebSocket& webSocket)
+    virtual void AddWebSocket(AsyncWebSocket& webSocket)
     {
         _server.addHandler(&webSocket);
     }
 
-    void SetCaptivePortalActive(bool active)
-    {
-        _captivePortalActive = active;
-    }
+    virtual void SetCaptivePortalActive(bool active);
 
-    bool IsCaptivePortalActive() const
-    {
-        return _captivePortalActive;
-    }
+    virtual bool IsCaptivePortalActive() const;
 
     // Request a full boot, called from a safe context and performing
     // some amount of shutdown, at least in_ms points in the future.
     // The timing on this is coarse; a precisely timed reboot is silly.
-    void RequestReboot(uint32_t in_ms = 3000);
+    virtual void RequestReboot(uint32_t in_ms = 3000);
 
-    bool IsRebootRequested() const
-    {
-        return _reboot_requested;
-    }
+    virtual bool IsRebootRequested() const;
 
-    unsigned long GetRebootTargetTime() const
-    {
-        return _reboot_at_millis;
-    }
+    virtual unsigned long GetRebootTargetTime() const;
+};
+
+class NullWebServer final : public CWebServer
+{
+  public:
+    // Override all public virtual methods of CWebServer with do-nothing implementations
+    void Begin(bool captivePortalMode = false) override {}
+    void RegisterCaptivePortalHandlers() override {}
+    void ProcessDnsRequests() override {}
+    void SlowTick() override {}
+    void AddWebSocket(AsyncWebSocket& webSocket) override {} // Empty, as AsyncWebSocket might not be available
+    void SetCaptivePortalActive(bool active) override {}
+    bool IsCaptivePortalActive() const override { return false; }
+    void RequestReboot(uint32_t in_ms = 3000) override { ESP.restart(); }
+    bool IsRebootRequested() const override { return false; }
+    unsigned long GetRebootTargetTime() const override { return 0; }
+    void GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType = StatisticsType::All) const override {}
 };
 
 inline CWebServer::StatisticsType operator|(CWebServer::StatisticsType lhs, CWebServer::StatisticsType rhs)

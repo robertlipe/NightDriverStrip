@@ -255,9 +255,24 @@ class SystemContainer
     // -------------------------------------------------------------
     // WebServer
 
-    #if ENABLE_WIFI && ENABLE_WEBSERVER
-        SC_SIMPLE_PROPERTY(WebServer, CWebServer)
-    #endif
+    // Always declare the member pointer and the getters. The object will be either CWebServer or NullWebServer.
+    SC_DECLARE(WebServer, CWebServer)
+    SC_GETTERS_FOR(WebServer, CWebServer)
+
+    // Specialized SetupWebServer method to provide a real CWebServer or a NullWebServer based on ENABLE_WEBSERVER
+    public:
+    CWebServer& SetupWebServer()
+    {
+        if (!SC_MEMBER(WebServer))
+        {
+#if ENABLE_WEBSERVER
+            SC_MEMBER(WebServer) = std::make_unique<CWebServer>();
+#else
+            SC_MEMBER(WebServer) = std::make_unique<NullWebServer>();
+#endif
+        }
+        return *SC_MEMBER(WebServer);
+    }
 
     // -------------------------------------------------------------
     // SocketServer
