@@ -52,6 +52,8 @@
 #include <WiFi.h>
 #include <map>
 
+// #include "userfs.h"
+
 class CWebServer
 {
   public:

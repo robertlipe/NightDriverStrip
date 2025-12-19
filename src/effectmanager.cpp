@@ -27,11 +27,10 @@
 // History:     Sep-26-2023         Rbergen     Extracted from effects.cpp
 //---------------------------------------------------------------------------
 
-#include <FS.h>
-#include <SPIFFS.h>
 
 #include "globals.h"
 #include "systemcontainer.h"
+#include "userfs.h"
 
 #include "effects/strip/misceffects.h"
 
@@ -171,7 +170,7 @@ void EffectManager::SaveCurrentEffectIndex()
 
 bool EffectManager::ReadCurrentEffectIndex(size_t& index)
 {
-    File file = SPIFFS.open(CURRENT_EFFECT_CONFIG_FILE);
+    File file = UserFS.open(CURRENT_EFFECT_CONFIG_FILE);
     bool readIndex = false;
 
     if (file)
@@ -272,14 +271,14 @@ void RemoveEffectManagerConfig()
 {
     RemoveJSONFile(EFFECTS_CONFIG_FILE);
     // We take the liberty of also removing the file with the current effect config index
-    SPIFFS.remove(CURRENT_EFFECT_CONFIG_FILE);
+    UserFS.remove(CURRENT_EFFECT_CONFIG_FILE);
 }
 
 void WriteCurrentEffectIndexFile()
 {
-    SPIFFS.remove(CURRENT_EFFECT_CONFIG_FILE);
+    UserFS.remove(CURRENT_EFFECT_CONFIG_FILE);
 
-    File file = SPIFFS.open(CURRENT_EFFECT_CONFIG_FILE, FILE_WRITE);
+    File file = UserFS.open(CURRENT_EFFECT_CONFIG_FILE, FILE_WRITE);
 
     if (!file)
     {
@@ -296,7 +295,7 @@ void WriteCurrentEffectIndexFile()
     if (bytesWritten == 0)
     {
         debugE("Unable to write to file %s!", CURRENT_EFFECT_CONFIG_FILE);
-        SPIFFS.remove(CURRENT_EFFECT_CONFIG_FILE);
+        UserFS.remove(CURRENT_EFFECT_CONFIG_FILE);
     }
 }
 

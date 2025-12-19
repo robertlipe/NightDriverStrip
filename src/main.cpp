@@ -166,6 +166,8 @@
 #include "soundanalyzer.h"
 #include "systemcontainer.h"
 #include "values.h"
+#include "userfs.h"
+=======
 #include <TJpg_Decoder.h>
 
 #if defined(TOGGLE_BUTTON_0) || defined(TOGGLE_BUTTON_1)
@@ -183,7 +185,7 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen);
 // Global Variables
 //
 
-std::unique_ptr<SystemContainer> g_ptrSystem;
+DRAM_ATTR std::unique_ptr<SystemContainer> g_ptrSystem;
 Values g_Values;
 RemoteDebug Debug;                                                        // Instance of our telnet debug server
 std::mutex g_buffer_mutex;
@@ -200,7 +202,7 @@ std::unique_ptr<ImprovSerial<typeof(Serial)>> g_pImprovSerial;
 // Imagine a setup of 5 Christmas trees, where each tree was made up of 4 concentric rings of decreasing
 // size, like 16, 12, 8, 4.  You would have NUM_FANS of 5 and MAX_RINGS of 4 and your ring table would be 16, 12, 8 4.
 
-const int g_aRingSizeTable[MAX_RINGS] =
+const DRAM_ATTR int g_aRingSizeTable[MAX_RINGS] =
 {
     RING_SIZE_0,
     RING_SIZE_1,
@@ -282,9 +284,9 @@ void setup()
     // Re-route debug output to the serial port
     Debug.setSerialEnabled(true);
 
-    // Initialize SPIFFS for file access to non-volatile storage
-    if (!SPIFFS.begin(true))
-        Serial.println("WARNING: SPIFFS could not be initialized!");
+    // Initialize UserFS() for file access to non-volatile storage
+    if (!UserFS.begin(true))
+        Serial.println("WARNING: UserFS could not be initialized!");
 
     // Enabling PSRAM allows us to use the extra 4MB of RAM on the ESP32-WROVER chip, but it caused
     // problems with the S3 rebooting when WiFi connected, so for now, I've limited the default
