@@ -126,6 +126,7 @@
     #include "effects/matrix/PatternSpin.h"
     #include "effects/matrix/PatternMisc.h"
     #include "effects/matrix/PatternCyclicCA.h"
+    #include "effects/matrix/PatternCGInvade.h"
 #endif
 
 // Global effect set version
@@ -360,7 +361,8 @@ void LoadEffectFactories()
             Effect<PatternMandala>(),
             Effect<PatternMunch>(),
             Effect<PatternMaze>(),
-            Effect<PatternCyclicCA>()
+            Effect<PatternCyclicCA>(),
+            Effect<PatternCGInvade>()
         );
     #endif
 
