@@ -125,6 +125,7 @@
     #include "effects/matrix/PatternBounce.h"
     #include "effects/matrix/PatternSpin.h"
     #include "effects/matrix/PatternMisc.h"
+    #include "effects/matrix/PatternCyclicCA.h"
 #endif
 
 // Global effect set version
@@ -358,7 +359,8 @@ void LoadEffectFactories()
             Effect<PatternSerendipity>(),
             Effect<PatternMandala>(),
             Effect<PatternMunch>(),
-            Effect<PatternMaze>()
+            Effect<PatternMaze>(),
+            Effect<PatternCyclicCA>()
         );
     #endif
 

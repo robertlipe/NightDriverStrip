@@ -43,7 +43,7 @@ enum class CAMode
 
 #define RUTGER 0
 
-class PatternCyclicCA : public LEDStripEffect
+class PatternCyclicCA : public EffectWithId<PatternCyclicCA>
 {
 private:
 #if RUTGER
@@ -303,7 +303,7 @@ private:
     {
         if (m_numStates <= 1) return CRGB::Black; // Avoid division by zero or mapping issues
         // Map the state (0 to m_numStates-1) to a hue value (0 to 255)
-        uint8_t hue = map(state, 0, m_numStates - 1, 0, 255);
+        uint8_t hue = ::map(state, 0, m_numStates - 1, 0, 255);
         // Use full saturation and value for now. The original JS 'wave(state)'
         // might have modulated brightness, but mapping state directly to hue is a common
         // visualization for CA and matches the JS hsv call's first parameter.
@@ -410,7 +410,7 @@ protected:
 
 public:
     // Constructor
-    PatternCyclicCA() : LEDStripEffect(EFFECT_MATRIX_CYCLIC_CA, "Cyclic CA")
+    PatternCyclicCA() : EffectWithId<PatternCyclicCA>("Cyclic CA")
     {
         // Initialize member variables to default values
         m_numStates = 24;
@@ -431,7 +431,7 @@ public:
     }
 
     // Constructor for deserialization from JSON
-    PatternCyclicCA(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
+    PatternCyclicCA(const JsonObjectConst& jsonObject) : EffectWithId<PatternCyclicCA>(jsonObject)
     {
         // Deserialize settings from JSON, using default values if keys are not found
         m_numStates = jsonObject["numStates"] | m_numStates;
