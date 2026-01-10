@@ -107,11 +107,60 @@ void InitEffectsManager()
 
     // We won't need the default factories anymore, so swipe them from memory
     g_ptrEffectFactories->ClearDefaultFactories();
+
+    #if EFFECTS_WEB_SOCKET_ENABLED
+        g_ptrSystem->EffectManager().AddEffectEventListener(g_ptrSystem->WebSocketServer());
+    #endif
+}
+
+#ifndef NO_EFFECT_PERSISTENCE
+    #define NO_EFFECT_PERSISTENCE 0
+#endif
+
+// Load the effects JSON file and check if it's appropriate to use
+std::optional<JsonObjectConst> LoadEffectsJSONFile(JsonDocument& jsonDoc)
+{
+    // If ordered to do so, we ignore whatever is persisted
+    if (NO_EFFECT_PERSISTENCE || !LoadJSONFile(EFFECTS_CONFIG_FILE, jsonDoc))
+        return {};
+
+    auto jsonObject = jsonDoc.as<JsonObjectConst>();
+
+    // Ignore JSON if it was persisted for a different project
+    if (jsonObject[PTY_PROJECT].is<String>()
+        && jsonObject[PTY_PROJECT].as<String>() != PROJECT_NAME)
+    {
+        return {};
+    }
+
+    auto jsonVersion = jsonObject[PTY_EFFECTSETVER];
+
+    // Only return the JSON object if the persistent version matches the current one
+    if (jsonVersion.is<String>()
+        && g_ptrEffectFactories->HashString() == jsonVersion.as<String>())
+    {
+        return jsonObject;
+    }
+
+    return {};
 }
 
 //
 // EffectManager member function definitions
 //
+
+void EffectManager::LoadDefaultEffects()
+{
+    _effectSetHashString = g_ptrEffectFactories->HashString();
+
+    for (const auto &numberedFactory : g_ptrEffectFactories->GetDefaultFactories())
+        ProduceAndLoadDefaultEffect(numberedFactory);
+
+    SetInterval(DEFAULT_EFFECT_INTERVAL, true);
+
+    construct(true);
+}
+
 
 void EffectManager::SaveCurrentEffectIndex()
 {
@@ -146,7 +195,7 @@ bool EffectManager::ReadCurrentEffectIndex(size_t& index)
     return readIndex;
 }
 
-void EffectManager::LoadJSONAndMissingEffects(const JsonArrayConst& effectsArray)
+void EffectManager::LoadJSONEffects(const JsonArrayConst& effectsArray)
 {
     std::set<int> loadedEffectNumbers;
 
@@ -171,32 +220,6 @@ void EffectManager::LoadJSONAndMissingEffects(const JsonArrayConst& effectsArray
             loadedEffectNumbers.insert(effectNumber);
         }
     }
-
-    // Now add missing effects from the default factory list
-    auto &defaultFactories = g_ptrEffectFactories->GetDefaultFactories();
-
-    // We iterate manually, so we can use where we are as the starting point for a later inner loop
-    for (auto iter = defaultFactories.begin(); iter != defaultFactories.end(); iter++)
-    {
-        int effectNumber = iter->EffectNumber();
-
-        // If we've already loaded this effect (number) from JSON, we can move on to check the next one
-        if (loadedEffectNumbers.count(effectNumber))
-            continue;
-
-        // We found an effect (number) in the default list that we have not yet loaded from JSON.
-        //   So, we go through the rest of the default factory list to create and add to our effects
-        //   list all instances of this effect.
-        std::for_each(iter, defaultFactories.end(), [&](const EffectFactories::NumberedFactory& numberedFactory)
-            {
-                if (numberedFactory.EffectNumber() == effectNumber)
-                    ProduceAndLoadDefaultEffect(numberedFactory);
-            }
-        );
-
-        // Register that we added this effect number, so we don't add the respective effects more than once
-        loadedEffectNumbers.insert(effectNumber);
-    }
 }
 
 std::shared_ptr<LEDStripEffect> EffectManager::CopyEffect(size_t index)
@@ -210,7 +233,7 @@ std::shared_ptr<LEDStripEffect> EffectManager::CopyEffect(size_t index)
     auto& sourceEffect = _vEffects[index];
 
     auto jsonEffectFactories = g_ptrEffectFactories->GetJSONFactories();
-    auto factoryEntry = jsonEffectFactories.find(sourceEffect->EffectNumber());
+    auto factoryEntry = jsonEffectFactories.find(static_cast<int>(sourceEffect->effectId()));
 
     if (factoryEntry == jsonEffectFactories.end())
         return nullptr;
@@ -265,7 +288,7 @@ void WriteCurrentEffectIndexFile()
     }
 
     auto bytesWritten = file.print(g_ptrSystem->EffectManager().GetCurrentEffectIndex());
-    debugI("Number of bytes written to file %s: %zu", CURRENT_EFFECT_CONFIG_FILE, bytesWritten);
+    debugI("Number of bytes written to file %s: %zu", CURRENT_EFFECT_CONFIG_FILE, (size_t)bytesWritten);
 
     file.flush();
     file.close();
@@ -275,17 +298,6 @@ void WriteCurrentEffectIndexFile()
         debugE("Unable to write to file %s!", CURRENT_EFFECT_CONFIG_FILE);
         SPIFFS.remove(CURRENT_EFFECT_CONFIG_FILE);
     }
-}
-
-// Helper function to create a StarryNightEffect from JSON.
-//   It picks the actual effect factory from g_JsonStarryNightEffectFactories based on the star type number in the JSON blob.
-std::shared_ptr<LEDStripEffect> CreateStarryNightEffectFromJSON(const JsonObjectConst& jsonObject)
-{
-    auto entry = g_JsonStarryNightEffectFactories.find(jsonObject[PTY_STARTYPENR]);
-
-    return entry != g_JsonStarryNightEffectFactories.end()
-        ? entry->second(jsonObject)
-        : nullptr;
 }
 
 //
@@ -359,7 +371,7 @@ void EffectManager::ClearRemoteColor(bool retainRemoteEffect)
     if (!retainRemoteEffect)
         _tempEffect = nullptr;
 
-    #if (USE_HUB75)
+    #if USE_HUB75
         g()->PausePalette(false);
     #endif
 
@@ -368,7 +380,7 @@ void EffectManager::ClearRemoteColor(bool retainRemoteEffect)
 
 void EffectManager::ApplyGlobalColor(CRGB color) const
 {
-    debugI("Setting Global Color: %08X\n", (uint32_t) color);
+    debugI("Setting Global Color: %08lX\n", (unsigned long)(uint32_t)color);
 
     auto& deviceConfig = g_ptrSystem->DeviceConfig();
     deviceConfig.SetColorSettings(color, deviceConfig.GlobalColor());
@@ -378,7 +390,7 @@ void EffectManager::ApplyGlobalColor(CRGB color) const
 
 void EffectManager::ApplyGlobalPaletteColors() const
 {
-    #if (USE_HUB75)
+    #if USE_HUB75
         auto  pMatrix = g();
         auto& deviceConfig = g_ptrSystem->DeviceConfig();
         auto& globalColor = deviceConfig.GlobalColor();

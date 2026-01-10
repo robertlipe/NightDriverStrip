@@ -4,9 +4,10 @@
 
 // Derived from https://editor.soulmatelights.com/gallery/1116-smoke
 
-class PatternSMSmoke : public LEDStripEffect
+class PatternSMSmoke : public EffectWithId<PatternSMSmoke>
 {
 private:
+
   static constexpr uint8_t Scale = 50; // 1-100. Setting
 
   static constexpr int WIDTH = MATRIX_WIDTH;
@@ -17,15 +18,12 @@ private:
   uint8_t deltaHue {0}, deltaHue2 {0};
 
 public:
+
   PatternSMSmoke()
-      : LEDStripEffect(EFFECT_MATRIX_SMSMOKE, "Smoke")
-  {
-  }
+    : EffectWithId<PatternSMSmoke>("Smoke") {}
 
   PatternSMSmoke(const JsonObjectConst &jsonObject)
-      : LEDStripEffect(jsonObject)
-  {
-  }
+    : EffectWithId<PatternSMSmoke>(jsonObject) {}
 
   virtual size_t DesiredFramesPerSecond() const           // Desired framerate of the LED drawing
   {
@@ -47,6 +45,7 @@ public:
       hue2 = 0U;
       hue = random8();
     }
+
     if (deltaHue & 0x01) //((deltaHue >> 2U) == 0U) // (orig) I'd like to connect some kind of multiplier to the color change delay, but I don't know what...
 
       hue2++;
@@ -88,8 +87,9 @@ public:
     }
 
     // Lower number for thicker, more static fog. Higher for more wisp.
-    g()->MoveFractionalNoiseX(3);
-    g()->MoveFractionalNoiseY(3);
+    // Smearing 1 was the minimal fix that cured the vertical bars.
+    g()->MoveFractionalNoiseX(1);
+    g()->MoveFractionalNoiseY(1);
     // Without this, we get tornadoes where the diagonals cross as there's
     // an excess of set pixels there.
     g()->BlurFrame(10);

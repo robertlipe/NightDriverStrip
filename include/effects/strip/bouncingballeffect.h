@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include "ledstripeffect.h"
 #include "effects.h"
 
 // BouncingBallEffect
@@ -47,9 +48,9 @@ static constexpr auto ballColors = to_array(
     CRGB::Indigo,
 });
 
-class BouncingBallEffect : public LEDStripEffect
+class BouncingBallEffect : public EffectWithId<BouncingBallEffect>
 {
-private:
+  private:
 
     size_t  _iOffset;
     size_t  _cLength;
@@ -74,7 +75,7 @@ private:
   public:
 
     BouncingBallEffect(size_t ballCount = 3, bool bMirrored = true, bool bErase = false, int ballSize = 5)
-        : LEDStripEffect(EFFECT_STRIP_BOUNCING_BALL, "Bouncing Balls"),
+        : EffectWithId<BouncingBallEffect>("Bouncing Balls"),
           _cBalls(ballCount),
           _cBallSize(ballSize),
           _bMirrored(bMirrored),
@@ -83,7 +84,7 @@ private:
     }
 
     BouncingBallEffect(const JsonObjectConst&  jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<BouncingBallEffect>(jsonObject),
           _cBalls(jsonObject["blc"]),
           _cBallSize(jsonObject["bls"]),
           _bMirrored(jsonObject[PTY_MIRORRED]),

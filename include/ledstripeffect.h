@@ -17,7 +17,7 @@
 //    GNU General Public License for more details.
 //
 //    You should have received a copy of the GNU General Public License
-//    along with Nightdriver.  It is normally found in copying.txt
+//    along with NightDriver.  It is normally found in copying.txt
 //    If not, see <https://www.gnu.org/licenses/>.
 //
 // Description:
@@ -33,8 +33,8 @@
 #include "effects.h"
 #include "gfxbase.h"
 #include "jsonserializer.h"
-#include "ledmatrixgfx.h"
 #include "types.h"
+#include "hashing.h"
 
 #include <memory>
 #include <list>
@@ -129,46 +129,49 @@ class LEDStripEffect : public IJSONSerializable
   protected:
 
     size_t _cLEDs = 0;
-    int    _effectNumber;
     String _friendlyName;
     bool   _enabled = true;
     size_t _maximumEffectTime = 0;
 
     std::vector<std::shared_ptr<GFXBase>> _GFX;
 
-    // Macro that assigns a value to a property if two names match
-    #define SET_IF_NAMES_MATCH(firstName, secondName, property, value)  if (firstName == secondName) \
-    { \
-        property = (value); \
-        return true; \
-    } \
-    return false
+    // Function that assigns a value to a property if two names match
+    template <typename TProperty, typename TValue>
+    static bool SetIfNameMatches(const String& firstName, const String& secondName, TProperty& property, const TValue& value)
+    {
+        if (firstName == secondName)
+        {
+            property = value;
+            return true;
+        }
+        return false;
+    }
 
     // Helper functions for known setting types, as defined in SettingSpec::SettingType
 
     static bool SetIfSelected(const String& settingName, const String& propertyName, int& property, const String& value)
     {
-        SET_IF_NAMES_MATCH(settingName, propertyName, property, value.toInt());
+        return SetIfNameMatches(settingName, propertyName, property, value.toInt());
     }
 
     static bool SetIfSelected(const String& settingName, const String& propertyName, size_t& property, const String& value)
     {
-        SET_IF_NAMES_MATCH(settingName, propertyName, property, strtoul(value.c_str(), nullptr, 10));
+        return SetIfNameMatches(settingName, propertyName, property, strtoul(value.c_str(), nullptr, 10));
     }
 
     static bool SetIfSelected(const String& settingName, const String& propertyName, float& property, const String& value)
     {
-        SET_IF_NAMES_MATCH(settingName, propertyName, property, value.toFloat());
+        return SetIfNameMatches(settingName, propertyName, property, value.toFloat());
     }
 
     static bool SetIfSelected(const String& settingName, const String& propertyName, bool& property, const String& value)
     {
-        SET_IF_NAMES_MATCH(settingName, propertyName, property, BoolFromText(value));
+        return SetIfNameMatches(settingName, propertyName, property, BoolFromText(value));
     }
 
     static bool SetIfSelected(const String& settingName, const String& propertyName, String& property, const String& value)
     {
-        SET_IF_NAMES_MATCH(settingName, propertyName, property, value);
+        return SetIfNameMatches(settingName, propertyName, property, value);
     }
 
     static bool SetIfSelected(const String& settingName, const String& propertyName, CRGBPalette16& property, const String& value)
@@ -194,7 +197,7 @@ class LEDStripEffect : public IJSONSerializable
 
     static bool SetIfSelected(const String& settingName, const String& propertyName, CRGB& property, const String& value)
     {
-        SET_IF_NAMES_MATCH(settingName, propertyName, property, CRGB(strtoul(value.c_str(), NULL, 10)));
+        return SetIfNameMatches(settingName, propertyName, property, CRGB(strtoul(value.c_str(), NULL, 10)));
     }
 
     // Overrides of this method should fill the respective effect's SettingSpec vector and return a pointer to it.
@@ -211,16 +214,16 @@ class LEDStripEffect : public IJSONSerializable
 
   public:
 
-    LEDStripEffect(int effectNumber, const String & strName) :
-        _effectNumber(effectNumber)
+    // Constructor doesn't take an effect number; effect identity is provided by effectId()
+
+    explicit LEDStripEffect(const String & strName)
     {
         if (!strName.isEmpty())
             _friendlyName = strName;
     }
 
     explicit LEDStripEffect(const JsonObjectConst&  jsonObject)
-        : _effectNumber(jsonObject[PTY_EFFECTNR]),
-          _friendlyName(jsonObject["fn"].as<String>())
+        : _friendlyName(jsonObject["fn"].as<String>())
     {
         if (jsonObject["es"].is<int>())
             _enabled = jsonObject["es"].as<int>() == 1;
@@ -237,8 +240,7 @@ class LEDStripEffect : public IJSONSerializable
             _maximumEffectTime = 0;
     }
 
-    virtual ~LEDStripEffect()
-    = default;
+    virtual ~LEDStripEffect() = default;
 
     virtual bool Init(std::vector<std::shared_ptr<GFXBase>>& gfx)
     {
@@ -261,15 +263,6 @@ class LEDStripEffect : public IJSONSerializable
         return _GFX[channel];
     }
 
-    // mg is a shortcut for MATRIX projects to retrieve a pointer to the specialized LEDMatrixGFX type
-
-    #if USE_HUB75
-      std::shared_ptr<LEDMatrixGFX> mg(size_t channel = 0)
-      {
-        return std::static_pointer_cast<LEDMatrixGFX>(_GFX[channel]);
-      }
-    #endif
-
     #if HEXAGON
       std::shared_ptr<HexagonGFX> hg(size_t channel = 0)
       {
@@ -287,10 +280,10 @@ class LEDStripEffect : public IJSONSerializable
         return _friendlyName;
     }
 
-    int EffectNumber() const
-    {
-        return _effectNumber;
-    }
+    // Runtime effect id. Subclasses must override to return their EffectId
+
+
+    virtual EffectId effectId() const = 0;
 
     virtual size_t DesiredFramesPerSecond() const           // Desired framerate of the LED drawing
     {
@@ -476,18 +469,17 @@ class LEDStripEffect : public IJSONSerializable
 
     void fadePixelToBlackOnAllChannelsBy(int pixel, uint8_t fadeValue) const
     {
-        for (auto& device : _GFX)
-        {
-            CRGB crgb = device->getPixel(pixel);
-            crgb.fadeToBlackBy(fadeValue);
-            device->setPixel(pixel, crgb);
-        }
+        if (pixel >= 0 && pixel < _cLEDs)
+            for (auto& device : _GFX)
+                device->fadePixelToBlackBy(pixel, fadeValue);
+
     }
 
     void fadeAllChannelsToBlackBy(uint8_t fadeValue) const
     {
-        for (int i = 0; i < _cLEDs; i++)
-            fadePixelToBlackOnAllChannelsBy(i, fadeValue);
+        for (auto& device : _GFX)
+            for (int i = 0; i < _cLEDs; i++)
+                device->fadePixelToBlackBy(i, fadeValue);
     }
 
     void setAllOnAllChannels(uint8_t r, uint8_t g, uint8_t b) const
@@ -531,7 +523,7 @@ class LEDStripEffect : public IJSONSerializable
     {
         auto jsonDoc = CreateJsonDocument();
 
-        jsonDoc[PTY_EFFECTNR]       = _effectNumber;
+        jsonDoc[PTY_EFFECTNR]       = static_cast<int>(effectId());
         jsonDoc["fn"]               = _friendlyName;
         jsonDoc["es"]               = _enabled ? 1 : 0;
 
@@ -630,3 +622,88 @@ class LEDStripEffect : public IJSONSerializable
     }
 };
 
+#ifndef EFFECT_ID_DEBUG
+#define EFFECT_ID_DEBUG 0
+#endif
+
+// Internal helpers for deriving a per-type EffectId and (optionally) logging what was used to compute it.
+// The approach is: obtain a compiler-provided, human-readable token string that uniquely identifies T,
+// then hash that string with FNV-1a to produce a compact 32-bit EffectId.
+//
+// type_token<T>:
+// - Returns the compiler's decorated function signature string (__PRETTY_FUNCTION__) for this template instantiation.
+// - This string contains the fully qualified type T (including template parameters), making it suitable as a stable token
+//   within the same compiler family/version.
+// - Only supported on GCC/Clang. Other compilers will hit a hard #error.
+//
+// token_id_for_type<T>:
+// - Computes EffectId by hashing the token string with a constexpr FNV-1a 32-bit hash.
+// - When the hash implementation is constexpr, the resulting EffectId can be a compile-time constant.
+// - EffectId is derived from a 32-bit hash; collisions are possible (though unlikely). Do not rely on cryptographic strength.
+//
+// debug_log_type_token_once<T> (enabled when EFFECT_ID_DEBUG is true):
+// - Prints the raw token string and the computed EffectId once per T per translation unit.
+// - Uses a function-local static boolean to ensure "log once" behavior for each instantiation.
+// - Note: because this is a header-only template with a function-local static, if the same T is instantiated
+//   in multiple translation units, each TU may log once.
+//
+// Stability and portability notes:
+// - The exact __PRETTY_FUNCTION__ format is not standardized and can vary by compiler and version.
+//   Consequently, EffectId values may change when switching compilers, versions, or certain build flags.
+//
+// Intended usage:
+// - Use token_id_for_type<MyType>() wherever a deterministic, type-based EffectId is needed, as EffectWithId does.
+// - Enable EFFECT_ID_DEBUG to inspect the underlying token string and the derived hash during development.
+namespace _effect_id_detail {
+
+    template <typename T>                                       // Return the compiler-provided token string used for hashing
+    constexpr const char* type_token() {
+#if defined(__GNUC__) || defined(__clang__)
+        return __PRETTY_FUNCTION__;
+#else
+        #error "EffectWithId requires a compiler that supports __PRETTY_FUNCTION__"
+#endif
+    }
+
+    template <typename T>
+    constexpr EffectId token_id_for_type()
+    {
+        return fnv1a::hash_cstr<EffectId>(type_token<T>());
+    }
+
+    template <typename T>                                       // Optional one-time debug print of the token string and hash
+    inline void debug_log_type_token_once() {
+#if EFFECT_ID_DEBUG
+        static bool logged = false;
+        if (!logged) {
+            logged = true;
+            const char* token = type_token<T>();
+            const EffectId id = token_id_for_type<T>();
+            // Print both the raw token string and the resulting hash used as the EffectId
+            debugI("Effect ID token string: %s", token);
+            debugI("Effect ID hash: 0x%08lx", static_cast<unsigned long>(id));
+        }
+#endif
+    }
+}
+
+// CRTP helper: derive as EffectWithId<Derived> to auto-provide a unique, stable ID per type
+
+template<typename TDerived>
+class EffectWithId : public LEDStripEffect
+{
+public:
+    static constexpr EffectId ID = _effect_id_detail::token_id_for_type<TDerived>();
+
+    explicit EffectWithId(const String & strName) : LEDStripEffect(strName) {}
+    explicit EffectWithId(const JsonObjectConst&  jsonObject) : LEDStripEffect(jsonObject) {}
+
+    EffectId effectId() const override
+    {
+#if EFFECT_ID_DEBUG
+    // Log the token string and hash once per type at first use
+    _effect_id_detail::debug_log_type_token_once<TDerived>();
+#endif
+        return ID;
+    }
+};

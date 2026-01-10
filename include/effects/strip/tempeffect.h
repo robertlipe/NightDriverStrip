@@ -35,7 +35,7 @@
 
 #include <deque>
 
-class SimpleInsulatorBeatEffect : public LEDStripEffect, public BeatEffectBase
+class SimpleInsulatorBeatEffect : public EffectWithId<SimpleInsulatorBeatEffect>, public BeatEffectBase
 {
   protected:
 
@@ -67,18 +67,13 @@ class SimpleInsulatorBeatEffect : public LEDStripEffect, public BeatEffectBase
     using BeatEffectBase::BeatEffectBase;
 
     SimpleInsulatorBeatEffect(const String & strName)
-      : LEDStripEffect(EFFECT_STRIP_SIMPLE_INSULATOR_BEAT, strName), BeatEffectBase(0.5, 0.01)
-    {
-    }
+      : EffectWithId<SimpleInsulatorBeatEffect>(strName), BeatEffectBase(0.5, 0.01) {}
 
     SimpleInsulatorBeatEffect(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject), BeatEffectBase(0.5, 0.01)
-    {
-    }
-
+      : EffectWithId<SimpleInsulatorBeatEffect>(jsonObject), BeatEffectBase(0.5, 0.01) {}
 };
 
-class SimpleInsulatorBeatEffect2 : public LEDStripEffect, public BeatEffectBase
+class SimpleInsulatorBeatEffect2 : public EffectWithId<SimpleInsulatorBeatEffect2>, public BeatEffectBase
 {
   protected:
 
@@ -108,21 +103,21 @@ class SimpleInsulatorBeatEffect2 : public LEDStripEffect, public BeatEffectBase
   public:
 
     SimpleInsulatorBeatEffect2(const String & strName)
-      : LEDStripEffect(EFFECT_STRIP_SIMPLE_INSULATOR_BEAT2, strName), BeatEffectBase()
-    {
-    }
+      : EffectWithId<SimpleInsulatorBeatEffect2>(strName), BeatEffectBase() {}
 
     SimpleInsulatorBeatEffect2(const JsonObjectConst& jsonObject)
-      : LEDStripEffect(jsonObject), BeatEffectBase()
-    {
-    }
+      : EffectWithId<SimpleInsulatorBeatEffect2>(jsonObject), BeatEffectBase() {}
 };
 
-class VUInsulatorsEffect : public LEDStripEffect
+class VUInsulatorsEffect : public EffectWithId<VUInsulatorsEffect>
 {
+  private:
+
     int _last = 1;
 
-    using LEDStripEffect::LEDStripEffect;
+  public:
+
+    using EffectWithId<VUInsulatorsEffect>::EffectWithId;
 
     void DrawVUPixels(int i, int fadeBy, const CRGBPalette16 & palette)
     {
@@ -146,7 +141,7 @@ class VUInsulatorsEffect : public LEDStripEffect
         DrawVUPixels(iPeakVUy, fade, vu_gpGreen);
       }
 
-      int bars = ::map(g_Analyzer._VU, g_Analyzer._MinVU, 150.0, 1, _cLEDs - 1);
+      int bars = ::map(g_Analyzer.VU(), g_Analyzer.MinVU(), 150.0, 1, _cLEDs - 1);
       if (bars >= iPeakVUy)
       {
         msPeakVU = millis();

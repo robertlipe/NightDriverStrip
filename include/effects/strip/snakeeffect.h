@@ -34,8 +34,10 @@
 #include "effects.h"
 #include "globals.h"
 
-class SnakeEffect : public LEDStripEffect
+class SnakeEffect : public EffectWithId<SnakeEffect>
 {
+  private:
+
     void construct()
     {
         lastLEDIndex = LEDCount - 1;
@@ -43,6 +45,7 @@ class SnakeEffect : public LEDStripEffect
     }
 
   protected:
+
     int     LEDCount;             // Number of LEDs total
     int     SnakeSpeed;           // Max duration between iterations.
 
@@ -65,7 +68,7 @@ class SnakeEffect : public LEDStripEffect
   public:
 
     SnakeEffect(const char * strName, int ledCount = NUM_LEDS, int snakeSpeed = dSnakeSpeed)
-        : LEDStripEffect(EFFECT_STRIP_SNAKE, strName),
+        : EffectWithId<SnakeEffect>(strName),
           LEDCount(ledCount),
           SnakeSpeed(snakeSpeed)
     {
@@ -73,7 +76,7 @@ class SnakeEffect : public LEDStripEffect
     }
 
     SnakeEffect(const JsonObjectConst& jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<SnakeEffect>(jsonObject),
           LEDCount(jsonObject[PTY_LEDCOUNT]),
           SnakeSpeed(jsonObject[PTY_SPEED])
     {

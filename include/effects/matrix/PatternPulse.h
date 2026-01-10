@@ -58,7 +58,7 @@
 #ifndef PatternPulse_H
 #define PatternPulse_H
 
-class PatternPulse : public LEDStripEffect
+class PatternPulse : public EffectWithId<PatternPulse>
 {
   private:
 
@@ -72,13 +72,8 @@ class PatternPulse : public LEDStripEffect
 
   public:
 
-    PatternPulse() : LEDStripEffect(EFFECT_MATRIX_PULSE, "Pulse")
-    {
-    }
-
-    PatternPulse(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternPulse() : EffectWithId<PatternPulse>("Pulse") {}
+    PatternPulse(const JsonObjectConst& jsonObject) : EffectWithId<PatternPulse>(jsonObject) {}
 
     void Draw() override
     {
@@ -121,10 +116,8 @@ class PatternPulse : public LEDStripEffect
         // effects.standardNoiseSmearing();
     }
 };
-class PatternPulsar : public BeatEffectBase, public LEDStripEffect
-{
+class PatternPulsar : public BeatEffectBase, public EffectWithId<PatternPulsar> {
   private:
-
     struct PulsePop
     {
       public:
@@ -142,16 +135,15 @@ class PatternPulsar : public BeatEffectBase, public LEDStripEffect
     int diff;
 
   public:
-
     PatternPulsar() :
         BeatEffectBase(1.5, 0.25 ),
-        LEDStripEffect(EFFECT_MATRIX_PULSAR, "Pulsars")
+        EffectWithId<PatternPulsar>("Pulsars")
     {
     }
 
     PatternPulsar(const JsonObjectConst& jsonObject) :
         BeatEffectBase(1.5, 0.25 ),
-        LEDStripEffect(jsonObject)
+        EffectWithId<PatternPulsar>(jsonObject)
     {
     }
 
@@ -185,7 +177,7 @@ class PatternPulsar : public BeatEffectBase, public LEDStripEffect
 
         const int maxNewStarsPerFrame = 8;
         for (int i = 0; i < maxNewStarsPerFrame; i++)
-            if (random(4) < g_Analyzer._VURatio)
+            if (random(4) < g_Analyzer.VURatio())
                 g()->drawPixel(random(MATRIX_WIDTH), random(MATRIX_HEIGHT), RandomSaturatedColor());
 
 

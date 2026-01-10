@@ -1,3 +1,4 @@
+
 //+--------------------------------------------------------------------------
 //
 // File:        PatternSubscribers.h
@@ -35,6 +36,8 @@
 #include <UrlEncode.h>
 #include "systemcontainer.h"
 
+extern const GFXfont Apple5x7 PROGMEM;
+
 // Update subscribers every 30 minutes, retry after 30 seconds on error, and check other things every 5 seconds
 #define SUB_CHECK_INTERVAL          (30 * 60000)
 #define SUB_CHECK_ERROR_INTERVAL    30000
@@ -43,9 +46,10 @@
 #define DEFAULT_CHANNEL_GUID "9558daa1-eae8-482f-8066-17fa787bc0e4"
 #define DEFAULT_CHANNEL_NAME "Daves Garage"
 
-class PatternSubscribers : public LEDStripEffect
+class PatternSubscribers : public EffectWithId<PatternSubscribers>
 {
   private:
+
     // This requires a matching INIT_EFFECT_SETTING_SPECS() in effects.cpp or linker errors will ensue
     DECLARE_EFFECT_SETTING_SPECS(mySettingSpecs);
 
@@ -149,11 +153,10 @@ class PatternSubscribers : public LEDStripEffect
                                         SettingSpec::SettingType::Color);
             mySettingSpecs.emplace_back(NAME_OF(borderColor), "Border Color",
                                         "Color for the border around the edge", SettingSpec::SettingType::Color);
-            mySettingSpecs
-                .emplace_back(NAME_OF(youtubeChannelName), "YouTube channel name",
-                              "The name of the channel for which the effect should show subscriber information.",
-                              SettingSpec::SettingType::String)
-                .EmptyAllowed = true;
+            mySettingSpecs.emplace_back(NAME_OF(youtubeChannelName), "YouTube channel name",
+                                         "The name of the channel for which the effect should show subscriber information.",
+                                         SettingSpec::SettingType::String)
+                                         .EmptyAllowed = true;
         }
 
         return &mySettingSpecs;
@@ -161,11 +164,8 @@ class PatternSubscribers : public LEDStripEffect
 
   public:
 
-    PatternSubscribers() : LEDStripEffect(EFFECT_MATRIX_SUBSCRIBERS, "Subs")
-    {
-    }
-
-    PatternSubscribers(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
+    PatternSubscribers() : EffectWithId<PatternSubscribers>("Subs") {}
+    PatternSubscribers(const JsonObjectConst& jsonObject) : EffectWithId<PatternSubscribers>(jsonObject)
     {
         if (jsonObject["ycg"].is<String>())
             youtubeChannelGuid = jsonObject["ycg"].as<String>();
@@ -215,38 +215,47 @@ class PatternSubscribers : public LEDStripEffect
 
     void Draw() override
     {
-        LEDMatrixGFX::backgroundLayer.fillScreen(rgb24(backgroundColor.r, backgroundColor.g, backgroundColor.b));
-        LEDMatrixGFX::backgroundLayer.setFont(font5x7);
+        g()->Clear(backgroundColor);
 
         // Draw a border around the edge of the panel
-        LEDMatrixGFX::backgroundLayer.drawRectangle(0, 1, MATRIX_WIDTH - 1, MATRIX_HEIGHT - 2,
-                                                    rgb24(borderColor.r, borderColor.g, borderColor.b));
+        g()->drawRect(0, 1, MATRIX_WIDTH - 1, MATRIX_HEIGHT - 2, g()->to16bit(borderColor));
+
+        // Use the centralized Apple5x7 Adafruit font
+        g()->setFont(&Apple5x7);
 
         // Draw the channel name
-        LEDMatrixGFX::backgroundLayer.drawString(2, 3, rgb24(255,255,255), youtubeChannelName.c_str());
+        g()->setTextColor(g()->to16bit(CRGB::White));
+        g()->setCursor(2, 10);
+        g()->print(youtubeChannelName.c_str());
 
         // Start in the middle of the panel and then back up a half a row to center vertically,
         // then back up left one half a char for every 10s digit in the subscriber count.  This
         // should center the number on the screen
 
-        const int CHAR_WIDTH = 6;
-        const int CHAR_HEIGHT = 7;
-        int x = MATRIX_WIDTH / 2 - CHAR_WIDTH / 2;
-        int y = MATRIX_HEIGHT / 2 - CHAR_HEIGHT / 2 - 3;        // -3 to put it above the caption
-        long z = subscribers;                                  // Use a long in case of Mr Beast
-
-        while (z/=10)
-          x-= CHAR_WIDTH / 2;
-
+        // Get the subscriber count as a string
         String result = str_sprintf("%ld", subscribers);
         const char * pszText = result.c_str();
 
-        LEDMatrixGFX::backgroundLayer.setFont(gohufont11b);
-        LEDMatrixGFX::backgroundLayer.drawString(x-1, y,   rgb24(0,0,0),          pszText);
-        LEDMatrixGFX::backgroundLayer.drawString(x+1, y,   rgb24(0,0,0),          pszText);
-        LEDMatrixGFX::backgroundLayer.drawString(x,   y-1, rgb24(0,0,0),          pszText);
-        LEDMatrixGFX::backgroundLayer.drawString(x,   y+1, rgb24(0,0,0),          pszText);
-        LEDMatrixGFX::backgroundLayer.drawString(x,   y,   rgb24(255,255,255),    pszText);
+        // Use getTextBounds to get the actual dimensions of the subscriber text
+        int16_t x1, y1;
+        uint16_t textWidth, textHeight;
+        g()->getTextBounds(pszText, 0, 0, &x1, &y1, &textWidth, &textHeight);
+
+        // Center the text horizontally and vertically on the screen
+        // Note: y1 is typically negative (above baseline), so we need to account for that
+        int x = (MATRIX_WIDTH - textWidth) / 2;
+        int y = (MATRIX_HEIGHT / 2) - (textHeight / 2) - y1;  // Properly center vertically
+
+        // Draw shadow effect by printing in black at offset positions, then white on top
+        g()->setTextColor(g()->to16bit(CRGB::Black));
+        g()->setCursor(x-1, y);   g()->print(pszText);
+        g()->setCursor(x+1, y);   g()->print(pszText);
+        g()->setCursor(x, y-1);   g()->print(pszText);
+        g()->setCursor(x, y+1);   g()->print(pszText);
+
+        g()->setTextColor(g()->to16bit(CRGB::White));
+        g()->setCursor(x, y);
+        g()->print(pszText);
     }
 
     // Extension override to serialize our settings on top of those from LEDStripEffect

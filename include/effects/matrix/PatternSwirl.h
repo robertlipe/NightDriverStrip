@@ -57,30 +57,25 @@
 
 #ifndef PatternSwirl_H
 
-class PatternSwirl : public LEDStripEffect
+class PatternSwirl : public EffectWithId<PatternSwirl>
 {
-private:
+  private:
+
     const uint8_t borderWidth = 2;
 
-public:
-    PatternSwirl() : LEDStripEffect(EFFECT_MATRIX_SWIRL, "Swirl")
-    {
-    }
+  public:
 
-    PatternSwirl(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternSwirl() : EffectWithId<PatternSwirl>("Swirl") {}
+    PatternSwirl(const JsonObjectConst& jsonObject) : EffectWithId<PatternSwirl>(jsonObject) {}
 
     void drawAt(int i, int j, CRGB color)
     {
-        auto graphics = g();
-
-        graphics->leds[graphics->xy(i, j - 1)] += color;
-        graphics->leds[graphics->xy(i, j + 1)] += color;
-        graphics->leds[graphics->xy(i - 1, j)] += color;
-        graphics->leds[graphics->xy(i + 1, j)] += color;
+        g()->leds[XY(i, j - 1)] += color;
+        g()->leds[XY(i, j + 1)] += color;
+        g()->leds[XY(i - 1, j)] += color;
+        g()->leds[XY(i + 1, j)] += color;
         color.maximizeBrightness();
-        graphics->leds[XY(i, j)] += color;
+        g()->leds[XY(i, j)] += color;
     }
 
     void Draw() override

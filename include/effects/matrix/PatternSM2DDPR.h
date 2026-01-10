@@ -6,9 +6,9 @@
 // Looks best on a square display, but OK on rectangles.
 // I'll admit this math may as well be magic, but it's pretty.
 
-class PatternSM2DDPR : public LEDStripEffect
-{
+class PatternSM2DDPR : public EffectWithId<PatternSM2DDPR> {
   private:
+
     uint8_t ZVoffset = 0;
 
     const int Scale = 127;
@@ -21,17 +21,11 @@ class PatternSM2DDPR : public LEDStripEffect
     //   byte effect = 1;
 
   public:
-    PatternSM2DDPR() : LEDStripEffect(EFFECT_MATRIX_SM2DDPR, "Crystallize")
-    {
-    }
 
-    PatternSM2DDPR(const JsonObjectConst &jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternSM2DDPR() : EffectWithId<PatternSM2DDPR>("Crystallize") {}
+    PatternSM2DDPR(const JsonObjectConst &jsonObject) : EffectWithId<PatternSM2DDPR>(jsonObject) {}
 
-    void Start() override
-    {
-    }
+    void Start() override {}
 
     // Use integer-only Pythagorean to compute the radius from x^2 and y^2.
     int16_t ZVcalcRadius(int16_t x, int16_t y)

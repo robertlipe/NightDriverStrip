@@ -58,9 +58,10 @@
 #ifndef PatternWave_H
 #define PatternWave_H
 
-class PatternWave : public LEDStripEffect
+class PatternWave : public EffectWithId<PatternWave>
 {
-private:
+  private:
+
     uint8_t thetaUpdate = 4;
     uint8_t thetaUpdateFrequency = 0;
     uint8_t theta = 0;
@@ -84,14 +85,14 @@ private:
         waveCount = random(1, 3);
     }
 
-
 public:
-    PatternWave() : LEDStripEffect(EFFECT_MATRIX_WAVE, "Wave")
+
+    PatternWave() : EffectWithId<PatternWave>("Wave")
     {
         construct();
     }
 
-    PatternWave(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
+    PatternWave(const JsonObjectConst& jsonObject) : EffectWithId<PatternWave>(jsonObject)
     {
         construct();
     }

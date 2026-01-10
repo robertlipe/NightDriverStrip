@@ -95,7 +95,7 @@ bool SaveToJSONFile(const String & fileName, IJSONSerializable& object)
     }
 
     size_t bytesWritten = serializeJson(jsonDoc, file);
-    debugI("Number of bytes written to JSON file %s: %zu", fileName.c_str(), bytesWritten);
+    debugI("Number of bytes written to JSON file %s: %zu", fileName.c_str(), (size_t)bytesWritten);
 
     file.flush();
     file.close();
@@ -187,4 +187,9 @@ void IRAM_ATTR JSONWriterTaskEntry(void *)
                 entry.writer();
         }
     }
+}
+
+uint32_t toUint32(const CRGB& color)
+{
+    return (uint32_t)((color.r << 16) | (color.g << 8) | color.b);
 }

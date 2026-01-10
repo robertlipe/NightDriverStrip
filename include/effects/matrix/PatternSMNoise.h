@@ -352,10 +352,11 @@ DEFINE_GRADIENT_PALETTE(shikon_23_gp){
     2,   32,  205, 2,   2,   2,   216, 2,   2,   2,   217, 217, 47,  0,   228, 217, 47,  0,   228, 2,   2,
     2,   242, 2,   2,   2,   243, 26,  0,   219, 250, 26,  0,   219, 255, 2,   2,   2};
 
-class PatternSMNoise : public LEDStripEffect
+class PatternSMNoise : public EffectWithId<PatternSMNoise>
 {
   public:
-    enum /* class */EffectType {
+
+    enum EffectType {
         Unknown,
         LavaLampRainbow_t,
         LavaLampRainbowStripe_t,
@@ -364,19 +365,19 @@ class PatternSMNoise : public LEDStripEffect
     };
 
     PatternSMNoise(const String& name, EffectType effect)
-      : LEDStripEffect(EFFECT_MATRIX_SMNOISE, name),
+      : EffectWithId<PatternSMNoise>(name),
         _effect(effect)
     {
     }
 
     PatternSMNoise()
-      : LEDStripEffect(EFFECT_MATRIX_SMNOISE, "Lava Lamp"),
+      : EffectWithId<PatternSMNoise>("Lava Lamp"),
         _effect(EffectType::Unknown)
     {
     }
 
     PatternSMNoise(const JsonObjectConst &jsonObject)
-      : LEDStripEffect(jsonObject),
+      : EffectWithId<PatternSMNoise>(jsonObject),
         _effect(static_cast<EffectType>(jsonObject[PTY_EFFECT]))
     {
     }
@@ -438,6 +439,7 @@ class PatternSMNoise : public LEDStripEffect
     }
 
   private:
+
     int mode{EffectType::Unknown}; // Which of the 17 effects(!) are we showing?
     EffectType _effect;
 

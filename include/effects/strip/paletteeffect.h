@@ -32,7 +32,8 @@
 
 #include "effects.h"
 
-class PaletteEffect : public LEDStripEffect
+template <typename TEffect>
+class PaletteEffectBase : public EffectWithId<TEffect>
 {
   private:
 
@@ -50,16 +51,16 @@ class PaletteEffect : public LEDStripEffect
 
   public:
 
-    PaletteEffect(const CRGBPalette16 & palette,
-                  float density = 1.0,
-                  float paletteSpeed = 1,
-                  float ledsPerSecond = 0,
-                  float lightSize = 1,
-                  float gapSize = 1,
+    PaletteEffectBase(const CRGBPalette16 & palette,
+                  float density = 1.0f,
+                  float paletteSpeed = 1.0f,
+                  float ledsPerSecond = 0.0f,
+                  float lightSize = 1.0f,
+                  float gapSize = 1.0f,
                   TBlendType blend = LINEARBLEND,
                   bool  bErase = true,
                   float brightness = 1.0)
-      : LEDStripEffect(EFFECT_STRIP_PALETTE, "Palette Effect"),
+      : EffectWithId<TEffect>("Palette Effect"),
         _startIndex(0.0f),
         _paletteIndex(0.0f),
         _palette(palette),
@@ -74,18 +75,19 @@ class PaletteEffect : public LEDStripEffect
     {
     }
 
-    PaletteEffect(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject),
-      _startIndex(0.0f),
-      _paletteIndex(0.0f),
-      _palette(jsonObject[PTY_PALETTE].as<CRGBPalette16>()),
-      _density(jsonObject["dns"]),
-      _paletteSpeed(jsonObject[PTY_SPEED]),
-      _lightSize(jsonObject["lsz"]),
-      _gapSize(jsonObject["gsz"]),
-      _LEDSPerSecond(jsonObject["lps"]),
-      _blend(static_cast<TBlendType>(jsonObject[PTY_BLEND])),
-      _bErase(jsonObject[PTY_ERASE]),
-      _brightness(jsonObject["bns"])
+    PaletteEffectBase(const JsonObjectConst& jsonObject)
+      : EffectWithId<TEffect>(jsonObject),
+        _startIndex(0.0f),
+        _paletteIndex(0.0f),
+        _palette(jsonObject[PTY_PALETTE].as<CRGBPalette16>()),
+        _density(jsonObject["dns"]),
+        _paletteSpeed(jsonObject[PTY_SPEED]),
+        _lightSize(jsonObject["lsz"]),
+        _gapSize(jsonObject["gsz"]),
+        _LEDSPerSecond(jsonObject["lps"]),
+        _blend(static_cast<TBlendType>(jsonObject[PTY_BLEND])),
+        _bErase(jsonObject[PTY_ERASE]),
+        _brightness(jsonObject["bns"])
     {
     }
 
@@ -109,14 +111,10 @@ class PaletteEffect : public LEDStripEffect
         return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
     }
 
-    ~PaletteEffect()
-    {
-    }
-
     void Draw() override
     {
         if (_bErase)
-          setAllOnAllChannels(0,0,0);
+          LEDStripEffect::setAllOnAllChannels(0,0,0);
 
         float deltaTime = g_Values.AppTime.LastFrameTime();
         float increment = (deltaTime * _LEDSPerSecond);
@@ -132,10 +130,10 @@ class PaletteEffect : public LEDStripEffect
 
         if (_gapSize == 0)
         {
-          for (int i = 0; i < _cLEDs; i+=_lightSize)
+          for (int i = 0; i < LEDStripEffect::_cLEDs; i+=_lightSize)
           {
             iColor = fmodf(iColor + _density, 256);
-            setPixelsOnAllChannels(i, _lightSize, ColorFromPalette(_palette, iColor, 255 * _brightness, _blend), false);
+            LEDStripEffect::setPixelsOnAllChannels(i, _lightSize, ColorFromPalette(_palette, iColor, 255 * _brightness, _blend), false);
           }
         }
         else
@@ -143,7 +141,7 @@ class PaletteEffect : public LEDStripEffect
           // Start far enough "back" to have one off-strip light and gap, and then we need to draw at least as far as the last light.
           // This prevents sticks of light from "appearing" or "disappearing" at the ends
 
-          for (float i = 0-totalSize; i < _cLEDs+_lightSize; i++)
+          for (float i = 0-totalSize; i < LEDStripEffect::_cLEDs + _lightSize; i++)
           {
               // We look for each pixel where we cross an even multiple of the light+gap size, which means it's time to start the drawing
               // of the light here
@@ -153,9 +151,15 @@ class PaletteEffect : public LEDStripEffect
               if (index == 0)
               {
                   CRGB c = ColorFromPalette(_palette, iColor, 255 * _brightness, _blend);
-                  setPixelsOnAllChannels(i+_startIndex, _lightSize, c,false);
+                  LEDStripEffect::setPixelsOnAllChannels(i+_startIndex, _lightSize, c,false);
               }
           }
         }
     }
+};
+
+class PaletteEffect : public PaletteEffectBase<PaletteEffect>
+{
+public:
+    using PaletteEffectBase<PaletteEffect>::PaletteEffectBase;
 };

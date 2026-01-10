@@ -30,6 +30,8 @@
 //---------------------------------------------------------------------------
 
 #include <mutex>
+#include <algorithm>
+#include <cmath>
 #include <ArduinoOTA.h> // Over-the-air helper object so we can be flashed via WiFi
 #include "globals.h"
 #include "colordata.h"
@@ -119,9 +121,11 @@ uint16_t LocalDraw()
                 effectManager.Update(); // Draw the current built in effect
 
                 #if SHOW_VU_METER
-                    static auto spectrum = std::static_pointer_cast<SpectrumAnalyzerEffect>(GetSpectrumAnalyzer(0));
-                    if (effectManager.IsVUVisible())
-                        spectrum->DrawVUMeter(g_ptrSystem->EffectManager().GetBaseGraphics(), 0, g_Analyzer.MicMode() == PeakData::PCREMOTE ? & vuPaletteBlue : &vuPaletteGreen);
+                    #if ENABLE_AUDIO
+                        static auto spectrum = std::static_pointer_cast<SpectrumAnalyzerEffect>(GetSpectrumAnalyzer(0));
+                        if (effectManager.IsVUVisible())
+                            spectrum->DrawVUMeter(g_ptrSystem->EffectManager().GetBaseGraphics(), 0, g_Analyzer.IsRemoteAudioActive() ? & vuPaletteBlue : &vuPaletteGreen);
+                    #endif
                 #endif
 
                 debugV("LocalDraw claims to have drawn %d pixels", NUM_LEDS);
@@ -156,10 +160,13 @@ int CalcDelayUntilNextFrame(double frameStartTime, uint16_t localPixelsDrawn, ui
 
     if (localPixelsDrawn > 0)
     {
-        const double minimumFrameTime = 1.0 / g_ptrSystem->EffectManager().GetCurrentEffect().DesiredFramesPerSecond();
-        double elapsed = g_Values.AppTime.CurrentTime() - frameStartTime;
-        if (elapsed < minimumFrameTime)
-            g_Values.FreeDrawTime = std::clamp(minimumFrameTime - elapsed, 0.0, 1.0);
+        const double fpsRaw = static_cast<double>(g_ptrSystem->EffectManager().GetCurrentEffect().DesiredFramesPerSecond());
+        // If FPS is invalid (<= 0 or non-finite), treat as unlimited (0s minimum frame time).
+        const double minimumFrameTime = (!std::isfinite(fpsRaw) || fpsRaw <= 0.0) ? 0.0 : (1.0 / fpsRaw);
+        // Use a monotonic-like elapsed (never negative) in case wall clock adjustments go backward.
+        const double elapsed = std::max(0.0, g_Values.AppTime.CurrentTime() - frameStartTime);
+        // Always recompute FreeDrawTime so it cannot "stick" to a prior large value.
+        g_Values.FreeDrawTime = std::clamp(minimumFrameTime - elapsed, 0.0, 1.0);
     }
     else if (wifiPixelsDrawn > 0)
     {
@@ -174,10 +181,13 @@ int CalcDelayUntilNextFrame(double frameStartTime, uint16_t localPixelsDrawn, ui
             auto pOldest = bufferManager.PeekOldestBuffer();
             if (pOldest)
             {
-                t = std::min(t, pOldest->TimeTillDue());
+                // TimeTillDue() should be non-negative for future-due frames; if negative (stale), treat as now.
+                // Note I'm not using clamp since clamp can return nan if TimeTillDue does, whereas this guards against that.
+                t = std::min(t, std::max(0.0, pOldest->TimeTillDue()));
                 bFoundFrame = true;
             }
         }
+        // Bound the delay to at most 1 second to avoid pathological multi-second sleeps.
         g_Values.FreeDrawTime = bFoundFrame ? std::clamp(t, 0.0, 1.0) : kMinDelay;
     }
     else
@@ -202,7 +212,7 @@ void ShowOnboardRGBLED()
 
     #if ONBOARD_LED_R
         #if ENABLE_AUDIO
-            CRGB c = ColorFromPalette(HeatColors_p, g_Analyzer._VURatioFade / 2.0 * 255);
+            CRGB c = ColorFromPalette(HeatColors_p, g_Analyzer.VURatioFade() / 2.0 * 255);
             ledcWrite(1, 255 - c.r); // write red component to channel 1, etc.
             ledcWrite(2, 255 - c.g);
             ledcWrite(3, 255 - c.b);
@@ -290,7 +300,7 @@ void IRAM_ATTR DrawLoopTaskEntry(void *)
             ShowOnboardRGBLED();
 
             g_Values.FPS = FastLED.getFPS();
-            g_ptrSystem->EffectManager().SetNewFrameAvailable(true);
+            g_ptrSystem->EffectManager().ReportNewFrameAvailable();
         }
 
         graphics->PostProcessFrame(localPixelsDrawn, wifiPixelsDrawn);

@@ -51,6 +51,7 @@
 class BeatEffectBase
 {
   protected:
+
     const int _maxSamples = 60;
     std::deque<float> _samples;
     double _lastBeat = 0;
@@ -87,7 +88,9 @@ class BeatEffectBase
         debugV("BeatEffectBase2::Draw");
         double elapsed = SecondsSinceLastBeat();
 
-        auto basslevel = g_Analyzer.GetPeakData()._Level[0] * 2;  // Since VURatio was historically a 0-2 range, we do the same
+        // Access peaks via const reference to avoid copying
+        const PeakData & peaks = g_Analyzer.Peaks();
+        auto basslevel = peaks[0] * 2;  // Scale to historical 0-2 range
 
         debugV("basslevel: %0.2f", basslevel);
         _samples.push_back(basslevel);
@@ -109,11 +112,11 @@ class BeatEffectBase
             }
             else
             {
-              debugV("Beat: elapsed: %0.2lf, range: %0.2lf\n", elapsed, maximum - minimum);
+                debugV("Beat: elapsed: %0.2lf, range: %0.2lf\n", elapsed, maximum - minimum);
 
-              HandleBeat(false, elapsed, maximum - minimum);
-              _lastBeat = g_Values.AppTime.CurrentTime();
-              _samples.clear();
+                HandleBeat(false, elapsed, maximum - minimum);
+                _lastBeat = g_Values.AppTime.CurrentTime();
+                _samples.clear();
             }
         }
     }
@@ -124,7 +127,7 @@ class BeatEffectBase
 // Uses a very sensitive beat detection.  Fills all pixels blue based on VU, and on beats, fills a random insulator
 // with a random color.  Longer beats get more insulators.  Very long beats get everything filled with purple.
 
-class SimpleColorBeat : public BeatEffectBase, public LEDStripEffect
+class SimpleColorBeat : public BeatEffectBase, public EffectWithId<SimpleColorBeat>
 {
   protected:
 
@@ -134,7 +137,7 @@ class SimpleColorBeat : public BeatEffectBase, public LEDStripEffect
     {
         ProcessAudio();
 
-        CRGB c = CRGB::Blue * g_Analyzer._VURatio * g_Values.AppTime.LastFrameTime() * 0.75;
+        CRGB c = CRGB::Blue * g_Analyzer.VURatio() * g_Values.AppTime.LastFrameTime() * 0.75;
         setPixelsOnAllChannels(0, NUM_LEDS, c, true);
 
         fadeAllChannelsToBlackBy(min(255.0,1000.0 * g_Values.AppTime.LastFrameTime()));
@@ -187,14 +190,10 @@ class SimpleColorBeat : public BeatEffectBase, public LEDStripEffect
   public:
 
     SimpleColorBeat(const String & strName)
-      : BeatEffectBase(0.5, 0.25), LEDStripEffect(EFFECT_STRIP_SIMPLE_COLOR_BEAT, strName)
-    {
-    }
+      : BeatEffectBase(0.5, 0.25), EffectWithId<SimpleColorBeat>(strName) {}
 
     SimpleColorBeat(const JsonObjectConst& jsonObject)
-      : BeatEffectBase(0.5, 0.25), LEDStripEffect(jsonObject)
-    {
-    }
+      : BeatEffectBase(0.5, 0.25), EffectWithId<SimpleColorBeat>(jsonObject) {}
 };
 
 #endif // ENABLE_AUDIO

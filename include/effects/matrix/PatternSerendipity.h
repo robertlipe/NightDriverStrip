@@ -58,9 +58,10 @@
 #ifndef PatternSpiral_H
 #define PatternSpiral_H
 
-class PatternSerendipity : public LEDStripEffect
+class PatternSerendipity : public EffectWithId<PatternSerendipity>
 {
-private:
+  private:
+
     // Timer stuff (Oszillators)
     struct timer
     {
@@ -93,14 +94,10 @@ private:
         }
     }
 
-public:
-    PatternSerendipity() : LEDStripEffect(EFFECT_MATRIX_SERENDIPITY, "Serendipiti")
-    {
-    }
+  public:
 
-    PatternSerendipity(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternSerendipity() : EffectWithId<PatternSerendipity>("Serendipity") {}
+    PatternSerendipity(const JsonObjectConst& jsonObject) : EffectWithId<PatternSerendipity>(jsonObject) {}
 
     bool Init(std::vector<std::shared_ptr<GFXBase>>& gfx) override
     {

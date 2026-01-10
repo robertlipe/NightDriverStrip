@@ -1,3 +1,4 @@
+
 //+--------------------------------------------------------------------------
 //
 // File:        PatternPongClock.h
@@ -68,13 +69,15 @@
 
 #include "systemcontainer.h"
 
+extern const GFXfont Apple5x7 PROGMEM;
+
 #define BAT1_X 2 // Pong left bat x pos (this is where the ball collision occurs, the bat is drawn 1 behind these coords)
 #define BAT2_X (MATRIX_WIDTH - 4)
 #define BAT_HEIGHT (MATRIX_HEIGHT / 4)
 #define SPEEDUP 1.15
 #define MAXSPEED 4.0f
 
-class PatternPongClock : public LEDStripEffect
+class PatternPongClock : public EffectWithId<PatternPongClock>
 {
   private:
     float ballpos_x, ballpos_y;
@@ -95,13 +98,8 @@ class PatternPongClock : public LEDStripEffect
 
   public:
 
-    PatternPongClock() : LEDStripEffect(EFFECT_MATRIX_PONG_CLOCK, "PongClock")
-    {
-    }
-
-    PatternPongClock(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternPongClock() : EffectWithId<PatternPongClock>("PongClock") {}
+    PatternPongClock(const JsonObjectConst& jsonObject) : EffectWithId<PatternPongClock>(jsonObject) {}
 
     virtual size_t DesiredFramesPerSecond() const override
     {
@@ -137,8 +135,8 @@ class PatternPongClock : public LEDStripEffect
         g()->Clear();
 
         // draw pitch centre line
-        for (uint16_t i = 0; i < MATRIX_WIDTH / 2; i += 2)
-            g()->setPixel(MATRIX_WIDTH / 2, i, 0x6666);
+        for (uint16_t y = 0; y < MATRIX_HEIGHT; y += 2)
+            g()->setPixel(MATRIX_WIDTH / 2, y, 0x6666);
 
         // draw hh:mm separator colon that blinks once per second
 
@@ -148,19 +146,31 @@ class PatternPongClock : public LEDStripEffect
             g()->setPixel(MATRIX_WIDTH / 2, 6, RED16);
         }
 
-        LEDMatrixGFX::backgroundLayer.setFont(gohufont11b);
+        // Render HH:MM using Adafruit_GFX font via GFXBase
+        g()->setFont(&Apple5x7);
+        g()->setTextWrap(false);
+        g()->setTextColor(WHITE16);
 
-        // The compiler warns that with a nul terminator, 4 bytes could be needed, which is true
-        // but we're only writing 3 bytes, but I'll waste the byte to avoid the warning.
-
+        // The compiler warns that with a nul terminator, 4 bytes could be needed; allocate 4
         char buffer[4];
 
-        auto clockColor = rgb24(255,255,255);
-        sprintf(buffer, "%2d", hours);
-        LEDMatrixGFX::backgroundLayer.drawString(MATRIX_WIDTH / 2 - 12, 0, clockColor, buffer);
+        // Compute baseline height for top-aligned text
+        int16_t bx, by; uint16_t bw, bh;
 
+        // Hours (left side)
+        sprintf(buffer, "%2d", hours);
+        g()->getTextBounds(buffer, 0, 0, &bx, &by, &bw, &bh);
+        int16_t hoursX = (MATRIX_WIDTH / 2) - 2 - bw;
+        int16_t baselineY = bh+2; // draw so the text's top is near y=0
+        g()->setCursor(hoursX, baselineY);
+        g()->print(buffer);
+
+        // Minutes (right side)
         sprintf(buffer, "%02d", mins);
-        LEDMatrixGFX::backgroundLayer.drawString(MATRIX_WIDTH / 2 + 2, 0, clockColor, buffer);
+        g()->getTextBounds(buffer, 0, 0, &bx, &by, &bw, &bh);
+        int16_t minsX = (MATRIX_WIDTH / 2) + 2;
+        g()->setCursor(minsX, baselineY);
+        g()->print(buffer);
 
         // if restart flag is 1, set up a new game
         if (restart)
@@ -307,9 +317,7 @@ class PatternPongClock : public LEDStripEffect
         }
 
         // draw bat 1
-        //       if (bat1_update) {
-        LEDMatrixGFX::backgroundLayer.fillRectangle(BAT1_X - 1, bat1_y, BAT1_X, bat1_y + BAT_HEIGHT, rgb24(255,255,255));
-        //      }
+        g()->fillRectangle(BAT1_X - 1, bat1_y, BAT1_X + 1, bat1_y + BAT_HEIGHT, CRGB::White);
 
         // move bat 2 towards target (don't go any further or bat will move off screen)
         // if bat y greater than target y move down until hit 0
@@ -326,7 +334,7 @@ class PatternPongClock : public LEDStripEffect
             bat2_update = 1;
         }
 
-        LEDMatrixGFX::backgroundLayer.fillRectangle(BAT2_X + 1, bat2_y, BAT2_X + 2, bat2_y +BAT_HEIGHT, rgb24(255,255,255));
+        g()->fillRectangle(BAT2_X + 1, bat2_y, BAT2_X + 3, bat2_y + BAT_HEIGHT, CRGB::White);
 
         // update the ball position using the velocity
         ballpos_x = ballpos_x + ballvel_x;
@@ -502,5 +510,4 @@ class PatternPongClock : public LEDStripEffect
         return newY;
     }
 };
-
 #endif

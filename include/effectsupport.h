@@ -33,6 +33,13 @@
 #pragma once
 
 #include "globals.h"
+#include <type_traits>
+#include <string_view>
+#include <cstdint>
+#include <algorithm>
+#include <vector>
+#include <utility>
+#include "hashing.h"
 
 // Palettes used by a number of effects
 
@@ -184,40 +191,85 @@ const CRGBPalette16 USAColors_p =
 
 const CRGBPalette16 rainbowPalette(RainbowColors_p);
 
+// A pointer to the global effect factories.
 extern DRAM_ATTR std::unique_ptr<EffectFactories> g_ptrEffectFactories;
 
+// ------------------------------------------------------------
+// Support for building stable factory IDs and combining them
+// ------------------------------------------------------------
+
+// A type alias for removing const, volatile, and reference from a type.
+template<typename T>
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
+
+// Gets the effect ID of a given effect type.
+template<typename T>
+constexpr EffectId effect_id_of_type() {
+    static_assert(std::is_base_of_v<LEDStripEffect, remove_cvref_t<T>>,
+                  "Type must derive from EffectWithId<Id>");
+    return remove_cvref_t<T>::ID;   // compile-time constant
+}
+
+// Build a stable 64-bit ID for a factory based on effect type and ctor args
+// Note that this is declared as a constexpr function, which means all ctor
+// args need to be static types. The fact this code compiles confirms that
+// is indeed the case.
+template<typename TEffect, typename... Args>
+constexpr FactoryId factory_id_of_instance(const Args&... args)
+{
+    FactoryId h = fnv1a::hash<FactoryId>("effect");
+    h = fnv1a::hash(effect_id_of_type<TEffect>(), h);
+    h = fnv1a::hash_pack(h, args...);
+    return h;
+}
+
 // Adds a default and JSON effect factory for a specific effect number and type.
-//   All parameters beyond effectNumber and effectType will be passed on to the default effect constructor.
-#define ADD_EFFECT(effectNumber, effectType, ...) \
-    g_ptrEffectFactories->AddEffect(effectNumber, \
-        []()                                 ->std::shared_ptr<LEDStripEffect> { return make_shared_psram<effectType>(__VA_ARGS__); }, \
-        [](const JsonObjectConst& jsonObject)->std::shared_ptr<LEDStripEffect> { return make_shared_psram<effectType>(jsonObject); }\
-    )
+// All parameters beyond effectNumber and effect type are forwarded to the default constructor.
+template<typename TEffect, typename... Args>
+inline EffectFactories::NumberedFactory& AddEffect(EffectFactories& factories, Args&&... args)
+{
+    return factories.AddEffect(
+        effect_id_of_type<TEffect>(),
+        [=]() -> std::shared_ptr<LEDStripEffect> { return make_shared_psram<TEffect>(args...); },
+        [](const JsonObjectConst& jsonObject) -> std::shared_ptr<LEDStripEffect> { return make_shared_psram<TEffect>(jsonObject); },
+        factory_id_of_instance<TEffect>(args...)
+    );
+}
 
-// Adds a default and JSON effect factory for a specific effect number/type.
-//   All parameters beyond effectNumber and effectType will be passed on to the default effect constructor.
-//   The default effect will be disabled upon creation, so will not show until enabled.
-#define ADD_EFFECT_DISABLED(effectNumber, effectType, ...) \
-    ADD_EFFECT(effectNumber, effectType, __VA_ARGS__).LoadDisabled = true
 
-// Used by ADD_STARRY_NIGHT_EFFECT
-std::shared_ptr<LEDStripEffect> CreateStarryNightEffectFromJSON(const JsonObjectConst& jsonObject);
+// Fold-expression helper to register many at once with brief syntax:
+//   RegisterAll(*g_ptrEffectFactories,
+//       Effect<idStripPalette, MyEffect>(args...),
+//       Disabled(Effect<idStripColorFill, OtherEffect>(args...)));
+template<typename... Adders>
+inline void RegisterAll(EffectFactories& factories, Adders&&... adders)
+{
+    (static_cast<void>(adders(factories)), ...);
+}
 
-// Adds a default and JSON effect factory for a StarryNightEffect with a specific star type.
-//   All parameters beyond starType will be passed on to the default StarryNightEffect constructor for the indicated star type.
-#define ADD_STARRY_NIGHT_EFFECT(starType, ...) \
-    g_ptrEffectFactories->AddEffect(EFFECT_STRIP_STARRY_NIGHT, \
-        []()                                 ->std::shared_ptr<LEDStripEffect> { return make_shared_psram<StarryNightEffect<starType>>(__VA_ARGS__); }, \
-        [](const JsonObjectConst& jsonObject)->std::shared_ptr<LEDStripEffect> { return CreateStarryNightEffectFromJSON(jsonObject); }\
-    )
+// Builder for a single effect entry used with RegisterAll
+template<typename TEffect, typename... Args>
+inline auto Effect(Args&&... args)
+{
+    return [=](EffectFactories& factories) -> EffectFactories::NumberedFactory&
+    {
+        return AddEffect<TEffect>(factories, args...);
+    };
+}
 
-// Adds a default and JSON effect factory for a StarryNightEffect with a specific star type.
-//   All parameters beyond starType will be passed on to the default StarryNightEffect constructor for the indicated star type.
-//   The default effect will be disabled upon creation, so will not show until enabled.
-#define ADD_STARRY_NIGHT_EFFECT_DISABLED(starType, ...) \
-    ADD_STARRY_NIGHT_EFFECT(starType, __VA_ARGS__).LoadDisabled = true
+// Decorator to mark an entry disabled-on-load when using RegisterAll
+template<typename F>
+inline auto Disabled(F adder)
+{
+    return [=](EffectFactories& factories) -> EffectFactories::NumberedFactory&
+    {
+        auto& nf = adder(factories);
+        nf.LoadDisabled = true;
+        return nf;
+    };
+}
 
-// Defines used by some StarryNightEffect instances
+// Defines used by some StarEffect instances
 
-#define STARRYNIGHT_PROBABILITY 1.0
-#define STARRYNIGHT_MUSICFACTOR 1.0
+constexpr float kStarEffectProbability = 1.0f;
+constexpr float kStarEffectMusicFactor = 1.0f;

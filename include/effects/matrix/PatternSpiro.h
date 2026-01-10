@@ -60,9 +60,10 @@
 #ifndef PatternSpiro_H
 #define PatternSpiro_H
 
-class PatternSpiro : public LEDStripEffect
+class PatternSpiro : public EffectWithId<PatternSpiro>
 {
 private:
+
   uint8_t theta1 = 0;
   uint8_t theta2 = 0;
   uint8_t hueoffset = 0;
@@ -81,13 +82,9 @@ private:
   boolean handledChange = false;
 
 public:
-  PatternSpiro() : LEDStripEffect(EFFECT_MATRIX_SPIRO, "Spiro")
-  {
-  }
 
-  PatternSpiro(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-  {
-  }
+  PatternSpiro() : EffectWithId<PatternSpiro>("Spiro") {}
+  PatternSpiro(const JsonObjectConst& jsonObject) : EffectWithId<PatternSpiro>(jsonObject) {}
 
   virtual size_t DesiredFramesPerSecond() const override
   {

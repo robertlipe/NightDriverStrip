@@ -42,7 +42,7 @@
 #include "globals.h"
 #include <string.h>
 #include <ledstripeffect.h>
-#include <ledmatrixgfx.h>
+#include <hub75gfx.h>
 #include <ArduinoJson.h>
 #include "systemcontainer.h"
 #include <map>
@@ -100,7 +100,7 @@ struct GIFInfo : public EmbeddedFile
     {}
 };
 
-static const std::map<GIFIdentifier, const GIFInfo, std::less<GIFIdentifier>, const psram_allocator<std::pair<GIFIdentifier, const GIFInfo>>> AnimatedGIFs =
+static const std::map<GIFIdentifier, const GIFInfo, std::less<GIFIdentifier>, psram_allocator<std::pair<const GIFIdentifier, const GIFInfo>>> AnimatedGIFs =
 {
     // Banana has 8 frames.  Most music is around 120BPM, so we need to play each frame for 1/15th of a second to somewhat align with a typical beat
     { GIFIdentifier::Banana,       GIFInfo(banana_start,      banana_end,      32, 32, 10 ) },      //  4 KB
@@ -124,6 +124,13 @@ struct
     int             _offsetY   = 0;
     uint8_t         _fps       = 24;
     CRGB            _bkColor   = CRGB::Black;
+    // Scaling parameters for best-fit rendering
+    float           _scaleX    = 1.0f;
+    float           _scaleY    = 1.0f;
+    uint16_t        _srcWidth  = 0;
+    uint16_t        _srcHeight = 0;
+    uint16_t        _dstWidth  = 0;
+    uint16_t        _dstHeight = 0;
 }
 g_gifDecoderState;
 
@@ -136,9 +143,9 @@ const std::unique_ptr<GifDecoder<MATRIX_WIDTH, MATRIX_HEIGHT, 16, true>> g_ptrGI
 //
 // Draws a cycling animated GIF on the LED matrix.  Use GifDecoder to do the heavy lifting behind the scenes.
 
-class PatternAnimatedGIF : public LEDStripEffect
+class PatternAnimatedGIF : public EffectWithId<PatternAnimatedGIF>
 {
-private:
+  private:
 
     GIFIdentifier _gifIndex  = GIFIdentifier::INVALID;
     CRGB _bkColor            = BLACK16;
@@ -154,7 +161,7 @@ private:
     static void screenClearCallback(void)
     {
         auto& g = *(g_ptrSystem->EffectManager().g());
-        g.fillScreen(g.to16bit(g_gifDecoderState._bkColor));
+        g.Clear(g_gifDecoderState._bkColor);
     }
 
     // We decide when to update the screen, so this is a no-op
@@ -166,17 +173,25 @@ private:
 
     // drawPixelCallback
     //
-    // This is called by the GIF decoder to draw a pixel.  We use the offset to center the GIF on the LED matrix.
+    // This is called by the GIF decoder to draw a pixel.  We use scaling and offset to fit the GIF on the LED matrix.
 
     static void drawPixelCallback(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8_t blue)
     {
         auto& g = *(g_ptrSystem->EffectManager().g(0));
-        if (false == g.isValidPixel(x  + g_gifDecoderState._offsetX, y + g_gifDecoderState._offsetY))
+
+        // Apply scaling transformation
+        int16_t scaledX = (int16_t)(x * g_gifDecoderState._scaleX) + g_gifDecoderState._offsetX;
+        int16_t scaledY = (int16_t)(y * g_gifDecoderState._scaleY) + g_gifDecoderState._offsetY;
+
+        if (false == g.isValidPixel(scaledX, scaledY))
         {
-            debugW("drawPixelCallbackInvalid pixel: %d, %d", x + g_gifDecoderState._offsetX, y + g_gifDecoderState._offsetY);
+            debugV("drawPixelCallback: scaled pixel out of bounds: %d, %d (from source %d, %d)", scaledX, scaledY, x, y);
             return;
         }
-        g.leds[XY(x + g_gifDecoderState._offsetX, y + g_gifDecoderState._offsetY)] = CRGB(red, green, blue);
+
+        // If we're scaling down (scale < 1.0), we might want to sample multiple source pixels
+        // For now, we use simple nearest-neighbor scaling
+        g.leds[XY(scaledX, scaledY)] = CRGB(red, green, blue);
     }
 
     // drawLineCallback
@@ -206,16 +221,16 @@ private:
 
 public:
 
-    PatternAnimatedGIF(const String & friendlyName, GIFIdentifier gifIndex, bool preClear = false, CRGB bkColor = CRGB::Black) :
-        LEDStripEffect(EFFECT_MATRIX_ANIMATEDGIF, friendlyName),
-        _preClear(preClear),
-        _gifIndex(gifIndex),
-        _bkColor(bkColor)
+    PatternAnimatedGIF(const String & friendlyName, GIFIdentifier gifIndex, bool preClear = false, CRGB bkColor = CRGB::Black)
+        : EffectWithId<PatternAnimatedGIF>(friendlyName),
+          _preClear(preClear),
+          _gifIndex(gifIndex),
+          _bkColor(bkColor)
     {
     }
 
     PatternAnimatedGIF(const JsonObjectConst& jsonObject)
-        : LEDStripEffect(jsonObject),
+        : EffectWithId<PatternAnimatedGIF>(jsonObject),
           _preClear(jsonObject[PTY_PRECLEAR]),
           _gifIndex((GIFIdentifier)jsonObject[PTY_GIFINDEX].as<std::underlying_type_t<GIFIdentifier>>()),
           _bkColor(jsonObject[PTY_BKCOLOR])
@@ -249,13 +264,46 @@ public:
         // Set up the gifDecoderState with all of the context that it will need to decode and
         // draw the GIF, since the static callbacks will have no other context to work with.
 
-        assert(gif->second._width <= MATRIX_WIDTH);
-        assert(gif->second._height <= MATRIX_HEIGHT);
+        // Calculate best-fit scaling if the GIF is larger than the matrix
+        uint16_t gifWidth = gif->second._width;
+        uint16_t gifHeight = gif->second._height;
 
-        g_gifDecoderState._offsetX   = (MATRIX_WIDTH  - gif->second._width) / 2;
-        g_gifDecoderState._offsetY   = (MATRIX_HEIGHT - gif->second._height) / 2;
+        float scaleX = 1.0f;
+        float scaleY = 1.0f;
+
+        // If GIF is larger than matrix, calculate scaling to fit
+        if (gifWidth > MATRIX_WIDTH || gifHeight > MATRIX_HEIGHT)
+        {
+            scaleX = (float)MATRIX_WIDTH / (float)gifWidth;
+            scaleY = (float)MATRIX_HEIGHT / (float)gifHeight;
+
+            // Use the smaller scale factor to maintain aspect ratio (best fit)
+            float scale = min(scaleX, scaleY);
+            scaleX = scale;
+            scaleY = scale;
+        }
+
+        // Calculate the destination dimensions after scaling
+        uint16_t dstWidth = (uint16_t)(gifWidth * scaleX);
+        uint16_t dstHeight = (uint16_t)(gifHeight * scaleY);
+
+        // Center the scaled GIF on the matrix
+        int offsetX = (MATRIX_WIDTH - dstWidth) / 2;
+        int offsetY = (MATRIX_HEIGHT - dstHeight) / 2;
+
+        debugI("GIF scaling: %dx%d -> %dx%d (scale %.2f,%.2f) offset (%d,%d)",
+               (int)gifWidth, (int)gifHeight, (int)dstWidth, (int)dstHeight, scaleX, scaleY, (int)offsetX, (int)offsetY);
+
+        g_gifDecoderState._offsetX   = offsetX;
+        g_gifDecoderState._offsetY   = offsetY;
         g_gifDecoderState._fps       = gif->second._fps;
         g_gifDecoderState._bkColor   = _bkColor;
+        g_gifDecoderState._scaleX    = scaleX;
+        g_gifDecoderState._scaleY    = scaleY;
+        g_gifDecoderState._srcWidth  = gifWidth;
+        g_gifDecoderState._srcHeight = gifHeight;
+        g_gifDecoderState._dstWidth  = dstWidth;
+        g_gifDecoderState._dstHeight = dstHeight;
 
         // Set the GIF decoder callbacks to our static functions
 

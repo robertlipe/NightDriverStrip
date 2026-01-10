@@ -58,7 +58,7 @@
 //    gives effects access to the audio data, and there are a number
 //    of sound-reactive and beat-driven effects built in.
 //
-//    In addition to simple trips, the app handles matrixes as well.
+//    In addition to simple strips, the app handles matrixes as well.
 //    It also handles groups of rings.  In one incarnation, 10 RGB
 //    LED PC fans are connected in a LianLi case plus the 32 or so
 //    on the front of the case.  The fans are grouped into NUM_FANS
@@ -159,20 +159,24 @@
 #include <nvs.h>
 
 #include "globals.h"
-#include "deviceconfig.h"
-#include "systemcontainer.h"
-#include "soundanalyzer.h"
-#include "values.h"
-#include "improvserial.h"                       // ImprovSerial impl for setting WiFi credentials over the serial port
-#include <TJpg_Decoder.h>
-#include <esp_now.h>
 
-#if defined(TOGGLE_BUTTON_1) || defined(TOGGLE_BUTTON_2)
+#include "debug_cli.h"
+#include "deviceconfig.h"
+#include "improvserial.h"                       // ImprovSerial impl for setting WiFi credentials over the serial port
+#include "soundanalyzer.h"
+#include "systemcontainer.h"
+#include "values.h"
+
+#if defined(TOGGLE_BUTTON_0) || defined(TOGGLE_BUTTON_1)
   #include "Bounce2.h"                            // For Bounce button class
 #endif
 
 void IRAM_ATTR ScreenUpdateLoopEntry(void *);
+
+#if ENABLE_ESPNOW
+#include <esp_now.h>
 void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen);
+#endif
 
 //
 // Global Variables
@@ -180,7 +184,6 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen);
 
 std::unique_ptr<SystemContainer> g_ptrSystem;
 Values g_Values;
-SoundAnalyzer g_Analyzer;
 RemoteDebug Debug;                                                        // Instance of our telnet debug server
 std::mutex g_buffer_mutex;
 
@@ -214,15 +217,18 @@ void PrintOutputHeader()
 {
     debugI("NightDriverStrip\n");
     debugI("------------------------------------------------------------------------------------------------------------");
-    debugI("M5STICKC: %d, USE_M5DISPLAY: %d, USE_OLED: %d, USE_TFTSPI: %d, USE_LCD: %d, USE_AUDIO: %d, ENABLE_REMOTE: %d", M5STICKC, USE_M5DISPLAY, USE_OLED, USE_TFTSPI, USE_LCD, ENABLE_AUDIO, ENABLE_REMOTE);
+    debugI("M5STICKC: %d, USE_M5DISPLAY: %d, USE_TFTSPI: %d, USE_LCD: %d, AUDIO_ENABLED: %d, ENABLE_REMOTE: %d", M5STICKC, USE_M5DISPLAY, USE_TFTSPI, USE_LCD, ENABLE_AUDIO, ENABLE_REMOTE);
 
     #if USE_PSRAM
         debugI("ESP32 PSRAM Init: %s", psramInit() ? "OK" : "FAIL");
     #endif
 
-    debugI("Version %u: Wifi SSID: \"%s\" - ESP32 Free Memory: %u, PSRAM:%u, PSRAM Free: %u",
-            FLASH_VERSION, cszSSID, ESP.getFreeHeap(), ESP.getPsramSize(), ESP.getFreePsram());
-    debugI("ESP32 Clock Freq : %d MHz", ESP.getCpuFreqMHz());
+    debugI("Version %u: Wifi SSID: \"%s\" - ESP32 Free Memory: %zu, PSRAM:%zu, PSRAM Free: %zu",
+            FLASH_VERSION, cszSSID, (size_t)ESP.getFreeHeap(), (size_t)ESP.getPsramSize(), (size_t)ESP.getFreePsram());
+    debugI("ESP32 Clock Freq : %lu MHz", (unsigned long)ESP.getCpuFreqMHz());
+
+    // Initial CLI prompt
+    DebugCLI::RunCommand("");
 }
 
 // TerminateHandler
@@ -247,17 +253,7 @@ void TerminateHandler()
     Serial.flush();
 }
 
-#ifdef TOGGLE_BUTTON_1
-Bounce2::Button Button1;
-#endif
-
-#ifdef TOGGLE_BUTTON_2
-Bounce2::Button Button2;
-#endif
-
-#ifdef TOGGLE_BUTTON_3
-Bounce2::Button Button3;
-#endif
+// Buttons are now owned/managed by Screen
 
 // setup
 //
@@ -331,7 +327,7 @@ void setup()
     #if ENABLE_ESPNOW
         WiFi.mode(WIFI_STA);  // or WIFI_AP if applicable
 
-        if (esp_now_init() != ESP_OK) 
+        if (esp_now_init() != ESP_OK)
             throw std::runtime_error("Error initializing ESP-NOW");
         // Register receive callback function
         esp_now_register_recv_cb(onReceiveESPNOW);
@@ -341,21 +337,47 @@ void setup()
     #if ENABLE_WIFI
         String WiFi_ssid;
         String WiFi_password;
+        bool ct_creds_selected = false;
 
-        // Read the WiFi crendentials from NVS.  If it fails, writes the defaults based on secrets.h
-
-        if (!ReadWiFiConfig(WiFi_ssid, WiFi_password))
+        // if we have valid compile-time creds and they differ from what was persisted as
+        // compile-time creds, adopt them as the new WiFi creds reality.
+        if (cszSSID && strlen(cszSSID) > 0 && cszPassword)
         {
-            debugW("Could not read WiFI Credentials");
-            WiFi_ssid     = cszSSID;
-            WiFi_password = cszPassword;
-            if (!WriteWiFiConfig(WiFi_ssid, WiFi_password))
-                debugW("Could not even write defaults to WiFi Credentials");
+            String ct_ssid;
+            String ct_password;
+            if (!ReadWiFiConfig(WifiCredSource::CompileTimeCreds, ct_ssid, ct_password)
+                || ct_ssid != cszSSID || ct_password != cszPassword)
+            {
+                debugI("Compile-time WiFi credentials differ from stored credentials, adopting new credentials");
+                ct_creds_selected = true;
+
+                // Clear any Improv creds as they are now stale
+                if (!ClearWiFiConfig(WifiCredSource::ImprovCreds))
+                    debugW("Failed clearing Improv WiFi config from NVS");
+            }
         }
-        else if (WiFi_ssid.length() == 0)
+
+        // If we didn't decide to use current compile-time credentials, then try to fetch Improv creds
+        if (!ct_creds_selected && !ReadWiFiConfig(WifiCredSource::ImprovCreds, WiFi_ssid, WiFi_password))
         {
-            WiFi_ssid     = cszSSID;
+            debugW("Could not read Improv WiFI credentials, falling back to persisted compile-time credentials");
+
+            // We don't have Improv creds, so read presisted compile-time creds instead.
+            if (!ReadWiFiConfig(WifiCredSource::CompileTimeCreds, WiFi_ssid, WiFi_password))
+            {
+                // No persisted compile-time credentials either, so we just go with what we have
+                debugW("Could not read persisted compile-time WiFI credentials either, falling back to what's compiled in");
+                ct_creds_selected = true;
+            }
+        }
+
+        // If we decided to use current compile-time credentials, then make them the current config and write them to NVS
+        if (ct_creds_selected)
+        {
+            WiFi_ssid = cszSSID;
             WiFi_password = cszPassword;
+            if (!WriteWiFiConfig(WifiCredSource::CompileTimeCreds, WiFi_ssid, WiFi_password))
+                debugW("Failed writing compile-time WiFi config to NVS");
         }
 
         // This chip alone is special-cased by Improv, so we pull it
@@ -370,7 +392,7 @@ void setup()
         String name = "NDESP32" + get_mac_address().substring(6);
         g_pImprovSerial = make_unique_psram<ImprovSerial<typeof(Serial)>>();
         g_pImprovSerial->setup(PROJECT_NAME, FLASH_VERSION_NAME, family, name.c_str(), &Serial);
-
+        g_pImprovSerial->set_on_unknown_byte(DebugCLI::ProcessCLIByte);
     #endif
 
     // Setup config objects
@@ -394,6 +416,10 @@ void setup()
 
     #if ENABLE_WIFI && ENABLE_WEBSERVER
         g_ptrSystem->SetupWebServer();
+
+        #if WEB_SOCKETS_ANY_ENABLED
+            g_ptrSystem->SetupWebSocketServer(g_ptrSystem->WebServer());
+        #endif
     #endif
 
     // If we have a remote control enabled, set the direction on its input pin accordingly
@@ -404,6 +430,7 @@ void setup()
     #endif
 
     #if ENABLE_AUDIO
+    {
         #if INPUT_PIN
             pinMode(INPUT_PIN, INPUT);
         #endif
@@ -413,25 +440,10 @@ void setup()
             pinMode(38, OUTPUT);
             digitalWrite(38, HIGH);
         #endif
+    }
     #endif
 
-    #ifdef TOGGLE_BUTTON_1
-        Button1.attach(TOGGLE_BUTTON_1, INPUT_PULLUP);
-        Button1.interval(1);
-        Button1.setPressedState(LOW);
-    #endif
-
-    #ifdef TOGGLE_BUTTON_2
-        Button2.attach(TOGGLE_BUTTON_2, INPUT_PULLUP);
-        Button2.interval(1);
-        Button2.setPressedState(LOW);
-    #endif
-
-    #ifdef TOGGLE_BUTTON_3
-        Button3.attach(TOGGLE_BUTTON_3, INPUT_PULLUP);
-        Button3.interval(1);
-        Button3.setPressedState(LOW);
-    #endif
+    // TOGGLE_BUTTON_0/1 are configured inside Screen's update loop
 
     #if AMOLED_S3
         #include "amoled/LilyGo_AMOLED.h"
@@ -484,14 +496,14 @@ void setup()
     // Initialize the strand controllers depending on how many channels we have
 
     #if USE_HUB75
-        // LEDMatrixGFX is used for HUB75 projects like the Mesmerizer
-        LEDMatrixGFX::InitializeHardware(devices);
+        // HUB75GFX is used for HUB75 projects like the Mesmerizer
+        HUB75GFX::InitializeHardware(devices);
     #elif HEXAGON
         // Hexagon is for a PCB wtih 271 LEDss arranged in the face of a hexagon
         HexagonGFX::InitializeHardware(devices);
     #elif USE_WS281X
-        // LEDStripGFX is used for simple strips or for matrices woven from strips
-        LEDStripGFX::InitializeHardware(devices);
+        // WS281xGFX is used for simple strips or for matrices woven from strips
+        WS281xGFX::InitializeHardware(devices);
     #endif
 
     // Initialize all the built-in effects
@@ -509,14 +521,6 @@ void setup()
     #endif
 
     g_ptrSystem->SetupBufferManagers();
-
-    TJpgDec.setJpgScale(1);
-    TJpgDec.setCallback([](int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap)
-    {
-        auto pgfx = g_ptrSystem->EffectManager().g();
-        pgfx->drawRGBBitmap(x, y, bitmap, w, h);
-        return true;
-    });
 
     // Show splash effect on matrix
     #if USE_HUB75
@@ -545,6 +549,9 @@ void setup()
     taskManager.StartNetworkThread();
     taskManager.StartColorDataThread();
     taskManager.StartSocketThread();
+
+    DebugCLI::InitDebugCLI();
+    InitNetworkCLI();
 
     SaveEffectManagerConfig();
     // Start the main loop
@@ -586,28 +593,28 @@ void loop()
                 strOutput += str_sprintf("WiFi: %s, MAC: %s, IP: %s ", WLtoString(WiFi.status()), WiFi.macAddress().c_str(), WiFi.localIP().toString().c_str());
             #endif
 
-            strOutput += str_sprintf("Mem: %u, LargestBlk: %u, PSRAM Free: %u/%u, ", ESP.getFreeHeap(), ESP.getMaxAllocHeap(), ESP.getFreePsram(), ESP.getPsramSize());
-            strOutput += str_sprintf("LED FPS: %d ", g_Values.FPS);
+            strOutput += str_sprintf("Mem: %zu, LargestBlk: %zu, PSRAM Free: %zu/%zu, ", (size_t)ESP.getFreeHeap(), (size_t)ESP.getMaxAllocHeap(), (size_t)ESP.getFreePsram(), (size_t)ESP.getPsramSize());
+            strOutput += str_sprintf("LED FPS: %lu ", (unsigned long)g_Values.FPS);
 
             #if USE_WS281X
                 strOutput += str_sprintf("LED Bright: %3.0lf%%, LED Watts: %u, ", g_Values.Brite, g_Values.Watts);
             #endif
 
             #if USE_HUB75
-                strOutput += str_sprintf("Refresh: %d Hz, Power: %d mW, Brite: %3.0lf%%, ", LEDMatrixGFX::matrix.getRefreshRate(), g_Values.MatrixPowerMilliwatts, g_Values.MatrixScaledBrightness / 2.55);
+                strOutput += str_sprintf("Refresh: %d Hz, Power: %d mW, Brite: %3.0lf%%, ", HUB75GFX::matrix.getRefreshRate(), g_Values.MatrixPowerMilliwatts, g_Values.MatrixScaledBrightness / 2.55);
             #endif
 
             #if ENABLE_AUDIO
-                strOutput += str_sprintf("Audio FPS: %d, MinVU: %6.1f, PeakVU: %6.1f, VURatio: %3.1f ", g_Analyzer._AudioFPS, g_Analyzer._MinVU, g_Analyzer._PeakVU, g_Analyzer._VURatio);
+                strOutput += str_sprintf("Audio FPS: %d, MinVU: %6.1f, PeakVU: %6.1f, VURatio: %3.1f ", g_Analyzer.AudioFPS(), g_Analyzer.MinVU(), g_Analyzer.PeakVU(), g_Analyzer.VURatio());
             #endif
 
             #if ENABLE_AUDIOSERIAL
-                strOutput += str_sprintf("Serial FPS: %d, ", g_Analyzer._serialFPS);
+                strOutput += str_sprintf("Serial FPS: %d, ", g_Analyzer.SerialFPS());
             #endif
 
             #if INCOMING_WIFI_ENABLED
                 auto& bufferManager = g_ptrSystem->BufferManagers()[0];
-                strOutput += str_sprintf("Buffer: %d/%d, ", bufferManager.Depth(), bufferManager.BufferCount());
+                strOutput += str_sprintf("Buffer: %zu/%zu, ", (size_t)bufferManager.Depth(), (size_t)bufferManager.BufferCount());
             #endif
 
             const auto& taskManager = g_ptrSystem->TaskManager();

@@ -41,7 +41,6 @@
 #include <HTTPClient.h>
 #include <UrlEncode.h>
 #include <ledstripeffect.h>
-#include <ledmatrixgfx.h>
 #include <ArduinoJson.h>
 #include "systemcontainer.h"
 #include <chrono>
@@ -49,11 +48,7 @@
 #include <vector>
 #include <map>
 
-// We can only include the font header once, and Weather already does it, so we just extern it.  If
-// the weather effect is not included in the build, we'll then have to include it here.
-
-extern const uint8_t Apple5x7Bitmaps[] PROGMEM;
-
+extern const GFXfont Apple5x7 PROGMEM;
 using namespace std;
 using namespace std::chrono;
 using namespace std::chrono_literals;
@@ -71,6 +66,7 @@ using namespace std::chrono_literals;
 class AnimatedText
 {
   private:
+
     int startX;
     int startY;
     int endX;
@@ -85,6 +81,7 @@ class AnimatedText
 
 
   public:
+
     AnimatedText(String text, CRGB color, const GFXfont * pfont, float animationTime, int startX, int startY, int endX, int endY)
     {
         startTime = system_clock::now();
@@ -179,7 +176,7 @@ public:
 //
 // Retrieves stock quotes from private server and displays them
 
-class PatternStocks : public LEDStripEffect
+class PatternStocks : public EffectWithId<PatternStocks>
 {
     AnimatedText textSymbol = AnimatedText("STOCK",  CRGB::White, &Apple5x7,  1.0f, MATRIX_WIDTH, 0,  0, 0);
     AnimatedText textPrice  = AnimatedText("PRICE",  CRGB::Grey,  &Apple5x7,  1.0f, MATRIX_WIDTH, 8,  0, 8);
@@ -351,11 +348,9 @@ private:
 
 public:
 
-    PatternStocks() : LEDStripEffect(EFFECT_MATRIX_STOCKS, "Stocks")
-    {
-    }
+    PatternStocks() : EffectWithId<PatternStocks>("Stocks") {}
 
-    PatternStocks(const JsonObjectConst&  jsonObject) : LEDStripEffect(jsonObject)
+    PatternStocks(const JsonObjectConst&  jsonObject) : EffectWithId<PatternStocks>(jsonObject)
     {
         if (jsonObject["sds"].is<String>())
             stockServer = jsonObject["sds"].as<String>();

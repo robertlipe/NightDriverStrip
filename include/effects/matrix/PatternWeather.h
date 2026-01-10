@@ -1,3 +1,4 @@
+
 //+--------------------------------------------------------------------------
 //
 // File:        PatternWeather.h
@@ -38,10 +39,9 @@
 #include <HTTPClient.h>
 #include <UrlEncode.h>
 #include <ledstripeffect.h>
-#include <ledmatrixgfx.h>
+#include <hub75gfx.h>
 #include <ArduinoJson.h>
 #include "systemcontainer.h"
-#include <FontGfx_apple5x7.h>
 #include <array>
 #include <chrono>
 #include <thread>
@@ -49,6 +49,9 @@
 #include "TJpg_Decoder.h"
 #include "effects.h"
 #include "types.h"
+
+// Use centralized Apple5x7 font across all targets
+extern const GFXfont Apple5x7 PROGMEM;
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
@@ -121,10 +124,9 @@ static std::map<const String, EmbeddedFile, std::less<const String>, psram_alloc
  * @brief This class implements the Weather Data effect
  *
  */
-class PatternWeather : public LEDStripEffect
+class PatternWeather : public EffectWithId<PatternWeather>
 {
-
-private:
+  private:
 
     String strLocationName    = "";
     String strLocation        = "";
@@ -439,18 +441,14 @@ public:
      * @brief Construct a new Pattern Weather object
      *
      */
-    PatternWeather() : LEDStripEffect(EFFECT_MATRIX_WEATHER, "Weather")
-    {
-    }
+    PatternWeather() : EffectWithId<PatternWeather>("Weather") {}
 
     /**
      * @brief Construct a new Pattern Weather object
      *
      * @param jsonObject Configuration JSON Object
      */
-    PatternWeather(const JsonObjectConst&  jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternWeather(const JsonObjectConst&  jsonObject) : EffectWithId<PatternWeather>(jsonObject) {}
 
     /**
      * @brief Destroy the Pattern Weather object
@@ -492,7 +490,6 @@ public:
 
         g()->fillScreen(BLACK16);
         g()->fillRect(0, 0, MATRIX_WIDTH, 9, g()->to16bit(CRGB(0,0,128)));
-
         g()->setFont(&Apple5x7);
 
         auto now = system_clock::now();
@@ -528,7 +525,6 @@ public:
         }
 
         // Print the town/city name
-
         int x = 0;
         int y = fontHeight + 1;
         g()->setCursor(x, y);
@@ -567,7 +563,6 @@ public:
         const char * pszTomorrow = pszDaysOfWeek[ (todayTime->tm_wday + 1) % 7 ];
 
         // Draw the day of the week and tomorrow's day as well
-
         g()->setTextColor(WHITE16);
         g()->setCursor(0, MATRIX_HEIGHT);
         g()->print(pszToday);

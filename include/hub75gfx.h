@@ -1,6 +1,6 @@
 //+--------------------------------------------------------------------------
 //
-// File:        ledmatrixgfx.h
+// File:        hub75gfx.h
 //
 // NightDriverStrip - (c) 2018 Plummer's Software LLC.  All Rights Reserved.
 //
@@ -23,7 +23,7 @@
 //
 // Description:
 //
-//   Provides an Adafruit_GFX implementation for our RGB LED panel so that
+//   Provides a HUB75 GFX implementation for our RGB LED panel so that
 //   we can use primitives such as lines and fills on it.
 //
 // History:     Oct-9-2018         Davepl      Created from other projects
@@ -34,7 +34,10 @@
 
 #if USE_HUB75
 
-#include <SmartMatrix.h>
+#include "globals.h"
+#include <cmath>
+#include <memory>
+#include "types.h"
 
 //
 // Matrix Panel
@@ -42,19 +45,18 @@
 
 #define COLOR_DEPTH 24 // known working: 24, 48 - If the sketch uses type `rgb24` directly, COLOR_DEPTH must be 24
 
-class LEDMatrixGFX : public GFXBase
+class HUB75GFX : public GFXBase
 {
 protected:
     String strCaption;
     unsigned long captionStartTime = 0;
     float captionDuration = 0;
     const float captionFadeInTime = 500;
-    const float captionFadeOutTime = 1000;
+    float captionFadeOutTime = 1000;
+    float totalCaptionDuration = 0;
 
 public:
     typedef RGB_TYPE(COLOR_DEPTH) SM_RGB;
-    static const uint8_t kMatrixWidth = MATRIX_WIDTH;                                   // known working: 32, 64, 96, 128
-    static const uint8_t kMatrixHeight = MATRIX_HEIGHT;                                 // known working: 16, 32, 48, 64
     static const uint8_t kPanelType = SMARTMATRIX_HUB75_32ROW_MOD16SCAN;                // use SMARTMATRIX_HUB75_16ROW_MOD8SCAN for common 16x32 panels
     static const uint8_t kMatrixOptions = (SMARTMATRIX_OPTIONS_BOTTOM_TO_TOP_STACKING   /* | SMARTMATRIX_OPTIONS_ESP32_CALC_TASK_CORE_1 */); // see http://docs.pixelmatix.com/SmartMatrix for options
     static const uint8_t kBackgroundLayerOptions = (SM_BACKGROUND_OPTIONS_NONE);
@@ -64,11 +66,11 @@ public:
     static SMLayerBackground<SM_RGB, kBackgroundLayerOptions> titleLayer;
     static SmartMatrixHub75Calc<COLOR_DEPTH, kMatrixWidth, kMatrixHeight, kPanelType, kMatrixOptions> matrix;
 
-    LEDMatrixGFX(size_t w, size_t h) : GFXBase(w, h)
+    HUB75GFX(size_t w, size_t h) : GFXBase(w, h)
     {
     }
 
-    ~LEDMatrixGFX() override
+    ~HUB75GFX() override
     = default;
 
     static void InitializeHardware(std::vector<std::shared_ptr<GFXBase>>& devices)
@@ -77,7 +79,7 @@ public:
 
         for (int i = 0; i < NUM_CHANNELS; i++)
         {
-            auto tmp_matrix = make_shared_psram<LEDMatrixGFX>(MATRIX_WIDTH, MATRIX_HEIGHT);
+            auto tmp_matrix = make_shared_psram<HUB75GFX>(MATRIX_WIDTH, MATRIX_HEIGHT);
             devices.push_back(tmp_matrix);
             tmp_matrix->loadPalette(0);
         }
@@ -88,7 +90,7 @@ public:
         backgroundLayer.enableColorCorrection(true);
 
         // Starting an effect might need to draw, so we need to set the leds up before doing so
-        std::static_pointer_cast<LEDMatrixGFX>(devices[0])->setLeds(GetMatrixBackBuffer());
+        std::static_pointer_cast<HUB75GFX>(devices[0])->setLeds(GetMatrixBackBuffer());
     }
 
     static void SetBrightness(byte amount)
@@ -119,7 +121,7 @@ public:
         return (int) totalPower;
     }
 
-    uint16_t xy(uint16_t x, uint16_t y) const override
+    __attribute__((always_inline)) uint16_t xy(uint16_t x, uint16_t y) const noexcept override
     {
         // Note the x,y are unsigned so can't be less than zero
         if (x < _width && y < _height)
@@ -129,7 +131,7 @@ public:
         return 0;
     }
 
-    // Whereas an LEDStripGFX would track its own memory for the CRGB array, we simply point to the buffer already used for
+    // Whereas an WS281xGFX would track its own memory for the CRGB array, we simply point to the buffer already used for
     // the matrix display memory.  That also eliminated having a local draw buffer that is then copied, because the effects
     // can render directly to the right back buffer automatically.
 
@@ -151,16 +153,17 @@ public:
         //     before them on the next buffer swap.  So we clear the backbuffer and then the leds, which point to
         //     the current front buffer.  TLDR:  We clear both the front and back buffers to avoid flicker between effects.
 
-        if (color == CRGB::Black)
+        if (color.g == color.r && color.r == color.b)
         {
-            memset((void *) backgroundLayer.backBuffer(), 0, sizeof(LEDMatrixGFX::SM_RGB) * _width * _height);
-            memset((void *) leds, 0, sizeof(CRGB) * _width * _height);
+            memset((void *) leds, color.r, sizeof(CRGB) * _ledcount);
+            memset((void *) backgroundLayer.backBuffer(), color.r, sizeof(HUB75GFX::SM_RGB) * _ledcount);
         }
         else
         {
-            for (int i = 0; i < NUM_LEDS; i++)
+            SM_RGB* buf = (SM_RGB*)backgroundLayer.backBuffer();
+            for (int i = 0; i < _ledcount; ++i)
             {
-                backgroundLayer.backBuffer()[i] = rgb24(color.r, color.g, color.b);
+                buf[i]  = rgb24(color.r, color.g, color.b);
                 leds[i] = color;
             }
         }
@@ -177,7 +180,7 @@ public:
         if (strCaption == nullptr)
             return 0.0f;
 
-        if (now > (captionStartTime + captionDuration + captionFadeInTime + captionFadeOutTime))
+        if (now > (captionStartTime + totalCaptionDuration))
             return 0.0f;
 
         float elapsed = now - captionStartTime;
@@ -193,7 +196,8 @@ public:
 
     void SetCaption(const String & str, uint32_t duration)
     {
-        captionDuration = duration;
+        captionDuration = (float)duration;
+        totalCaptionDuration = captionFadeInTime + captionDuration + captionFadeOutTime;
         strCaption = str;
         captionStartTime = millis();
     }

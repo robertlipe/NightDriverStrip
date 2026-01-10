@@ -8,8 +8,9 @@
 //@stepko
 // Merry Christmas and Happy New Year
 
-class PatternSMHolidayLights : public LEDStripEffect
+class PatternSMHolidayLights : public EffectWithId<PatternSMHolidayLights>
 {
+
   private:
 
     static constexpr int speed = (200 / (MATRIX_HEIGHT - 4));
@@ -27,49 +28,13 @@ class PatternSMHolidayLights : public LEDStripEffect
     uint8_t updateFromRGBWeight = 10;
     const uint8_t scaleToNumLeds = NUM_LEDS / 256;
 
-    CRGB RGBweight(uint16_t idx)
-    {
-        return (g()->leds[idx].r + g()->leds[idx].g + g()->leds[idx].b);
-    }
-
     void confetti()
     {
         uint16_t idx = random16(NUM_LEDS);
         for (unsigned i = 0; i < scaleToNumLeds; i++)
             if (random8() < density)
-                if (RGBweight(idx) < 10)
+                if ((g()->getPixel(idx).r + g()->getPixel(idx).g + g()->getPixel(idx).b) < 10)
                     g()->leds[idx] = random(48, 16777216);
-    }
-
-    void drawPixelXYF_X(float x, uint16_t y, const CRGB &color)
-    {
-	if (!g()->isValidPixel((int)x, y))
-            return;
-
-        // extract the fractional parts and derive their inverses
-        uint8_t xx = (x - (int)x) * 255, ix = 255 - xx;
-        // calculate the intensities for each affected pixel
-        uint8_t wu[2] = {ix, xx};
-        // multiply the intensities by the colour, and saturating-add them to the
-        // pixels
-        for (int8_t i = 1; i >= 0; i--)
-        {
-            int16_t xn = x + (i & 1);
-            CRGB clr = g()->leds[XY(xn, MATRIX_HEIGHT - 1 - y)];
-            if (xn > 0 && xn < (int)MATRIX_WIDTH - 1)
-            {
-                clr.r = qadd8(clr.r, (color.r * wu[i]) >> 8);
-                clr.g = qadd8(clr.g, (color.g * wu[i]) >> 8);
-                clr.b = qadd8(clr.b, (color.b * wu[i]) >> 8);
-            }
-            else if (xn == 0 || xn == (int)MATRIX_WIDTH - 1)
-            {
-                clr.r = qadd8(clr.r, (color.r * 85) >> 8);
-                clr.g = qadd8(clr.g, (color.g * 85) >> 8);
-                clr.b = qadd8(clr.b, (color.b * 85) >> 8);
-            }
-            g()->leds[XY(xn, MATRIX_HEIGHT - 1 - y)] = clr;
-        }
     }
 
     void addGlitter(uint8_t chanceOfGlitter)
@@ -78,13 +43,13 @@ class PatternSMHolidayLights : public LEDStripEffect
             g()->leds[random16(NUM_LEDS)] = random(0, 16777215);
     }
 
-void spruce()
-{
+    void spruce()
+    {
     hue++;  // Increment the hue value, which likely controls the color of the LEDs.
 
     // Fade all LED channels to black based on the 'speed' value.
     // The 'map' function scales the 'speed' value from one range to another.
-    fadeAllChannelsToBlackBy(map(speed, 1, 255, 1, 100));
+    fadeAllChannelsToBlackBy(::map(speed, 1, 255, 1, 100));
 
     uint8_t z;
     if (effId == 3)
@@ -95,19 +60,19 @@ void spruce()
     for (uint8_t i = 0; i < minDim; i++)
     {
         // Calculate 'x' based on various factors.
-        unsigned x = beatsin16(i * (map(speed, 1, 255, 3, 20)), i * 2, (minDim * 4 - 2) - (i * 2 + 2));
+        unsigned x = beatsin16(i * (::map(speed, 1, 255, 3, 20)), i * 2, (minDim * 4 - 2) - (i * 2 + 2));
 
         if (effId == 2)
         {
             // Draw a pixel with certain conditions if 'effId' is 2.
-            drawPixelXYF_X(x / 4 + height_adj, i,
-                           random8(10) == 0 ? CHSV(random8(), random8(32, 255), 255)
-                                            : CHSV(100, 255, map(speed, 1, 255, 128, 100)));
+            g()->drawPixelXYF_Wu(x / 4 + height_adj, (float)(MATRIX_HEIGHT - 1 - i),
+                                 random8(10) == 0 ? CHSV(random8(), random8(32, 255), 255)
+                                     : CHSV(100, 255, ::map(speed, 1, 255, 128, 100)));
         }
         else
         {
             // Draw a pixel with different color conditions if 'effId' is not 2.
-            drawPixelXYF_X(x / 4 + height_adj, i, CHSV(hue + i * z, 255, 255));
+            g()->drawPixelXYF_Wu(x / 4 + height_adj, (float)(MATRIX_HEIGHT - 1 - i), CHSV(hue + i * z, 255, 255));
         }
     }
 
@@ -129,13 +94,9 @@ void spruce()
 
 
   public:
-    PatternSMHolidayLights() : LEDStripEffect(EFFECT_MATRIX_SMHOLIDAY_LIGHTS, "Tannenbaum")
-    {
-    }
 
-    PatternSMHolidayLights(const JsonObjectConst &jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
+    PatternSMHolidayLights() : EffectWithId<PatternSMHolidayLights>("Tannenbaum") {}
+    PatternSMHolidayLights(const JsonObjectConst &jsonObject) : EffectWithId<PatternSMHolidayLights>(jsonObject) {}
 
     void Start() override
     {

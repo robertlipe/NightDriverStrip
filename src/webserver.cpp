@@ -118,10 +118,10 @@ void CWebServer::begin()
     EmbeddedWebFile ico_file(ico_start, ico_end, "image/vnd.microsoft.icon", "gzip");
     EmbeddedWebFile timezones_file(timezones_start, timezones_end - 1, "text/json"); // end - 1 because of zero-termination
 
-    debugI("Embedded html file size: %d", html_file.length);
-    debugI("Embedded jsx file size: %d", js_file.length);
-    debugI("Embedded ico file size: %d", ico_file.length);
-    debugI("Embedded timezones file size: %d", timezones_file.length);
+    debugI("Embedded html file size: %zu", (size_t)html_file.length);
+    debugI("Embedded jsx file size: %zu", (size_t)js_file.length);
+    debugI("Embedded ico file size: %zu", (size_t)ico_file.length);
+    debugI("Embedded timezones file size: %zu", (size_t)timezones_file.length);
 
     _staticStats.HeapSize = ESP.getHeapSize();
     _staticStats.DmaHeapSize = heap_caps_get_total_size(MALLOC_CAP_DMA);
@@ -144,8 +144,14 @@ void CWebServer::begin()
 
     // Instance handler requests
 
-    _server.on("/statistics",            HTTP_GET,  [this](AsyncWebServerRequest* pRequest) { this->GetStatistics(pRequest); });
-    _server.on("/getStatistics",         HTTP_GET,  [this](AsyncWebServerRequest* pRequest) { this->GetStatistics(pRequest); });
+    _server.on("/statistics/static",     HTTP_GET,  [this](AsyncWebServerRequest* pRequest)
+                                                    { this->GetStatistics(pRequest, StatisticsType::Static); });
+    _server.on("/statistics/dynamic",    HTTP_GET,  [this](AsyncWebServerRequest* pRequest)
+                                                    { this->GetStatistics(pRequest, StatisticsType::Dynamic); });
+    _server.on("/statistics",            HTTP_GET,  [this](AsyncWebServerRequest* pRequest)
+                                                    { this->GetStatistics(pRequest); });
+    _server.on("/getStatistics",         HTTP_GET,  [this](AsyncWebServerRequest* pRequest)
+                                                    { this->GetStatistics(pRequest); });
 
     // Static handler requests
 
@@ -222,10 +228,10 @@ long CWebServer::GetEffectIndexFromParam(AsyncWebServerRequest * pRequest, bool 
 void CWebServer::SendBufferOverflowResponse(AsyncWebServerRequest * pRequest)
 {
     AddCORSHeaderAndSendResponse(
-        pRequest, 
+        pRequest,
         pRequest->beginResponse(
-            HTTP_CODE_INTERNAL_SERVER_ERROR, 
-            "text/json", 
+            HTTP_CODE_INTERNAL_SERVER_ERROR,
+            "text/json",
             "{\"message\": \"JSON response buffer overflow\"}"
         )
     );
@@ -263,43 +269,48 @@ void CWebServer::GetEffectListText(AsyncWebServerRequest * pRequest)
     AddCORSHeaderAndSendResponse(pRequest, response);
 }
 
-void CWebServer::GetStatistics(AsyncWebServerRequest * pRequest) const
+void CWebServer::GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType) const
 {
     debugV("GetStatistics");
 
     auto response = new AsyncJsonResponse();
     auto& j = response->getRoot();
 
-    j["LED_FPS"]               = g_Values.FPS;
-    j["SERIAL_FPS"]            = g_Analyzer._serialFPS;
-    j["AUDIO_FPS"]             = g_Analyzer._AudioFPS;
+    if ((statsType & StatisticsType::Static) != StatisticsType::None)
+    {
+        j["MATRIX_WIDTH"]          = MATRIX_WIDTH;
+        j["MATRIX_HEIGHT"]         = MATRIX_HEIGHT;
+        j["FRAMES_SOCKET"]         = !!COLORDATA_WEB_SOCKET_ENABLED;
+        j["EFFECTS_SOCKET"]        = !!EFFECTS_WEB_SOCKET_ENABLED;
+        j["CHIP_MODEL"]            = _staticStats.ChipModel;
+        j["CHIP_CORES"]            = _staticStats.ChipCores;
+        j["CHIP_SPEED"]            = _staticStats.CpuFreqMHz;
+        j["PROG_SIZE"]             = _staticStats.SketchSize;
+        j["CODE_SIZE"]             = _staticStats.SketchSize;
+        j["FLASH_SIZE"]            = _staticStats.FlashChipSize;
+        j["HEAP_SIZE"]             = _staticStats.HeapSize;
+        j["DMA_SIZE"]              = _staticStats.DmaHeapSize;
+        j["PSRAM_SIZE"]            = _staticStats.PsramSize;
+        j["CODE_FREE"]             = _staticStats.FreeSketchSpace;
+    }
 
-    j["HEAP_SIZE"]             = _staticStats.HeapSize;
-    j["HEAP_FREE"]             = ESP.getFreeHeap();
-    j["HEAP_MIN"]              = ESP.getMinFreeHeap();
+    if ((statsType & StatisticsType::Dynamic) != StatisticsType::None)
+    {
+        j["LED_FPS"]               = g_Values.FPS;
+        j["SERIAL_FPS"]            = g_Analyzer.SerialFPS();
+        j["AUDIO_FPS"]             = g_Analyzer.AudioFPS();
+        j["HEAP_FREE"]             = ESP.getFreeHeap();
+        j["HEAP_MIN"]              = ESP.getMinFreeHeap();
+        j["DMA_FREE"]              = heap_caps_get_free_size(MALLOC_CAP_DMA);
+        j["DMA_MIN"]               = heap_caps_get_largest_free_block(MALLOC_CAP_DMA);
+        j["PSRAM_FREE"]            = ESP.getFreePsram();
+        j["PSRAM_MIN"]             = ESP.getMinFreePsram();
+        auto& taskManager = g_ptrSystem->TaskManager();
 
-    j["DMA_SIZE"]              = _staticStats.DmaHeapSize;
-    j["DMA_FREE"]              = heap_caps_get_free_size(MALLOC_CAP_DMA);
-    j["DMA_MIN"]               = heap_caps_get_largest_free_block(MALLOC_CAP_DMA);
-
-    j["PSRAM_SIZE"]            = _staticStats.PsramSize;
-    j["PSRAM_FREE"]            = ESP.getFreePsram();
-    j["PSRAM_MIN"]             = ESP.getMinFreePsram();
-
-    j["CHIP_MODEL"]            = _staticStats.ChipModel;
-    j["CHIP_CORES"]            = _staticStats.ChipCores;
-    j["CHIP_SPEED"]            = _staticStats.CpuFreqMHz;
-    j["PROG_SIZE"]             = _staticStats.SketchSize;
-
-    j["CODE_SIZE"]             = _staticStats.SketchSize;
-    j["CODE_FREE"]             = _staticStats.FreeSketchSpace;
-    j["FLASH_SIZE"]            = _staticStats.FlashChipSize;
-
-    auto& taskManager = g_ptrSystem->TaskManager();
-
-    j["CPU_USED"]              = taskManager.GetCPUUsagePercent();
-    j["CPU_USED_CORE0"]        = taskManager.GetCPUUsagePercent(0);
-    j["CPU_USED_CORE1"]        = taskManager.GetCPUUsagePercent(1);
+        j["CPU_USED"]              = taskManager.GetCPUUsagePercent();
+        j["CPU_USED_CORE0"]        = taskManager.GetCPUUsagePercent(0);
+        j["CPU_USED_CORE1"]        = taskManager.GetCPUUsagePercent(1);
+    }
 
     AddCORSHeaderAndSendResponse(pRequest, response);
 }

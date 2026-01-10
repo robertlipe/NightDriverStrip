@@ -58,19 +58,17 @@
 
 #ifndef PatternMandala_H
 #define PatternMandala_H
-#if     USE_HUB75
-
 // Introduction:
 // -------------
 // This file contains the implementation of the `PatternMandala` class, a sophisticated
 // effect for LED strip displays. It utilizes a noise-based algorithm to create
-// intricate, continuously evolving mandala patterns. This effect is part of a larger 
+// intricate, continuously evolving mandala patterns. This effect is part of a larger
 // system that drives LED strip animations.
 //
 // Class Overview:
 // ---------------
-// `PatternMandala` is derived from `LEDStripEffect`, indicating its purpose as a specific 
-// visual effect for LED strips. It is designed to generate mandala-like patterns using 
+// `PatternMandala` is derived from `LEDStripEffect`, indicating its purpose as a specific
+// visual effect for LED strips. It is designed to generate mandala-like patterns using
 // noise and random number generation to achieve a dynamic, ever-changing display.
 //
 // Key Variables:
@@ -79,7 +77,7 @@
 //   coordinates and scaling, controlling the movement and zoom level of the noise pattern.
 // - `NUM_LAYERS`: A macro defining the number of noise layers used in the pattern.
 
-class PatternMandala : public LEDStripEffect
+class PatternMandala : public EffectWithId<PatternMandala>
 {
 private:
     // The coordinates for 16-bit noise spaces.
@@ -93,15 +91,9 @@ private:
     int16_t dsy;
 
 public:
-    PatternMandala() : LEDStripEffect(EFFECT_MATRIX_MANDALA, "MRI")
-    {
-    }
 
-    PatternMandala(const JsonObjectConst& jsonObject) : LEDStripEffect(jsonObject)
-    {
-    }
-
-    /// Generate an 8-bit random number
+    PatternMandala() : EffectWithId<PatternMandala>("MRI") {}
+    PatternMandala(const JsonObjectConst& jsonObject) : EffectWithId<PatternMandala>(jsonObject) {}
 
     virtual size_t DesiredFramesPerSecond() const override
     {
@@ -154,7 +146,7 @@ public:
         g()->GetNoise().noise_x += dx * 4;
         g()->GetNoise().noise_z += dz * 4;
 
-        g()->FillGetNoise<NoiseApproach::One>();
+        g()->FillGetNoise();
 
         ShowNoiseLayer(0, 1, 0);
 
@@ -183,5 +175,4 @@ public:
     }
 };
 
-#endif
 #endif

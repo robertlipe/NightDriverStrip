@@ -31,12 +31,16 @@
 #include <ArduinoOTA.h>             // Over-the-air helper object so we can be flashed via WiFi
 #include <ESPmDNS.h>
 #include <nvs.h>
+#include <algorithm>
 
 #include "globals.h"
-#include "ledviewer.h"                          // For the LEDViewer task and object
+
+#include "debug_cli.h"
+#include "effectmanager.h"
+#include "ledviewer.h"              // For the LEDViewer task and object
 #include "network.h"
-#include "systemcontainer.h"
 #include "soundanalyzer.h"
+#include "systemcontainer.h"
 
 extern DRAM_ATTR std::mutex g_buffer_mutex;
 
@@ -46,12 +50,47 @@ static DRAM_ATTR WiFiUDP l_Udp;              // UDP object used for NNTP, etc
 DRAM_ATTR bool NTPTimeClient::_bClockSet = false;                                   // Has our clock been set by SNTP?
 DRAM_ATTR std::mutex NTPTimeClient::_clockMutex;                                    // Clock guard mutex for SNTP client
 
+
+
+#if ENABLE_WIFI
+void DoStatsCommand()
+{
+    auto& bufferManager = g_ptrSystem->BufferManagers()[0];
+
+    DebugCLI::cli_printf("%s:%zux%d %zuK", FLASH_VERSION_NAME, g_ptrSystem->Devices().size(), NUM_LEDS, (size_t)(ESP.getFreeHeap() / 1024));
+    DebugCLI::cli_printf("%sdB:%s",String(WiFi.RSSI()).substring(1).c_str(), WiFi.isConnected() ? WiFi.localIP().toString().c_str() : "None");
+    DebugCLI::cli_printf("BUFR:%02zu/%02zu [%lufps]", (size_t)bufferManager.Depth(), (size_t)bufferManager.BufferCount(), (unsigned long)g_Values.FPS);
+    DebugCLI::cli_printf("DATA:%+04.2lf-%+04.2lf", bufferManager.AgeOfOldestBuffer(), bufferManager.AgeOfNewestBuffer());
+
+    #if ENABLE_AUDIO
+    DebugCLI::cli_printf("g_Analyzer._VU: %.2f, g_Analyzer._MinVU: %.2f, g_Analyzer.g_Analyzer._PeakVU: %.2f, g_Analyzer.gVURatio: %.2f", g_Analyzer.VU(), g_Analyzer.MinVU(), g_Analyzer.PeakVU(), g_Analyzer.VURatio());
+    #endif
+
+    #if INCOMING_WIFI_ENABLED
+    DebugCLI::cli_printf("Socket Buffer _cbReceived: %zu", g_ptrSystem->SocketServer()._cbReceived);
+    #endif
+}
+
+static const DebugCLI::command network_commands[] = {
+    { "clock", "Refresh time from server", "Refreshing Time from Server",
+        [](const DebugCLI::cli_argv&) { NTPTimeClient::UpdateClockFromWeb(&l_Udp); } },
+    { "stats", "Display system statistics", "Displaying statistics",
+        [](const DebugCLI::cli_argv&) { DoStatsCommand(); } },
+    { "uptime", "Display system run duration", "Displaying system uptime",
+        [](const DebugCLI::cli_argv&) { NTPTimeClient::ShowUptime(); } }
+};
+
+void InitNetworkCLI() {
+    DebugCLI::RegisterCommands(network_commands, sizeof(network_commands)/sizeof(network_commands[0]));
+}
+#endif // ENABLE_WIFI
+
 #if ENABLE_ESPNOW
 
 // ESPNOW Support
-// 
+//
 // We accept ESPNOW commands to change effects and so on.  This is a simple structure that we'll receive over ESPNOW.
-enum class ESPNowCommand : uint8_t 
+enum class ESPNowCommand : uint8_t
 {
     ESPNOW_NEXTEFFECT = 1,
     ESPNOW_PREVEFFECT,
@@ -62,25 +101,25 @@ enum class ESPNowCommand : uint8_t
 // Message class
 //
 // Encapsulates an ESPNOW message, which is a command and an optional argument
-class Message 
+class Message
 {
 public:
-    constexpr Message(ESPNowCommand cmd, uint32_t argument) 
-        : cbSize(sizeof(Message)), command(cmd), arg1(argument) 
+    constexpr Message(ESPNowCommand cmd, uint32_t argument)
+        : cbSize(sizeof(Message)), command(cmd), arg1(argument)
     {
     }
 
-    constexpr Message() 
-        : cbSize(sizeof(Message)), command(ESPNowCommand::ESPNOW_INVALID), arg1(0) 
+    constexpr Message()
+        : cbSize(sizeof(Message)), command(ESPNowCommand::ESPNOW_INVALID), arg1(0)
     {
     }
 
-    const uint8_t* data() const 
+    const uint8_t* data() const
     {
         return reinterpret_cast<const uint8_t*>(this);
     }
 
-    constexpr size_t byte_size() const 
+    constexpr size_t byte_size() const
     {
         return sizeof(Message);
     }
@@ -91,19 +130,19 @@ public:
 } __attribute__((packed));
 
 // onReceiveESPNOW
-// 
+//
 // Callback function for ESPNOW that is called when a data packet is received
 
-void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen) 
+void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
 {
     Message message;
 
     memcpy(&message, data, sizeof(message));
     debugI("ESPNOW Message received.");
-    
+
     if (message.cbSize != sizeof(message))
     {
-        debugE("ESPNOW Message received with wrong structure size: %d but should be %d", message.cbSize, sizeof(message));
+        debugE("ESPNOW Message received with wrong structure size: %u but should be %zu", message.cbSize, sizeof(message));
         return;
     }
 
@@ -120,7 +159,7 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
             break;
 
         case ESPNowCommand::ESPNOW_SETEFFECT:
-            debugI("ESPNOW Setting effect index to %d", message.arg1);
+            debugI("ESPNOW Setting effect index to %u", message.arg1);
             g_ptrSystem->EffectManager().SetCurrentEffectIndex(message.arg1);
             break;
 
@@ -138,50 +177,12 @@ void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen)
 // in order to allow us to add custom commands.  I've added a clock reset and stats command, for example.
 
 #if ENABLE_WIFI
+
     void processRemoteDebugCmd()
     {
         String str = Debug.getLastCommand();
-        if (str.equalsIgnoreCase("clock"))
-        {
-            debugA("Refreshing Time from Server...");
-            NTPTimeClient::UpdateClockFromWeb(&l_Udp);
-        }
-        else if (str.equalsIgnoreCase("stats"))
-        {
-            auto& bufferManager = g_ptrSystem->BufferManagers()[0];
+        DebugCLI::RunCommand(str.c_str());
 
-            debugA("Displaying statistics....");
-            debugA("%s:%zux%d %uK", FLASH_VERSION_NAME, g_ptrSystem->Devices().size(), NUM_LEDS, ESP.getFreeHeap() / 1024);
-            debugA("%sdB:%s",String(WiFi.RSSI()).substring(1).c_str(), WiFi.isConnected() ? WiFi.localIP().toString().c_str() : "None");
-            debugA("BUFR:%02zu/%02zu [%dfps]", bufferManager.Depth(), bufferManager.BufferCount(), g_Values.FPS);
-            debugA("DATA:%+04.2lf-%+04.2lf", bufferManager.AgeOfOldestBuffer(), bufferManager.AgeOfNewestBuffer());
-
-            #if ENABLE_AUDIO
-                debugA("g_Analyzer._VU: %.2f, g_Analyzer._MinVU: %.2f, g_Analyzer.g_Analyzer._PeakVU: %.2f, g_Analyzer.gVURatio: %.2f", g_Analyzer._VU, g_Analyzer._MinVU, g_Analyzer._PeakVU, g_Analyzer._VURatio);
-            #endif
-
-            #if INCOMING_WIFI_ENABLED
-                debugA("Socket Buffer _cbReceived: %zu", g_ptrSystem->SocketServer()._cbReceived);
-            #endif
-        }
-        else if (str.equalsIgnoreCase("clearsettings"))
-        {
-            debugA("Removing persisted settings....");
-            g_ptrSystem->DeviceConfig().RemovePersisted();
-            RemoveEffectManagerConfig();
-        }
-        else if (str.equalsIgnoreCase("uptime"))
-        {
-             NTPTimeClient::ShowUptime();
-        }
-        else
-        {
-            debugA("Unknown Command.  Extended Commands:");
-            debugA("clock               Refresh time from server");
-            debugA("stats               Display buffers, memory, etc");
-            debugA("clearsettings       Reset persisted user settings");
-            debugA("uptime              Show system uptime, reset reason");
-        }
     }
 #endif
 
@@ -233,7 +234,7 @@ void SetupOTA(const String & strHostname)
                 debugI("OTA Progress: %u%%\r", p);
 
                 #if USE_HUB75
-                    auto pMatrix = std::static_pointer_cast<LEDMatrixGFX>(g_ptrSystem->EffectManager().GetBaseGraphics()[0]);
+                    auto pMatrix = std::static_pointer_cast<HUB75GFX>(g_ptrSystem->EffectManager().GetBaseGraphics()[0]);
                     pMatrix->SetCaption(str_sprintf("Update:%d%%", p), CAPTION_TIME);
                 #endif
             }
@@ -370,8 +371,8 @@ void IRAM_ATTR RemoteLoopEntry(void *)
                 WiFi.disconnect();
                 debugV("Wifi.mode");
                 WiFi.mode(WIFI_STA);
-                debugW("Connecting to Wifi SSID: \"%s\" - ESP32 Free Memory: %u, PSRAM:%u, PSRAM Free: %u\n",
-                       WiFi_ssid.c_str(), ESP.getFreeHeap(), ESP.getPsramSize(), ESP.getFreePsram());
+                debugW("Connecting to Wifi SSID: \"%s\" - ESP32 Free Memory: %zu, PSRAM:%zu, PSRAM Free: %zu\n",
+                       WiFi_ssid.c_str(), (size_t)ESP.getFreeHeap(), (size_t)ESP.getPsramSize(), (size_t)ESP.getFreePsram());
 
                 WiFi.begin(WiFi_ssid.c_str(), WiFi_password.c_str());
 
@@ -444,219 +445,284 @@ void IRAM_ATTR RemoteLoopEntry(void *)
             }
         }
     #endif
-#endif // ENABLE_WIFI
 
-// ProcessIncomingData
-//
-// Code that actually handles whatever comes in on the socket.  Must be known good data
-// as this code does not validate!  This is where the commands and pixel data are received
-// from the server.
+    // ProcessIncomingData
+    //
+    // Code that actually handles whatever comes in on the socket.  Must be known good data
+    // as this code does not validate!  This is where the commands and pixel data are received
+    // from the server.
 
-bool ProcessIncomingData(std::unique_ptr<uint8_t []> & payloadData, size_t payloadLength)
-{
-    #if !INCOMING_WIFI_ENABLED
-        return false;
-    #else
-
-    uint16_t command16 = payloadData[1] << 8 | payloadData[0];
-
-    debugV("payloadLength: %zu, command16: %d", payloadLength, command16);
-
-    switch (command16)
+    bool ProcessIncomingData(std::unique_ptr<uint8_t []> & payloadData, size_t payloadLength)
     {
-        // WIFI_COMMAND_PEAKDATA has a header plus NUM_BANDS floats that will be used to set the audio peaks
+        #if !INCOMING_WIFI_ENABLED
+            return false;
+        #else
 
-        case WIFI_COMMAND_PEAKDATA:
+        uint16_t command16 = payloadData[1] << 8 | payloadData[0];
+
+        debugV("payloadLength: %zu, command16: %d", payloadLength, command16);
+
+        switch (command16)
         {
-            #if ENABLE_AUDIO
-                uint16_t numbands  = WORDFromMemory(&payloadData[2]);
-                uint32_t length32  = DWORDFromMemory(&payloadData[4]);
-                uint64_t seconds   = ULONGFromMemory(&payloadData[8]);
-                uint64_t micros    = ULONGFromMemory(&payloadData[16]);
+            // WIFI_COMMAND_PEAKDATA has a header plus NUM_BANDS floats that will be used to set the audio peaks
 
-                debugV("ProcessIncomingData -- Bands: %u, Length: %u, Seconds: %llu, Micros: %llu ... ",
-                    numbands,
-                    length32,
-                    seconds,
-                    micros);
+            case WIFI_COMMAND_PEAKDATA:
+            {
+                #if ENABLE_AUDIO
+                    uint16_t numbands  = WORDFromMemory(&payloadData[2]);
+                    uint32_t length32  = DWORDFromMemory(&payloadData[4]);
+                    uint64_t seconds   = ULONGFromMemory(&payloadData[8]);
+                    uint64_t micros    = ULONGFromMemory(&payloadData[16]);
 
-                PeakData peaks((double *)(payloadData.get() + STANDARD_DATA_HEADER_SIZE));
-                peaks.ApplyScalars(PeakData::PCREMOTE);
-                g_Analyzer.SetPeakData(peaks);
+                debugV("ProcessIncomingData -- Bands: %u, Length: %lu, Seconds: %llu, Micros: %llu ... ",
+                       (unsigned int)numbands,
+                       (unsigned long)length32,
+                       seconds,
+                       micros);
+
+                // Data is transmitted as NUM_BANDS floats following the standard header
+                const uint8_t* dataStart = payloadData.get() + STANDARD_DATA_HEADER_SIZE;
+                const size_t availableFloats = (payloadLength > STANDARD_DATA_HEADER_SIZE)
+                                                ? (payloadLength - STANDARD_DATA_HEADER_SIZE) / sizeof(float)
+                                                : 0;
+                const size_t copyCount = std::min<size_t>(NUM_BANDS, std::min<size_t>(numbands, availableFloats));
+
+                PeakData peaks{}; // zero-initialized for any bands not provided
+                if (copyCount > 0)
+                {
+                    const float* pFloats = reinterpret_cast<const float*>(dataStart);
+                    std::copy_n(pFloats, copyCount, peaks.begin());
+                }
+                g_Analyzer.SetPeakDataFromRemote(peaks);
             #endif
             return true;
         }
 
-        // WIFI_COMMAND_PIXELDATA64 has a header plus length32 CRGBs
+            // WIFI_COMMAND_PIXELDATA64 has a header plus length32 CRGBs
 
-        case WIFI_COMMAND_PIXELDATA64:
-        {
-            uint16_t channel16 = WORDFromMemory(&payloadData[2]);
-            uint32_t length32  = DWORDFromMemory(&payloadData[4]);
-            uint64_t seconds   = ULONGFromMemory(&payloadData[8]);
-            uint64_t micros    = ULONGFromMemory(&payloadData[16]);
-
-            debugV("ProcessIncomingData -- Channel: %u, Length: %u, Seconds: %llu, Micros: %llu ... ",
-                   channel16,
-                   length32,
-                   seconds,
-                   micros);
-
-            // The very old original implementation used channel numbers, not a mask, and only channel 0 was supported at that time, so if
-            // we see a Channel 0 asked for, it must be very old, and we massage it into the mask for Channel0 instead
-            // Another option here would be to draw on all channels (0xff) instead of just one (0x01) if 0 is specified
-
-            if (channel16 == 0)
-                channel16 = 1;
-
-            // Go through the channel mask to see which bits are set in the channel16 specifier, and send the data to each and every
-            // channel that matches the mask.  So if the send channel 7, that means the lowest 3 channels will be set.
-
-            std::lock_guard<std::mutex> guard(g_buffer_mutex);
-
-            for (int iChannel = 0, channelMask = 1; iChannel < g_ptrSystem->BufferManagers().size(); iChannel++, channelMask <<= 1)
+            case WIFI_COMMAND_PIXELDATA64:
             {
-                if ((channelMask & channel16) != 0)
+                uint16_t channel16 = WORDFromMemory(&payloadData[2]);
+                uint32_t length32  = DWORDFromMemory(&payloadData[4]);
+                uint64_t seconds   = ULONGFromMemory(&payloadData[8]);
+                uint64_t micros    = ULONGFromMemory(&payloadData[16]);
+
+                debugV("ProcessIncomingData -- Channel: %u, Length: %lu, Seconds: %llu, Micros: %llu ... ",
+                    (unsigned int)channel16,
+                    (unsigned long)length32,
+                    seconds,
+                    micros);
+
+                // The very old original implementation used channel numbers, not a mask, and only channel 0 was supported at that time, so if
+                // we see a Channel 0 asked for, it must be very old, and we massage it into the mask for Channel0 instead
+                // Another option here would be to draw on all channels (0xff) instead of just one (0x01) if 0 is specified
+
+                if (channel16 == 0)
+                    channel16 = 1;
+
+                // Go through the channel mask to see which bits are set in the channel16 specifier, and send the data to each and every
+                // channel that matches the mask.  So if the send channel 7, that means the lowest 3 channels will be set.
+
+                std::lock_guard<std::mutex> guard(g_buffer_mutex);
+
+                for (int iChannel = 0, channelMask = 1; iChannel < g_ptrSystem->BufferManagers().size(); iChannel++, channelMask <<= 1)
                 {
-                    debugV("Processing for Channel %d", iChannel);
-
-                    bool bDone = false;
-                    auto& bufferManager = g_ptrSystem->BufferManagers()[iChannel];
-
-                    if (!bufferManager.IsEmpty())
+                    if ((channelMask & channel16) != 0)
                     {
-                        auto pNewestBuffer = bufferManager.PeekNewestBuffer();
-                        if (micros != 0 && pNewestBuffer->MicroSeconds() == micros && pNewestBuffer->Seconds() == seconds)
+                        debugV("Processing for Channel %d", iChannel);
+
+                        bool bDone = false;
+                        auto& bufferManager = g_ptrSystem->BufferManagers()[iChannel];
+
+                        if (!bufferManager.IsEmpty())
                         {
-                            debugV("Updating existing buffer");
-                            if (!pNewestBuffer->UpdateFromWire(payloadData, payloadLength))
+                            auto pNewestBuffer = bufferManager.PeekNewestBuffer();
+                            if (micros != 0 && pNewestBuffer->MicroSeconds() == micros && pNewestBuffer->Seconds() == seconds)
+                            {
+                                debugV("Updating existing buffer");
+                                if (!pNewestBuffer->UpdateFromWire(payloadData, payloadLength))
+                                    return false;
+                                bDone = true;
+                            }
+                        }
+                        if (!bDone)
+                        {
+                            debugV("No match so adding new buffer");
+                            auto pNewBuffer = bufferManager.GetNewBuffer();
+                            if (!pNewBuffer->UpdateFromWire(payloadData, payloadLength))
                                 return false;
-                            bDone = true;
                         }
                     }
-                    if (!bDone)
-                    {
-                        debugV("No match so adding new buffer");
-                        auto pNewBuffer = bufferManager.GetNewBuffer();
-                        if (!pNewBuffer->UpdateFromWire(payloadData, payloadLength))
-                            return false;
-                    }
                 }
+                return true;
             }
+
+            default:
+            {
+                debugV("ProcessIncomingData -- Unknown command: 0x%x", command16);
+                return false;
+            }
+        }
+        #endif
+    }
+
+    // Non-volatile Storage for WiFi Credentials
+
+    #define MAX_PASSWORD_LEN 63
+
+    // GetWiFiConfigKey
+    //
+    // Creates a unique key for storing/retrieving WiFi credentials in NVS.
+    // The key is a combination of a base key (like "WiFi_ssid") and the
+    // credential source, ensuring different credential sets don't overwrite
+    // each other.
+
+    inline String GetWiFiConfigKey(WifiCredSource source, const String& key)
+    {
+        return String(key + "_" + source);
+    }
+
+    // ReadWiFiConfig
+    //
+    // Attempts to read the WiFi ssid and password from NVS storage strings.  The keys
+    // for those name-value pairs are made from the variable names (WiFi_ssid, WiFi_Password)
+    // directly.  Limited to 63 characters in both cases, which is the WPA2 ssid limit.
+
+    bool ReadWiFiConfig(WifiCredSource source, String& WiFi_ssid, String& WiFi_password)
+    {
+        char szBuffer[MAX_PASSWORD_LEN+1];
+
+        nvs_handle_t nvsROHandle;
+        esp_err_t err = nvs_open("storage", NVS_READONLY, &nvsROHandle);
+        if (err != ESP_OK)
+        {
+            debugW("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+            return false;
+        }
+        else
+        {
+            // Read the SSID and Password from the NVS partition name/value keypair set
+
+            auto len = std::size(szBuffer);
+            err = nvs_get_str(nvsROHandle, GetWiFiConfigKey(source, NAME_OF(WiFi_ssid)).c_str(), szBuffer, &len);
+            if (ESP_OK != err)
+            {
+                debugE("Could not read WiFi_ssid for source %d from NVS", source);
+                nvs_close(nvsROHandle);
+                return false;
+            }
+            WiFi_ssid = szBuffer;
+
+            len = std::size(szBuffer);
+            err = nvs_get_str(nvsROHandle, GetWiFiConfigKey(source, NAME_OF(WiFi_password)).c_str(), szBuffer, &len);
+            if (ESP_OK != err)
+            {
+                debugE("Could not read WiFi_password for SSID \"%s\" and source %d from NVS", WiFi_ssid.c_str(), source);
+                nvs_close(nvsROHandle);
+                return false;
+            }
+            WiFi_password = szBuffer;
+
+            // Don't check in changes that would display the password in logs, etc.
+            debugI("Retrieved SSID and Password for source %d from NVS: \"%s\", \"********\"", source, WiFi_ssid.c_str());
+
+            nvs_close(nvsROHandle);
             return true;
         }
+    }
 
-        default:
+    // WriteWiFiConfig
+    //
+    // Attempts to write the WiFi ssid and password to NVS storage strings.  The keys
+    // for those name-value pairs are made from the variable names (WiFi_ssid, WiFi_Password)
+    // directly.  It's not transactional, so it could conceivably succeed at writing
+    // the ssid and not the password (but will still report failure).  Does not
+    // enforce length limits on values given, so conceivable you could write longer
+    // pairs than you could read, but they wouldn't work on WiFi anyway.
+
+    bool WriteWiFiConfig(WifiCredSource source, const String& WiFi_ssid, const String& WiFi_password)
+    {
+        nvs_handle_t nvsRWHandle;
+
+        // The "storage" string must match NVS partition name in partition table
+
+        esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvsRWHandle);
+        if (err != ESP_OK)
         {
-            debugV("ProcessIncomingData -- Unknown command: 0x%x", command16);
+            debugW("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
             return false;
         }
-    }
-    #endif
-}
 
-// Non-volatile Storage for WiFi Credentials
+        bool success = true;
 
-// ReadWiFiConfig
-//
-// Attempts to read the WiFi ssid and password from NVS storage strings.  The keys
-// for those name-value pairs are made from the variable names (WiFi_ssid, WiFi_Password)
-// directly.  Limited to 63 characters in both cases, which is the WPA2 ssid limit.
-
-#define MAX_PASSWORD_LEN 63
-
-bool ReadWiFiConfig(String& WiFi_ssid, String& WiFi_password)
-{
-    char szBuffer[MAX_PASSWORD_LEN+1];
-
-    nvs_handle_t nvsROHandle;
-    esp_err_t err = nvs_open("storage", NVS_READONLY, &nvsROHandle);
-    if (err != ESP_OK)
-    {
-        debugW("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-        return false;
-    }
-    else
-    {
-        // Read the SSID and Password from the NVS partition name/value keypair set
-
-        auto len = std::size(szBuffer);
-        err = nvs_get_str(nvsROHandle, NAME_OF(WiFi_ssid), szBuffer, &len);
+        err = nvs_set_str(nvsRWHandle, GetWiFiConfigKey(source, NAME_OF(WiFi_ssid)).c_str(), WiFi_ssid.c_str());
         if (ESP_OK != err)
         {
-            debugE("Could not read WiFi_ssid from NVS");
-            nvs_close(nvsROHandle);
-            return false;
+            debugW("Error (%s) storing ssid for source %d!\n", esp_err_to_name(err), source);
+            success = false;
         }
-        WiFi_ssid = szBuffer;
 
-        len = std::size(szBuffer);
-        err = nvs_get_str(nvsROHandle, NAME_OF(WiFi_password), szBuffer, &len);
+        err = nvs_set_str(nvsRWHandle, GetWiFiConfigKey(source, NAME_OF(WiFi_password)).c_str(), WiFi_password.c_str());
         if (ESP_OK != err)
         {
-            debugE("Could not read WiFi_password for \"%s\" from NVS", WiFi_ssid.c_str());
-            nvs_close(nvsROHandle);
+            debugW("Error (%s) storing password for source %d!\n", esp_err_to_name(err), source);
+            success = false;
+        }
+
+        if (success)
+            // Do not check in code that displays the password in logs, etc.
+            debugI("Stored SSID and Password for source %d to NVS: %s, *******", source, WiFi_ssid.c_str());
+
+        nvs_commit(nvsRWHandle);
+        nvs_close(nvsRWHandle);
+
+        return success;
+    }
+
+    // ClearWiFiConfig
+    //
+    // Attempts to erase the WiFi ssid and password for a given source from NVS
+    // storage. The keys for the name-value pairs are constructed based on the
+    // source. This operation is not transactional; it's possible for one key
+    // to be erased successfully while the other fails.
+
+    bool ClearWiFiConfig(WifiCredSource source)
+    {
+        nvs_handle_t nvsRWHandle;
+
+        // The "storage" string must match NVS partition name in partition table
+
+        esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvsRWHandle);
+        if (err != ESP_OK)
+        {
+            debugW("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
             return false;
         }
-        WiFi_password = szBuffer;
 
-        // Don't check in changes that would display the password in logs, etc.
-        debugW("Retrieved SSID and Password from NVS: \"%s\", \"********\"", WiFi_ssid.c_str());
+        bool success = true;
 
-        nvs_close(nvsROHandle);
-        return true;
+        err = nvs_erase_key(nvsRWHandle, GetWiFiConfigKey(source, NAME_OF(WiFi_ssid)).c_str());
+        if (ESP_OK != err && err != ESP_ERR_NVS_NOT_FOUND)
+        {
+            debugW("Error (%s) erasing ssid for source %d!\n", esp_err_to_name(err), source);
+            success = false;
+        }
+
+        err = nvs_erase_key(nvsRWHandle, GetWiFiConfigKey(source, NAME_OF(WiFi_password)).c_str());
+        if (ESP_OK != err && err != ESP_ERR_NVS_NOT_FOUND)
+        {
+            debugW("Error (%s) erasing password for source %d!\n", esp_err_to_name(err), source);
+            success = false;
+        }
+
+        if (success)
+            debugI("Erased SSID and Password for source %d from NVS", source);
+
+        nvs_commit(nvsRWHandle);
+        nvs_close(nvsRWHandle);
+
+        return success;
     }
-}
-
-// WriteWiFiConfig
-//
-// Attempts to write the WiFi ssid and password to NVS storage strings.  The keys
-// for those name-value pairs are made from the variable names (WiFi_ssid, WiFi_Password)
-// directly.  It's not transactional, so it could conceivably succeed at writing
-// the ssid and not the password (but will still report failure).  Does not
-// enforce length limits on values given, so conceivable you could write longer
-// pairs than you could read, but they wouldn't work on WiFi anyway.
-
-bool WriteWiFiConfig(const String& WiFi_ssid, const String& WiFi_password)
-{
-    nvs_handle_t nvsRWHandle;
-
-    // The "storage" string must match NVS partition name in partition table
-
-    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvsRWHandle);
-    if (err != ESP_OK)
-    {
-        debugW("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-        return false;
-    }
-
-    bool success = true;
-
-    err = nvs_set_str(nvsRWHandle, NAME_OF(WiFi_ssid), WiFi_ssid.c_str());
-    if (ESP_OK != err)
-    {
-        debugW("Error (%s) storing ssid!\n", esp_err_to_name(err));
-        success = false;
-    }
-
-    err = nvs_set_str(nvsRWHandle, NAME_OF(WiFi_password), WiFi_password.c_str());
-    if (ESP_OK != err)
-    {
-        debugW("Error (%s) storing password!\n", esp_err_to_name(err));
-        success = false;
-    }
-
-    if (success)
-        // Do not check in code that displays the password in logs, etc.
-        debugW("Stored SSID and Password to NVS: %s, *******", WiFi_ssid.c_str());
-
-    nvs_commit(nvsRWHandle);
-    nvs_close(nvsRWHandle);
-
-    return true;
-}
-
-#if ENABLE_WIFI
 
     // DebugLoopTaskEntry
     //
@@ -686,7 +752,6 @@ bool WriteWiFiConfig(const String& WiFi_ssid, const String& WiFi_password)
             delay(MILLIS_PER_SECOND / 20);
         }
     }
-#endif
 
 #if INCOMING_WIFI_ENABLED
 
@@ -721,6 +786,15 @@ bool WriteWiFiConfig(const String& WiFi_ssid, const String& WiFi_password)
     {
         LEDViewer _viewer(NetworkPort::ColorServer);
         int socket = -1;
+        bool wsListenersPresent = false;
+        BaseFrameEventListener frameEventListener;
+
+        auto& effectManager = g_ptrSystem->EffectManager();
+        #if COLORDATA_WEB_SOCKET_ENABLED
+            auto& webSocketServer = g_ptrSystem->WebSocketServer();
+        #endif
+
+        effectManager.AddFrameEventListener(frameEventListener);
 
         for(;;)
         {
@@ -745,42 +819,45 @@ bool WriteWiFiConfig(const String& WiFi_ssid, const String& WiFi_password)
             if (socket < 0)
                 socket = _viewer.CheckForConnection();
 
-            while (socket >= 0)
+            auto leds = effectManager.g()->leds;
+
+            if (frameEventListener.CheckAndClearNewFrameAvailable() && leds != nullptr)
             {
-                auto& effectManager = g_ptrSystem->EffectManager();
-
-                if (effectManager.IsNewFrameAvailable())
+                if (socket >= 0)
                 {
-                    effectManager.SetNewFrameAvailable(false);
-
                     debugV("Sending color data packet");
                     // Potentially too large for the stack, so we allocate it on the heap instead
                     std::unique_ptr<ColorDataPacket> pPacket = std::make_unique<ColorDataPacket>();
                     pPacket->header = COLOR_DATA_PACKET_HEADER;
                     pPacket->width  = effectManager.g()->width();
                     pPacket->height = effectManager.g()->height();
-                    if (effectManager.g()->leds != nullptr)
-                    {
-                        memcpy(pPacket->colors, effectManager.g()->leds, sizeof(CRGB) * NUM_LEDS);
+                    memcpy(pPacket->colors, leds, sizeof(CRGB) * NUM_LEDS);
 
-                        if (!_viewer.SendPacket(socket, pPacket.get(), sizeof(ColorDataPacket)))
-                        {
-                            // If anything goes wrong, we close the socket so it can accept new incoming attempts
-                            debugW("Error on color data socket, so closing");
-                            close(socket);
-                            socket = -1;
-                            break;
-                        }
+                    if (!_viewer.SendPacket(socket, pPacket.get(), sizeof(ColorDataPacket)))
+                    {
+                        // If anything goes wrong, we close the socket so it can accept new incoming attempts
+                        debugW("Error on color data socket, so closing");
+                        close(socket);
+                        socket = -1;
                     }
                 }
-                delay(10);
+
+                #if COLORDATA_WEB_SOCKET_ENABLED
+                    webSocketServer.SendColorData(leds, NUM_LEDS);
+                #endif
             }
-            delay(1000);
+
+            #if COLORDATA_WEB_SOCKET_ENABLED
+                wsListenersPresent = webSocketServer.HaveColorDataClients();
+            #endif
+
+            if (socket >= 0 || wsListenersPresent)
+                delay(10);
+            else
+                delay(1000);
         }
     }
 #endif // COLORDATA_SERVER_ENABLED
-
-#if ENABLE_WIFI
 
     // NetworkHandlingLoopEntry
     //
@@ -814,6 +891,11 @@ bool WriteWiFiConfig(const String& WiFi_ssid, const String& WiFi_password)
                 if (connectResult == WiFiConnectResult::Connected)
                 {
                     millisAtLastConnected = millis();
+
+                    #if WEB_SOCKETS_ANY_ENABLED
+                        // It's recommended to clean up any stale web socket clients every second or so
+                        g_ptrSystem->WebSocketServer().CleanupClients();
+                    #endif
                 }
                 else
                 {
@@ -935,6 +1017,10 @@ bool WriteWiFiConfig(const String& WiFi_ssid, const String& WiFi_password)
         entry.canceled.store(true);
         entry.readInterval.store(0);
         entry.reader = nullptr;
+    }
+#else
+
+    void InitNetworkCLI() {
     }
 
 #endif // ENABLE_WIFI
