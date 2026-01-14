@@ -240,7 +240,8 @@ public:
     void safeSet(float x, float y, CRGB c) const {
         int ix = lroundf(x);
         int iy = lroundf(y);
-        if (ix >= 0 && ix < MATRIX_WIDTH && iy >= 0 && iy < MATRIX_HEIGHT) {
+        // Cast to unsigned eliminates need for >= 0 check (negative values wrap to large unsigned)
+        if ((unsigned int)ix < MATRIX_WIDTH && (unsigned int)iy < MATRIX_HEIGHT) {
             g()->setPixel(ix, iy, c);
         }
     }

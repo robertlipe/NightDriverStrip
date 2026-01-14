@@ -189,11 +189,11 @@ public:
     }
 
     void DrawMaze(struct tm* t) {
-        const int xOff = 4, yOff = (MATRIX_HEIGHT - MAZE_H) / 2;
-        for (int ty = 0; ty < MAZE_H; ty++) {
+        const unsigned int xOff = 4, yOff = (MATRIX_HEIGHT - MAZE_H) / 2;
+        for (unsigned int ty = 0; ty < MAZE_H; ty++) {
             uint32_t row = mazeMask[ty];
-            for (int tx = 0; tx < MAZE_W; tx++) {
-                int px = xOff + (tx * 2);
+            for (unsigned int tx = 0; tx < MAZE_W; tx++) {
+                unsigned int px = xOff + (tx * 2);
                 bool isHouse = (ty >= kHouseTop && ty <= kHouseBot && tx >= kHouseL && tx <= kHouseR);
                 if ((row >> (27 - tx)) & 1) {
                     g()->setPixel(px, yOff + ty, (uint16_t)0x001F); // Blue
@@ -218,8 +218,8 @@ public:
     }
 
     void DrawEntity(MunchEntity& e, uint16_t color, bool animate) {
-        int xOff = 4, yOff = (MATRIX_HEIGHT - MAZE_H) / 2;
-        int sx = xOff + ((e.x / SCALE) * 2), sy = yOff + (e.y / SCALE);
+        unsigned int xOff = 4, yOff = (MATRIX_HEIGHT - MAZE_H) / 2;
+        unsigned int sx = xOff + ((e.x / SCALE) * 2), sy = yOff + (e.y / SCALE);
         bool open = animate && ((millis() / 150) % 2 == 0);
         safeSet(sx, sy, color); safeSet(sx+1, sy, color);
         safeSet(sx, sy-1, color); safeSet(sx+1, sy-1, color);
@@ -230,7 +230,7 @@ public:
         if (!open || e.dir != MunchDir::DOWN)  { safeSet(sx, sy+1, color); safeSet(sx+1, sy+1, color); }
     }
 
-    void safeSet(int x, int y, uint16_t c) const {
-        if (x >= 0 && x < MATRIX_WIDTH && y >= 0 && y < MATRIX_HEIGHT) g()->setPixel(x, y, c);
+    void safeSet(unsigned int x, unsigned int y, uint16_t c) const {
+        if (x < MATRIX_WIDTH && y < MATRIX_HEIGHT) g()->setPixel(x, y, c);
     }
 };
