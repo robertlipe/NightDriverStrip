@@ -8,7 +8,7 @@
  * Features grid-locked movement, scent-trail ghost AI, and 3x5 font.
  */
 
-enum MunchDir { UP, RIGHT, DOWN, LEFT, NONE };
+enum class MunchDir : uint8_t { UP, RIGHT, DOWN, LEFT, NONE };
 
 struct MunchEntity {
     int32_t x, y;
@@ -41,7 +41,7 @@ private:
 
     std::bitset<MAZE_W * MAZE_H> pellets;
 
-    const uint32_t mazeMask[31] = {
+    static constexpr uint32_t mazeMask[31] = {
         0xFFFFFFF, 0x8000001, 0x8EEEEE1, 0x8EEEEE1, 0x8000001,
         0x8EEEEE1, 0x8E888E1, 0x8E888E1, 0x8000001, 0xFFF8FFF,
         0x0004000, 0x0004000, 0x8000001, 0x8E000E1, 0x8E000E1,
@@ -51,7 +51,7 @@ private:
         0xFFFFFFF
     };
 
-    const uint8_t font3x5[10][5] = {
+    static constexpr uint8_t font3x5[10][5] = {
         {0b111, 0b101, 0b101, 0b101, 0b111}, {0b010, 0b110, 0b010, 0b010, 0b111},
         {0b111, 0b001, 0b111, 0b100, 0b111}, {0b111, 0b001, 0b111, 0b001, 0b111},
         {0b101, 0b101, 0b111, 0b001, 0b001}, {0b111, 0b100, 0b111, 0b001, 0b111},
@@ -92,8 +92,8 @@ public:
     PatternCGMunch(const JsonObjectConst& json) : EffectWithId<PatternCGMunch>(json) { ResetGame(); }
 
     void ResetGame() {
-        munch.x = 14 * SCALE; munch.y = 23 * SCALE; munch.dir = LEFT;
-        blinky.x = 14 * SCALE; blinky.y = 14 * SCALE; blinky.dir = UP;
+        munch.x = 14 * SCALE; munch.y = 23 * SCALE; munch.dir = MunchDir::LEFT;
+        blinky.x = 14 * SCALE; blinky.y = 14 * SCALE; blinky.dir = MunchDir::UP;
         for (int i = 0; i < 12; i++) { trailX[i] = 14; trailY[i] = 23; }
         trailIdx = 0;
         ResetPellets();
@@ -108,10 +108,10 @@ public:
             trailIdx = (trailIdx + 1) % 12;
 
             MunchDir options[4]; int count = 0;
-            if (!isWall(tx, ty - 1)) options[count++] = UP;
-            if (!isWall(tx + 1, ty)) options[count++] = RIGHT;
-            if (!isWall(tx, ty + 1)) options[count++] = DOWN;
-            if (!isWall(tx - 1, ty)) options[count++] = LEFT;
+            if (!isWall(tx, ty - 1)) options[count++] = MunchDir::UP;
+            if (!isWall(tx + 1, ty)) options[count++] = MunchDir::RIGHT;
+            if (!isWall(tx, ty + 1)) options[count++] = MunchDir::DOWN;
+            if (!isWall(tx - 1, ty)) options[count++] = MunchDir::LEFT;
 
             bool straight = false;
             for (int i = 0; i < count; i++) if (options[i] == munch.dir) straight = true;
@@ -119,18 +119,22 @@ public:
             if (straight && count <= 2 && random(100) < 85) {
                 // Hallway Persistence
             } else if (count > 0) {
-                MunchDir opposites[] = { DOWN, LEFT, UP, RIGHT, NONE };
+                // Avoid reversing direction unless necessary
+                static constexpr MunchDir opposites[] = { MunchDir::DOWN, MunchDir::LEFT, MunchDir::UP, MunchDir::RIGHT, MunchDir::NONE };
                 MunchDir choices[4]; int cCount = 0;
                 for (int i = 0; i < count; i++)
-                    if (options[i] != opposites[munch.dir]) choices[cCount++] = options[i];
+                    if (options[i] != opposites[static_cast<int>(munch.dir)]) choices[cCount++] = options[i];
 
                 if (cCount > 0) munch.dir = choices[random(cCount)];
                 else munch.dir = options[0];
             }
         }
-        int dx = (munch.dir == RIGHT) - (munch.dir == LEFT), dy = (munch.dir == DOWN) - (munch.dir == UP);
+        // Convert direction enum to delta movement: clever but needs documentation
+        // RIGHT=1 gives dx=1, LEFT=3 gives dx=-1, UP=0/DOWN=2 give dx=0
+        int dx = (munch.dir == MunchDir::RIGHT) - (munch.dir == MunchDir::LEFT);
+        int dy = (munch.dir == MunchDir::DOWN) - (munch.dir == MunchDir::UP);
         if (!isWall(tx + dx, ty + dy)) { munch.x += dx * kMunchSpeed; munch.y += dy * kMunchSpeed; }
-        else { munch.dir = (MunchDir)random(4); }
+        else { munch.dir = static_cast<MunchDir>(random(4)); }
 
         if (munch.x < 0) munch.x = (MAZE_W - 1) * SCALE;
         if (munch.x >= MAZE_W * SCALE) munch.x = 0;
@@ -139,42 +143,46 @@ public:
     void UpdateBlinky() {
         int tx = blinky.x / SCALE, ty = blinky.y / SCALE;
         // Collision: Return to house if caught
-        if (abs(blinky.x - munch.x) < 128 && abs(blinky.y - munch.y) < 128) {
+        if (std::abs(blinky.x - munch.x) < 128 && std::abs(blinky.y - munch.y) < 128) {
             blinky.x = 14 * SCALE; blinky.y = 14 * SCALE; return;
         }
 
         if ((blinky.x % SCALE == 0) && (blinky.y % SCALE == 0)) {
             int tIdx = (trailIdx + 6) % 12;
             int targetTX = trailX[tIdx], targetTY = trailY[tIdx];
-            if (abs(tx - targetTX) > 10) { targetTX = 14; targetTY = 14; }
+            if (std::abs(tx - targetTX) > 10) { targetTX = 14; targetTY = 14; }
             MunchDir options[4]; int count = 0;
-            if (!isWall(tx, ty - 1)) options[count++] = UP;
-            if (!isWall(tx + 1, ty)) options[count++] = RIGHT;
-            if (!isWall(tx, ty + 1)) options[count++] = DOWN;
-            if (!isWall(tx - 1, ty)) options[count++] = LEFT;
+            if (!isWall(tx, ty - 1)) options[count++] = MunchDir::UP;
+            if (!isWall(tx + 1, ty)) options[count++] = MunchDir::RIGHT;
+            if (!isWall(tx, ty + 1)) options[count++] = MunchDir::DOWN;
+            if (!isWall(tx - 1, ty)) options[count++] = MunchDir::LEFT;
             if (count > 0) {
                 MunchDir bestDir = options[0]; int32_t minDist = 100000;
-                MunchDir opposites[] = { DOWN, LEFT, UP, RIGHT, NONE };
+                static constexpr MunchDir opposites[] = { MunchDir::DOWN, MunchDir::LEFT, MunchDir::UP, MunchDir::RIGHT, MunchDir::NONE };
                 for (int i = 0; i < count; i++) {
-                    if (count > 1 && options[i] == opposites[blinky.dir]) continue;
-                    int nx = tx + (options[i] == RIGHT) - (options[i] == LEFT);
-                    int ny = ty + (options[i] == DOWN) - (options[i] == UP);
-                    int32_t d = abs(nx - targetTX) + abs(ny - targetTY);
+                    if (count > 1 && options[i] == opposites[static_cast<int>(blinky.dir)]) continue;
+                    // Convert direction to delta using the same clever trick as UpdateMunch
+                    int nx = tx + (options[i] == MunchDir::RIGHT) - (options[i] == MunchDir::LEFT);
+                    int ny = ty + (options[i] == MunchDir::DOWN) - (options[i] == MunchDir::UP);
+                    int32_t d = std::abs(nx - targetTX) + std::abs(ny - targetTY);
                     if (d < minDist) { minDist = d; bestDir = options[i]; }
                 }
                 blinky.dir = bestDir;
             }
         }
-        int dx = (blinky.dir == RIGHT) - (blinky.dir == LEFT), dy = (blinky.dir == DOWN) - (blinky.dir == UP);
+        int dx = (blinky.dir == MunchDir::RIGHT) - (blinky.dir == MunchDir::LEFT);
+        int dy = (blinky.dir == MunchDir::DOWN) - (blinky.dir == MunchDir::UP);
         if (!isWall(tx + dx, ty + dy)) { blinky.x += dx * kBlinkySpeed; blinky.y += dy * kBlinkySpeed; }
-        else { blinky.dir = (MunchDir)random(4); }
+        else { blinky.dir = static_cast<MunchDir>(random(4)); }
         if (blinky.x < 0) blinky.x = (MAZE_W - 1) * SCALE;
         if (blinky.x >= MAZE_W * SCALE) blinky.x = 0;
     }
 
     void Draw() override {
         g()->fillScreen(0);
-        time_t n; time(&n); struct tm* t = localtime(&n);
+        auto now_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        struct tm tm_buf;
+        struct tm* t = localtime_r(&now_t, &tm_buf);
         if (t && t->tm_min != lastMin) { if (lastMin != -1) ResetGame(); lastMin = t->tm_min; }
         UpdateMunch(); UpdateBlinky(); DrawMaze(t);
         DrawEntity(munch, (uint16_t)0xFFE0, true);  // Yellow
@@ -217,10 +225,10 @@ public:
         safeSet(sx, sy, color); safeSet(sx+1, sy, color);
         safeSet(sx, sy-1, color); safeSet(sx+1, sy-1, color);
         safeSet(sx, sy+1, color); safeSet(sx+1, sy+1, color);
-        if (!open || e.dir != LEFT)  safeSet(sx-1, sy, color);
-        if (!open || e.dir != RIGHT) safeSet(sx+2, sy, color);
-        if (!open || e.dir != UP)    { safeSet(sx, sy-1, color); safeSet(sx+1, sy-1, color); }
-        if (!open || e.dir != DOWN)  { safeSet(sx, sy+1, color); safeSet(sx+1, sy+1, color); }
+        if (!open || e.dir != MunchDir::LEFT)  safeSet(sx-1, sy, color);
+        if (!open || e.dir != MunchDir::RIGHT) safeSet(sx+2, sy, color);
+        if (!open || e.dir != MunchDir::UP)    { safeSet(sx, sy-1, color); safeSet(sx+1, sy-1, color); }
+        if (!open || e.dir != MunchDir::DOWN)  { safeSet(sx, sy+1, color); safeSet(sx+1, sy+1, color); }
     }
 
     void safeSet(int x, int y, uint16_t c) {

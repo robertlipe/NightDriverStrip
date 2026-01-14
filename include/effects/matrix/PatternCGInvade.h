@@ -22,6 +22,9 @@ private:
     static constexpr float kPlayerSpeed = 0.8f;
     static constexpr int kDebrisFadeRate = 12;
     static constexpr float kCollisionRadius = 0.6f;
+    static constexpr float kDebrisVelocityScale = 1.0f / 60.0f;
+    static constexpr float kDebrisGravity = 0.02f;
+    static constexpr float kBunkerCollisionRadius = 0.7f;
 
     std::vector<CGEntity> swarm;
     std::vector<CGEntity> bullets;
@@ -38,7 +41,7 @@ private:
     float currentAITargetX = 32.0f;
     int lastMin = -1;
 
-    const uint32_t font3x5[11][5] = {
+    static constexpr uint32_t font3x5[11][5] = {
         {0b111, 0b101, 0b101, 0b101, 0b111}, // 0
         {0b010, 0b110, 0b010, 0b010, 0b111}, // 1
         {0b111, 0b001, 0b111, 0b100, 0b111}, // 2
@@ -68,11 +71,18 @@ public:
     }
 
     void SpawnBunkers() {
+        // Bunkers have notches: bottom-center (y=2, x=1-3) and top-corners (y=0, x=0,4)
+        auto isBunkerHole = [](int x, int y) -> bool {
+            bool isBottomNotch = (y == 2 && x >= 1 && x <= 3);
+            bool isTopCorner = (y == 0 && (x == 0 || x == 4));
+            return isBottomNotch || isTopCorner;
+        };
+
         for (int b = 0; b < 4; b++) {
             int bx = 6 + (b * 16);
             for (int x = 0; x < 5; x++) {
                 for (int y = 0; y < 3; y++) {
-                    if (!((y == 2 && (x == 1 || x == 2 || x == 3)) || (y == 0 && (x == 0 || x == 4))))
+                    if (!isBunkerHole(x, y))
                         bunkers.push_back({(float)bx + x, (float)MATRIX_HEIGHT - 7.0f + y, 0, 0, (uint32_t)CRGB::Green, true});
                 }
             }
@@ -80,8 +90,9 @@ public:
     }
 
     void SpawnTimeArmada() {
-        auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        struct tm* t = localtime(&now);
+        auto now_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        struct tm tm_buf;
+        struct tm* t = localtime_r(&now_t, &tm_buf);
         lastMin = t->tm_min;
         int digits[5] = {t->tm_hour/10, t->tm_hour%10, 10, t->tm_min/10, t->tm_min%10};
         int startX = (MATRIX_WIDTH - (5 * 4)) / 2;
@@ -104,14 +115,17 @@ public:
     void Draw() override {
         fadeAllChannelsToBlackBy(80);
 
-        auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-        if (localtime(&now)->tm_min != lastMin || IsBoardClear()) {
+        auto now_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        struct tm tm_buf;
+        if (localtime_r(&now_t, &tm_buf)->tm_min != lastMin || IsBoardClear()) {
             ResetGame(); return;
         }
 
         UpdateAI();
         UpdateUFO();
 
+        // Check if any swarm member hit the edge during movement
+        // We detect this during the movement loop to avoid a second pass
         bool hitWall = false;
         for (auto& p : swarm) {
             if (!p.active) continue;
@@ -133,7 +147,7 @@ public:
             safeSet(b.x, b.y, b.color);
 
             for (auto& bk : bunkers) {
-                if (bk.active && abs(b.x - bk.x) < 0.7f && abs(b.y - bk.y) < 0.7f) {
+                if (bk.active && fabsf(b.x - bk.x) < kBunkerCollisionRadius && fabsf(b.y - bk.y) < kBunkerCollisionRadius) {
                     bk.active = b.active = false;
                     SpawnExplosion(bk.x, bk.y, bk.color, 2);
                     break;
@@ -142,7 +156,7 @@ public:
             if (!b.active) continue;
 
             for (auto& p : swarm) {
-                if (p.active && abs(b.x - p.x) < kCollisionRadius && abs(b.y - p.y) < kCollisionRadius) {
+                if (p.active && fabsf(b.x - p.x) < kCollisionRadius && fabsf(b.y - p.y) < kCollisionRadius) {
                     p.active = b.active = false;
                     SpawnExplosion(p.x, p.y, p.color, 4);
                     break;
@@ -153,14 +167,14 @@ public:
         for (const auto& bk : bunkers) if (bk.active) safeSet(bk.x, bk.y, bk.color);
         for (auto& d : debris) {
             if (!d.active) continue;
-            d.x += d.vx; d.y += d.vy; d.vy += 0.02f;
+            d.x += d.vx; d.y += d.vy; d.vy += kDebrisGravity;
             d.life -= kDebrisFadeRate;
             if (d.life <= 0) d.active = false;
             else safeSet(d.x, d.y, CRGB(d.color).nscale8(d.life));
         }
 
-        int px = (int)round(player.x);
-        int py = (int)round(player.y);
+        int px = lroundf(player.x);
+        int py = lroundf(player.y);
         safeSet(px, py, CRGB(player.color));
         safeSet(px - 1, py, CRGB(player.color));
         safeSet(px + 1, py, CRGB(player.color));
@@ -206,7 +220,7 @@ public:
             }
         }
 
-        float sweep = sin(millis() / 400.0f) * 2.5f;
+        float sweep = sinf(millis() / 400.0f) * 2.5f;
         float dest = currentAITargetX + sweep;
         if (player.x < dest) player.x += kPlayerSpeed;
         else if (player.x > dest) player.x -= kPlayerSpeed;
@@ -220,13 +234,13 @@ public:
     }
 
     bool TargetStillExists(float x) {
-        for(const auto& p : swarm) if(p.active && abs(p.x - x) < 2.0f) return true;
+        for(const auto& p : swarm) if(p.active && fabsf(p.x - x) < 2.0f) return true;
         return false;
     }
 
     void safeSet(float x, float y, CRGB c) {
-        int ix = (int)round(x);
-        int iy = (int)round(y);
+        int ix = lroundf(x);
+        int iy = lroundf(y);
         if (ix >= 0 && ix < MATRIX_WIDTH && iy >= 0 && iy < MATRIX_HEIGHT) {
             g()->setPixel(ix, iy, c);
         }
@@ -234,7 +248,9 @@ public:
 
     void SpawnExplosion(float x, float y, uint32_t col, int count) {
         for (int i = 0; i < count; i++) {
-            debris.push_back({x, y, ((float)random(100)-50)/60.0f, ((float)random(100)-90)/90.0f, col, true, 255});
+            float vx = ((float)random(100) - 50.0f) * kDebrisVelocityScale;
+            float vy = ((float)random(100) - 90.0f) * kDebrisVelocityScale;
+            debris.push_back({x, y, vx, vy, col, true, 255});
         }
     }
 
