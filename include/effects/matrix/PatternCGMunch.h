@@ -1,6 +1,5 @@
 #pragma once
 
-#include "effects.h"
 #include <bitset>
 
 /**
@@ -59,7 +58,7 @@ private:
         {0b111, 0b101, 0b111, 0b101, 0b111}, {0b111, 0b101, 0b111, 0b001, 0b111}
     };
 
-    bool isWall(int x, int y) {
+    bool isWall(int x, int y) const {
         if (y < 0 || y >= MAZE_H) return true;
         // The wrap-around tunnel is only allowed at the equator
         bool isTunnelRow = (y >= 9 && y <= 11);
@@ -70,18 +69,18 @@ private:
 
     void ResetPellets() {
         pellets.reset();
-        for (int y = 0; y < MAZE_H; y++) {
-            for (int x = 0; x < MAZE_W; x++) {
+        for (unsigned int y = 0; y < MAZE_H; y++) {
+            for (unsigned int x = 0; x < MAZE_W; x++) {
                 if (!isWall(x, y)) pellets.set(y * MAZE_W + x);
             }
         }
     }
 
-    void DrawDigit(int x, int y, int digit, uint16_t color) {
-        if (digit < 0 || digit > 9) return;
-        for (int r = 0; r < 5; r++) {
+    void DrawDigit(int x, int y, unsigned int digit, uint16_t color) const {
+        if (digit > 9) return;
+        for (unsigned int r = 0; r < 5; r++) {
             uint8_t bits = font3x5[digit][r];
-            for (int c = 0; c < 3; c++) {
+            for (unsigned int c = 0; c < 3; c++) {
                 if ((bits >> (2 - c)) & 1) g()->setPixel(x + c, y + r, color);
             }
         }
@@ -94,7 +93,7 @@ public:
     void ResetGame() {
         munch.x = 14 * SCALE; munch.y = 23 * SCALE; munch.dir = MunchDir::LEFT;
         blinky.x = 14 * SCALE; blinky.y = 14 * SCALE; blinky.dir = MunchDir::UP;
-        for (int i = 0; i < 12; i++) { trailX[i] = 14; trailY[i] = 23; }
+        for (unsigned int i = 0; i < 12; i++) { trailX[i] = 14; trailY[i] = 23; }
         trailIdx = 0;
         ResetPellets();
     }
@@ -107,22 +106,22 @@ public:
             trailX[trailIdx] = (int16_t)tx; trailY[trailIdx] = (int16_t)ty;
             trailIdx = (trailIdx + 1) % 12;
 
-            MunchDir options[4]; int count = 0;
+            MunchDir options[4]; unsigned int count = 0;
             if (!isWall(tx, ty - 1)) options[count++] = MunchDir::UP;
             if (!isWall(tx + 1, ty)) options[count++] = MunchDir::RIGHT;
             if (!isWall(tx, ty + 1)) options[count++] = MunchDir::DOWN;
             if (!isWall(tx - 1, ty)) options[count++] = MunchDir::LEFT;
 
             bool straight = false;
-            for (int i = 0; i < count; i++) if (options[i] == munch.dir) straight = true;
+            for (unsigned int i = 0; i < count; i++) if (options[i] == munch.dir) straight = true;
 
             if (straight && count <= 2 && random(100) < 85) {
                 // Hallway Persistence
             } else if (count > 0) {
                 // Avoid reversing direction unless necessary
                 static constexpr MunchDir opposites[] = { MunchDir::DOWN, MunchDir::LEFT, MunchDir::UP, MunchDir::RIGHT, MunchDir::NONE };
-                MunchDir choices[4]; int cCount = 0;
-                for (int i = 0; i < count; i++)
+                MunchDir choices[4]; unsigned int cCount = 0;
+                for (unsigned int i = 0; i < count; i++)
                     if (options[i] != opposites[static_cast<int>(munch.dir)]) choices[cCount++] = options[i];
 
                 if (cCount > 0) munch.dir = choices[random(cCount)];
@@ -151,7 +150,7 @@ public:
             int tIdx = (trailIdx + 6) % 12;
             int targetTX = trailX[tIdx], targetTY = trailY[tIdx];
             if (std::abs(tx - targetTX) > 10) { targetTX = 14; targetTY = 14; }
-            MunchDir options[4]; int count = 0;
+            MunchDir options[4]; unsigned int count = 0;
             if (!isWall(tx, ty - 1)) options[count++] = MunchDir::UP;
             if (!isWall(tx + 1, ty)) options[count++] = MunchDir::RIGHT;
             if (!isWall(tx, ty + 1)) options[count++] = MunchDir::DOWN;
@@ -159,7 +158,7 @@ public:
             if (count > 0) {
                 MunchDir bestDir = options[0]; int32_t minDist = 100000;
                 static constexpr MunchDir opposites[] = { MunchDir::DOWN, MunchDir::LEFT, MunchDir::UP, MunchDir::RIGHT, MunchDir::NONE };
-                for (int i = 0; i < count; i++) {
+                for (unsigned int i = 0; i < count; i++) {
                     if (count > 1 && options[i] == opposites[static_cast<int>(blinky.dir)]) continue;
                     // Convert direction to delta using the same clever trick as UpdateMunch
                     int nx = tx + (options[i] == MunchDir::RIGHT) - (options[i] == MunchDir::LEFT);
@@ -231,7 +230,7 @@ public:
         if (!open || e.dir != MunchDir::DOWN)  { safeSet(sx, sy+1, color); safeSet(sx+1, sy+1, color); }
     }
 
-    void safeSet(int x, int y, uint16_t c) {
+    void safeSet(int x, int y, uint16_t c) const {
         if (x >= 0 && x < MATRIX_WIDTH && y >= 0 && y < MATRIX_HEIGHT) g()->setPixel(x, y, c);
     }
 };

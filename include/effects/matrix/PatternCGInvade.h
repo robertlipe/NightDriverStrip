@@ -1,6 +1,5 @@
 #pragma once
 
-#include "effects.h"
 #include <vector>
 #include <chrono>
 #include <algorithm>
@@ -72,16 +71,16 @@ public:
 
     void SpawnBunkers() {
         // Bunkers have notches: bottom-center (y=2, x=1-3) and top-corners (y=0, x=0,4)
-        auto isBunkerHole = [](int x, int y) -> bool {
+        auto isBunkerHole = [](unsigned int x, unsigned int y) -> bool {
             bool isBottomNotch = (y == 2 && x >= 1 && x <= 3);
             bool isTopCorner = (y == 0 && (x == 0 || x == 4));
             return isBottomNotch || isTopCorner;
         };
 
-        for (int b = 0; b < 4; b++) {
-            int bx = 6 + (b * 16);
-            for (int x = 0; x < 5; x++) {
-                for (int y = 0; y < 3; y++) {
+        for (unsigned int b = 0; b < 4; b++) {
+            unsigned int bx = 6 + (b * 16);
+            for (unsigned int x = 0; x < 5; x++) {
+                for (unsigned int y = 0; y < 3; y++) {
                     if (!isBunkerHole(x, y))
                         bunkers.push_back({(float)bx + x, (float)MATRIX_HEIGHT - 7.0f + y, 0, 0, (uint32_t)CRGB::Green, true});
                 }
@@ -94,13 +93,13 @@ public:
         struct tm tm_buf;
         struct tm* t = localtime_r(&now_t, &tm_buf);
         lastMin = t->tm_min;
-        int digits[5] = {t->tm_hour/10, t->tm_hour%10, 10, t->tm_min/10, t->tm_min%10};
-        int startX = (MATRIX_WIDTH - (5 * 4)) / 2;
+        unsigned int digits[5] = {(unsigned int)(t->tm_hour/10), (unsigned int)(t->tm_hour%10), 10, (unsigned int)(t->tm_min/10), (unsigned int)(t->tm_min%10)};
+        unsigned int startX = (MATRIX_WIDTH - (5 * 4)) / 2;
 
-        for (int d = 0; d < 5; d++) {
-            for (int row = 0; row < 5; row++) {
+        for (unsigned int d = 0; d < 5; d++) {
+            for (unsigned int row = 0; row < 5; row++) {
                 uint32_t rowBits = font3x5[digits[d]][row];
-                for (int col = 0; col < 3; col++) {
+                for (unsigned int col = 0; col < 3; col++) {
                     if ((rowBits >> (2 - col)) & 1) {
                         float px = startX + (d * 4) + col;
                         float py = 2 + row;
@@ -233,12 +232,12 @@ public:
         }
     }
 
-    bool TargetStillExists(float x) {
+    bool TargetStillExists(float x) const {
         for(const auto& p : swarm) if(p.active && fabsf(p.x - x) < 2.0f) return true;
         return false;
     }
 
-    void safeSet(float x, float y, CRGB c) {
+    void safeSet(float x, float y, CRGB c) const {
         int ix = lroundf(x);
         int iy = lroundf(y);
         if (ix >= 0 && ix < MATRIX_WIDTH && iy >= 0 && iy < MATRIX_HEIGHT) {
@@ -246,15 +245,15 @@ public:
         }
     }
 
-    void SpawnExplosion(float x, float y, uint32_t col, int count) {
-        for (int i = 0; i < count; i++) {
+    void SpawnExplosion(float x, float y, uint32_t col, unsigned int count) {
+        for (unsigned int i = 0; i < count; i++) {
             float vx = ((float)random(100) - 50.0f) * kDebrisVelocityScale;
             float vy = ((float)random(100) - 90.0f) * kDebrisVelocityScale;
             debris.push_back({x, y, vx, vy, col, true, 255});
         }
     }
 
-    bool IsBoardClear() {
+    bool IsBoardClear() const {
         for(const auto& p : swarm) if(p.active) return false;
         return true;
     }
