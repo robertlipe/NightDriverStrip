@@ -40,6 +40,30 @@ This file contains critical context, constraints, and architectural information 
 
 **Logging:** Use macros `debugV`, `debugE`, `debugI`, `debugW`, `debugF`, `debugT`, `debugD` for verbose, error, informational, warning, fatal, trace, debug respectively. These accept variadic C++ `std::printf` format strings and should be used sparingly.
 
+**Embedded Systems Optimization Best Practices**
+*   **Float Operations:**
+    *   Always use `float` variants: `sinf()`, `cosf()`, `sqrtf()`, `fabsf()`, `lroundf()`, etc.
+    *   ❌ **Never** use `sin()`, `cos()`, `abs()` on floats, `round()` - these operate on `double` and cause unnecessary conversions.
+    *   ESP32 has hardware float but emulates double - this matters!
+*   **Unsigned Types for RISC-V/Xtensa:**
+    *   Use `unsigned int` for loop counters, array indices, and counts to avoid sign extension overhead.
+    *   If a value is semantically non-negative (coordinates, sizes, counts), make it unsigned from the start.
+    *   Bounds checking trick: `(unsigned int)signedValue < limit` eliminates `>= 0` check (negative wraps to large unsigned).
+    *   However, prefer native unsigned types over defensive casting when possible.
+*   **Const Correctness:**
+    *   Mark read-only methods as `const` - helps compiler optimize and documents intent.
+    *   Use `static constexpr` for compile-time constants (font data, lookup tables) instead of `const`.
+    *   `static constexpr` data goes in flash/ROM, not RAM.
+*   **Time Handling:**
+    *   Prefer `std::chrono::system_clock` over Arduino's `millis()` for timestamps.
+    *   Use `localtime_r()` instead of `localtime()` for thread safety (even if single-threaded - good practice).
+    *   Example: `auto now_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());`
+*   **Memory Efficiency:**
+    *   Pre-allocate vectors with `.reserve()` if final size is known or predictable.
+    *   Use reciprocal multiplication instead of division in hot paths: `x * (1.0f/60.0f)` vs `x / 60.0f`.
+    *   Named constants for magic numbers improve both readability and allow compiler to optimize.
+
+
 ---
 
 
