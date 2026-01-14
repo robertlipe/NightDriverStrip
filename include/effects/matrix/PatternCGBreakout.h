@@ -9,6 +9,7 @@ struct Brick {
     float x, y;
     uint32_t color;
     bool active;
+    bool isRect;  // true for decorative bricks (drawn with fillRect), false for time digits (pixel-level)
 };
 
 struct Ball {
@@ -28,8 +29,10 @@ private:
     static constexpr float kPaddleWidth = 8.0f;
     static constexpr float kPaddleY = 28.0f;
     static constexpr float kBallRadius = 0.5f;
-    static constexpr float kBrickWidth = 1.0f;
-    static constexpr float kBrickHeight = 1.0f;
+    static constexpr float kDecorativeBrickWidth = 5.0f;
+    static constexpr float kDecorativeBrickHeight = 2.0f;
+    static constexpr float kTimeBrickWidth = 1.0f;
+    static constexpr float kTimeBrickHeight = 1.0f;
     static constexpr unsigned int kMissChance = 10; // 10% chance to miss
 
     std::vector<Brick> bricks;
@@ -38,6 +41,8 @@ private:
     int lastMin = -1;
     uint32_t lastMissCheck = 0;
     bool shouldMiss = false;
+    float xMin = 0.0f;
+    float xMax = MATRIX_WIDTH - 1.0f;
 
     static constexpr uint32_t font3x5[11][5] = {
         {0b111, 0b101, 0b101, 0b101, 0b111}, // 0
@@ -61,8 +66,8 @@ public:
 
     void ResetGame() {
         bricks.clear();
-        paddle.x = (float)MATRIX_WIDTH / 2.0f;
-        ball.x = (float)MATRIX_WIDTH / 2.0f;
+        paddle.x = MATRIX_WIDTH / 2.0f;
+        ball.x = MATRIX_WIDTH / 2.0f;
         ball.y = 20.0f;
         ball.vx = 0.8f;
         ball.vy = -1.0f;
@@ -80,7 +85,7 @@ public:
         struct tm tm_buf;
         struct tm* t = localtime_r(&now_t, &tm_buf);
         lastMin = t->tm_min;
-        
+
         // Classic Breakout colors: Red, Orange, Yellow, Green, Cyan, Blue
         static constexpr uint32_t breakoutColors[] = {
             (uint32_t)CRGB::Red,
@@ -92,11 +97,21 @@ public:
         };
 
         // Brick dimensions (classic Breakout style)
-        static constexpr unsigned int kBrickWidth = 5;  // 5 pixels wide
-        static constexpr unsigned int kBrickGap = 1;    // 1 pixel gap
-        static constexpr unsigned int kBrickHeight = 2; // 2 pixels tall
+        static constexpr unsigned int kDecoWidth = 5;
+        static constexpr unsigned int kDecoGap = 1;
+        static constexpr unsigned int kDecoHeight = 2;
+
+        // Calculate brick field centering
+        unsigned int numBricks = (MATRIX_WIDTH + kDecoGap) / (kDecoWidth + kDecoGap);
+        unsigned int fieldWidth = (numBricks * kDecoWidth) + ((numBricks - 1) * kDecoGap);
+        unsigned int startOffsetX = (MATRIX_WIDTH - fieldWidth) / 2;
+
+        // Boundaries for the ball behavior (no-fly zone)
+        xMin = startOffsetX;
+        xMax = startOffsetX + fieldWidth - 1.0f;
 
         // Add time digits at the very top (like Pong score)
+        // Time digits are stored as individual pixels for collision detection
         unsigned int digits[5] = {
             (unsigned int)(t->tm_hour/10), (unsigned int)(t->tm_hour%10), 10,
             (unsigned int)(t->tm_min/10), (unsigned int)(t->tm_min%10)
@@ -111,10 +126,10 @@ public:
                     if ((rowBits >> (2 - col)) & 1) {
                         float px = startX + (d * 4) + col;
                         float py = timeY + row;
-                        uint32_t color = (d < 2) ? (uint32_t)CRGB::Cyan : 
-                                        (d == 2) ? (uint32_t)CRGB::White : 
+                        uint32_t color = (d < 2) ? (uint32_t)CRGB::Cyan :
+                                        (d == 2) ? (uint32_t)CRGB::White :
                                         (uint32_t)CRGB::Green;
-                        bricks.push_back({px, py, color, true});
+                        bricks.push_back({px, py, color, true, false});  // false = pixel-level brick
                     }
                 }
             }
@@ -124,16 +139,12 @@ public:
         unsigned int brickStartY = 6; // Start bricks below time
         for (unsigned int row = 0; row < 4; row++) {
             uint32_t rowColor = breakoutColors[row % 6];
-            unsigned int yBase = brickStartY + (row * (kBrickHeight + 1));
+            unsigned int yBase = brickStartY + (row * (kDecoHeight + 1));
             if (yBase < kPaddleY - 5) {
-                for (unsigned int bx = 0; bx < MATRIX_WIDTH; bx += (kBrickWidth + kBrickGap)) {
-                    for (unsigned int by = 0; by < kBrickHeight; by++) {
-                        for (unsigned int px = 0; px < kBrickWidth && (bx + px) < MATRIX_WIDTH; px++) {
-                            float y = yBase + by;
-                            if (y < kPaddleY - 5) {
-                                bricks.push_back({(float)(bx + px), y, rowColor, true});
-                            }
-                        }
+                for (unsigned int bx = 0; bx < numBricks; bx++) {
+                    float px = startOffsetX + (bx * (kDecoWidth + kDecoGap));
+                    if (yBase + kDecoHeight < kPaddleY - 5) {
+                        bricks.push_back({px, (float)yBase, rowColor, true, true});
                     }
                 }
             }
@@ -156,17 +167,23 @@ public:
         // Draw bricks
         for (const auto& brick : bricks) {
             if (brick.active) {
-                safeSet(brick.x, brick.y, CRGB(brick.color));
+                if (brick.isRect) {
+                    // Use fillRectangle for decorative bricks (x0, y0, x1, y1)
+                    g()->fillRectangle(brick.x, brick.y, brick.x + kDecorativeBrickWidth, brick.y + kDecorativeBrickHeight, CRGB(brick.color));
+                } else {
+                    // Use pixel-level drawing for time digits
+                    g()->setPixel(brick.x, brick.y, CRGB(brick.color));
+                }
             }
         }
 
-        // Draw ball
-        safeSet(ball.x, ball.y, CRGB::White);
+        // Draw ball with sub-pixel anti-aliasing
+        g()->drawPixelXYF_Wu(ball.x, ball.y, CRGB::White);
 
         // Draw paddle
-        int px = lroundf(paddle.x);
-        for (int i = -4; i <= 3; i++) {
-            safeSet(px + i, kPaddleY, CRGB::Red);
+        int16_t px = (int16_t)lroundf(paddle.x);
+        for (int16_t i = -4; i <= 3; i++) {
+            g()->setPixel(px + i, kPaddleY, CRGB(CRGB::Red));
         }
     }
 
@@ -179,9 +196,9 @@ public:
         float slope = fabsf(ball.vy / ball.vx);
         if (slope < 0.3f) { // Slope less than ~17 degrees
             // Ball is too horizontal, force respawn
-            ball.x = (float)MATRIX_WIDTH / 2.0f;
+            ball.x = MATRIX_WIDTH / 2.0f;
             ball.y = 20.0f;
-            ball.vx = ((float)random(100) - 50.0f) / 50.0f;
+            ball.vx = (random(100) - 50.0f) / 50.0f;
             ball.vy = -1.0f;
             float speed = sqrtf(ball.vx * ball.vx + ball.vy * ball.vy);
             ball.vx = (ball.vx / speed) * kBallSpeed;
@@ -189,10 +206,10 @@ public:
             return;
         }
 
-        // Wall collisions
-        if (ball.x <= 0 || ball.x >= MATRIX_WIDTH - 1) {
+        // Wall collisions (constrained to brickyard width)
+        if (ball.x <= xMin || ball.x >= xMax) {
             ball.vx = -ball.vx;
-            ball.x = std::clamp(ball.x, 0.0f, (float)(MATRIX_WIDTH - 1));
+            ball.x = std::clamp(ball.x, xMin, xMax);
         }
         if (ball.y <= 0) {
             ball.vy = -ball.vy;
@@ -203,10 +220,12 @@ public:
         if (ball.y >= kPaddleY - 1 && ball.y <= kPaddleY + 1) {
             if (fabsf(ball.x - paddle.x) <= kPaddleWidth / 2.0f) {
                 ball.vy = -fabsf(ball.vy); // Always bounce up
-                // Add angle based on hit position
+                // Steer angle based on hit position (offset is -1.0 to 1.0)
                 float offset = (ball.x - paddle.x) / (kPaddleWidth / 2.0f);
-                ball.vx += offset * 0.5f;
-                // Renormalize
+                // Mixed momentum: pull current vx toward zero and apply steering nudge.
+                // Center hits (offset=0) now actively steepen the trajectory.
+                ball.vx = (ball.vx * 0.2f) + (offset * 1.5f);
+                // Renormalize to maintain constant speed
                 float speed = sqrtf(ball.vx * ball.vx + ball.vy * ball.vy);
                 ball.vx = (ball.vx / speed) * kBallSpeed;
                 ball.vy = (ball.vy / speed) * kBallSpeed;
@@ -216,8 +235,10 @@ public:
         // Brick collisions
         for (auto& brick : bricks) {
             if (!brick.active) continue;
-            if (fabsf(ball.x - brick.x) < kBrickWidth && 
-                fabsf(ball.y - brick.y) < kBrickHeight) {
+            float bw = brick.isRect ? kDecorativeBrickWidth  : kTimeBrickWidth;
+            float bh = brick.isRect ? kDecorativeBrickHeight : kTimeBrickHeight;
+            if (fabsf(ball.x - (brick.x + bw/2.0f)) < bw/2.0f + kBallRadius &&
+                fabsf(ball.y - (brick.y + bh/2.0f)) < bh/2.0f + kBallRadius) {
                 brick.active = false;
                 ball.vy = -ball.vy;
                 break;
@@ -226,9 +247,9 @@ public:
 
         // Ball missed - respawn
         if (ball.y > MATRIX_HEIGHT) {
-            ball.x = (float)MATRIX_WIDTH / 2.0f;
+            ball.x = MATRIX_WIDTH / 2.0f;
             ball.y = 20.0f;
-            ball.vx = ((float)random(100) - 50.0f) / 50.0f;
+            ball.vx = (random(100) - 50.0f) / 50.0f;
             ball.vy = -1.0f;
             float speed = sqrtf(ball.vx * ball.vx + ball.vy * ball.vy);
             ball.vx = (ball.vx / speed) * kBallSpeed;
@@ -245,25 +266,19 @@ public:
 
         if (!shouldMiss && ball.vy > 0) { // Only track if ball is moving down
             // Add intentional error to paddle tracking
-            float error = ((float)random(100) - 50.0f) / 25.0f; // -2 to +2
+            float error = (random(100) - 50.0f) / 25.0f; // -2 to +2
             float targetX = ball.x + error;
-            
+
             // Move paddle toward target
             float diff = targetX - paddle.x;
             if (fabsf(diff) > 0.5f) {
                 paddle.x += std::clamp(diff, -kPaddleSpeed, kPaddleSpeed);
             }
         }
-        
-        paddle.x = std::clamp(paddle.x, kPaddleWidth / 2.0f, 
-                             (float)MATRIX_WIDTH - kPaddleWidth / 2.0f);
+
+        paddle.x = std::clamp(paddle.x, kPaddleWidth / 2.0f,
+                             MATRIX_WIDTH - kPaddleWidth / 2.0f);
     }
 
-    void safeSet(float x, float y, CRGB c) const {
-        int ix = lroundf(x);
-        int iy = lroundf(y);
-        if ((unsigned int)ix < MATRIX_WIDTH && (unsigned int)iy < MATRIX_HEIGHT) {
-            g()->setPixel(ix, iy, c);
-        }
-    }
+
 };
