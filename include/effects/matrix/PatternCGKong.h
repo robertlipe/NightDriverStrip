@@ -27,6 +27,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
         float targetX = 0;
         bool faceLeft = false;
         float jumpFloorY = 28.0f;
+        float climbTargetY = 0.0f; // New: Explicit target to stop climbing "humps"
     };
 
     std::vector<Barrel> _barrels;
@@ -235,29 +236,35 @@ private:
                 _mario.x += _mario.vx;
                 
                 // Sloped Walking Logic: Calculate Y based on X and current floor
-                // Ground: Flat at y=28 (no change needed)
+                // Ground: Flat at y=28 -> Lift to 26 (Feet at 29, Line at 31). Actually Gnd is 31. Feet at 29 is floating?
+                // Wait, previous Gnd was 28. Feet at 31. Line at 31. That was correct.
+                // User said "Lift Mario UP". If he is currently at 28, feet at 31.
+                // Slope T1: Line 27..29. Mario 26..28. Feet 29..31.
+                // Feet (29) > Line (27) at X=0. He is IN the line by 2px.
+                // So T1 needs -2.0f.
+                
                 if (_mario.y > 27.5f) { 
-                    _mario.y = 28.0f; 
+                    _mario.y = 28.0f; // Ground remains 28 (Feet 31, Line 31)
                 }
-                // T1: Slants 27->29 (x=0 to x=Width). But Mario walks on top.
-                // T1 Slope Math from Barrel: 27.5f + (b.x - 8.0f)...
-                // Let's reuse similar logic but adjusted for Mario's feet center.
                 else if (_mario.y > 23.0f) { // T1
-                     // Map x[0..Width] to y[26..27] approx?
-                     // T1 Line: (0, 27) to (Max, 29). Mario center is y-3? No, he sits at 26.
-                     // Interpolate: 26.0f + (_mario.x / MATRIX_WIDTH) * 2.0f
-                     _mario.y = 26.0f + (_mario.x / MATRIX_WIDTH) * 2.0f;
+                     // Prev: 26.0f + ... -> New: 24.0f + ...
+                     // T1 Line: (0, 27) to (Max, 29). 
+                     // Mario Y: 24.0f. Feet: 27.0f. Matches Line at X=0.
+                     _mario.y = 24.0f + (_mario.x / MATRIX_WIDTH) * 2.0f;
                 }
                 else if (_mario.y > 17.0f) { // T2
-                     // T2 Line: (Max, 21) to (0, 23). Mario @ 20.
-                     // Interpolate: 20.0f + ((MATRIX_WIDTH - _mario.x) / MATRIX_WIDTH) * 2.0f
-                     _mario.y = 20.0f + ((MATRIX_WIDTH - _mario.x) / MATRIX_WIDTH) * 2.0f;
+                     // Prev: 20.0f + ... -> New: 18.0f + ...
+                     // T2 Line: (Max, 21) to (0, 23).
+                     // Mario Y at Max: 20 -> 18. Feet: 21. Matches Line 21.
+                     _mario.y = 18.0f + ((MATRIX_WIDTH - _mario.x) / MATRIX_WIDTH) * 2.0f;
                 }
                 else { // T3
-                     // T3 Line: (DKEdge+1, 15) to (Max, 17). Mario @ 14.
+                     // Prev: 14.0f -> New: 12.0f.
+                     // T3 Line: (DKEdge+1, 15).
+                     // Mario Y: 12.0f. Feet: 15.0f. Matches Line 15.
                      float normalizedX = (_mario.x - (MATRIX_WIDTH/4.0f + 8.0f)) / (MATRIX_WIDTH - (MATRIX_WIDTH/4.0f + 8.0f));
                      if (normalizedX < 0) normalizedX = 0;
-                     _mario.y = 14.0f + normalizedX * 2.0f;
+                     _mario.y = 12.0f + normalizedX * 2.0f;
                 }
 
                 // Jump over barrels
@@ -275,21 +282,24 @@ private:
                 bool nearL3 = abs(_mario.x - L3) < 2.5f;
 
                 // Helper to start climb
-                auto startClimb = [&](float ladderX, float topY) {
+                auto startClimb = [&](float ladderX, float targetY) {
                     _mario.state = CLIMBING; 
                     _mario.x = ladderX; // SNAP to ladder center
                     _mario.vy = -0.4f; 
                     _mario.vx = 0;
+                    _mario.climbTargetY = targetY; // Explicit target
+                    // Pick a random destination X (L1 or L3 usually safe)
                     _mario.targetX = (ladderX == L1) ? L3 : (ladderX == L3 ? L1 : (random_range(0,100)<50?L1:L3));
-                    debugA("Mario climbing %.1f\n", ladderX);
+                    debugA("Mario climbing %.1f to %.1f\n", ladderX, targetY);
                 };
 
+                // Targets: Gnd->T1 (25.0), T1->T2 (19.5), T2->T3 (13.0)
                 if (nearL2 && _mario.y > 27.0f) { // Ground to T1
-                    if (_mario.targetX == L2 || random_range(0, 100) < 80) startClimb(L2, 0); 
+                    if (_mario.targetX == L2 || random_range(0, 100) < 80) startClimb(L2, 25.0f); 
                 } else if (nearL1 && _mario.y > 24.5f && _mario.y < 28.0f) { // T1 to T2
-                    if (_mario.targetX == L1 || random_range(0, 100) < 80) startClimb(L1, 0);
+                    if (_mario.targetX == L1 || random_range(0, 100) < 80) startClimb(L1, 19.5f);
                 } else if (nearL3 && _mario.y > 19.5f && _mario.y < 22.0f) { // T2 to T3
-                    if (_mario.targetX == L3 || random_range(0, 100) < 80) startClimb(L3, 0);
+                    if (_mario.targetX == L3 || random_range(0, 100) < 80) startClimb(L3, 13.0f);
                 }
                 
                 if (_mario.x > MATRIX_WIDTH - 4 || _mario.x < 4) _mario.vx *= -1.0f;
@@ -298,20 +308,18 @@ private:
             _mario.y += _mario.vy;
             _mario.frame = 3; // Climbing frame
             
-            // Directional checks to prevent immediate "arrival" upon start
+            // Explicit Target Logic - No more fuzzy ranges causing infinite loops!
             if (_mario.vy < 0) { // UP
-                if (_mario.y <= 26.0f && _mario.y > 25.0f) { // Reached T1 only if above start line
-                    _mario.state = WALKING; _mario.y = 26.0f; _mario.vy = 0; _mario.vx = 0.6f;
-                    debugA("Mario reached T1 (up)\n");
-                } else if (_mario.y <= 20.0f && _mario.y > 19.0f) { // Reached T2
-                    _mario.state = WALKING; _mario.y = 20.0f; _mario.vy = 0; _mario.vx = -0.6f;
-                    debugA("Mario reached T2 (up)\n");
-                } else if (_mario.y <= 14.0f) { // Reached T3
-                    _mario.state = WALKING; _mario.y = 14.0f; _mario.vy = 0; _mario.vx = 0.6f;
-                    debugA("Mario reached T3 (up)\n");
+                if (_mario.y <= _mario.climbTargetY) {
+                    _mario.state = WALKING;
+                    _mario.y = _mario.climbTargetY;
+                    _mario.vy = 0;
+                    // Resume walking (direction based on TargetX)
+                    _mario.vx = (_mario.x < _mario.targetX) ? 0.6f : -0.6f;
+                    debugA("Mario arrived at target %.1f\n", _mario.climbTargetY);
                 }
             } else { // Climbing DOWN
-                 // Not implemented yet given the AI only climbs up, but good for future
+                 // Not implemented yet
             }
         } else if (_mario.state == JUMPING) {
             _mario.y += _mario.vy;
