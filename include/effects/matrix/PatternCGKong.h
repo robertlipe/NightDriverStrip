@@ -48,17 +48,17 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
         {0x00, 0x08, 0x08, 0x08, 0x00, 0x00, 0x00, 0x08, 0x08, 0x08, 0x00, 0x00}  // :
     };
 
-    // DK Fur (Dark Brown) 12x12 - More shoulders and head distinction
+    // DK Fur (Dark Brown) 12x12 - Distinct head, shoulders, and legs
     static constexpr uint16_t dkFur[3][12] = {
-        {0x000, 0x1E0, 0x1E0, 0x7F8, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0x7F8, 0x7F8, 0x000, 0x000}, // Shoulders + head
-        {0x000, 0x1E0, 0x1E0, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0x000, 0x000}, // Arms wide
-        {0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0xFFC, 0x000, 0x000}  // Arms up (pounding)
+        {0x000, 0x0E0, 0x0E0, 0x1F0, 0x3F8, 0x7FC, 0x7FC, 0x7FC, 0x3F8, 0x228, 0x000, 0x000}, // Standing
+        {0x000, 0x0E0, 0x0E0, 0x7FC, 0xFFF, 0xFFF, 0xFFF, 0xFFF, 0x7FC, 0x666, 0x000, 0x000}, // Arms Wide
+        {0x7FC, 0xFFF, 0xFFF, 0xFFF, 0xFFF, 0xFFF, 0x7FC, 0x7FC, 0x3F8, 0x228, 0x000, 0x000}  // Arms Up
     };
-    // DK Skin (Tan) - Eyes/Mouth/Chest
+    // DK Skin (Tan) - Eyes and Muzzle
     static constexpr uint16_t dkTan[3][12] = {
-        {0x000, 0x000, 0x120, 0x000, 0x0C0, 0x000, 0x1E0, 0x1E0, 0x000, 0x000, 0x000, 0x000}, // Eyes (1), Mouth (1E0)
-        {0x000, 0x000, 0x120, 0x000, 0x0C0, 0x000, 0x1E0, 0x1E0, 0x000, 0x000, 0x000, 0x000},
-        {0x000, 0x000, 0x120, 0x000, 0x1E0, 0x000, 0x3F0, 0x3F0, 0x000, 0x000, 0x000, 0x000}
+        {0x000, 0x000, 0x0A0, 0x000, 0x0E0, 0x0E0, 0x040, 0x000, 0x000, 0x000, 0x000, 0x000}, 
+        {0x000, 0x000, 0x0A0, 0x000, 0x0E0, 0x0E0, 0x040, 0x000, 0x000, 0x000, 0x000, 0x000},
+        {0x000, 0x000, 0x0A0, 0x000, 0x1F0, 0x1F0, 0x0E0, 0x000, 0x000, 0x000, 0x000, 0x000}
     };
 
     // Mario Layers (8x8)
@@ -91,8 +91,10 @@ public:
 
     void ResetGame() {
         _barrels.clear();
-        _dk = {12.0f, 6.0f, 0, 0};
-        _mario = {32.0f, (float)MATRIX_HEIGHT - 3.0f, 0, 0};
+        // DK sitting ON platform (y=7). Bottom is center + 6. 7-6 = 1.
+        _dk = {12.0f, 1.0f, 0, 0};
+        // Mario sitting ON ground (y=31). Bottom is center + 4. 31-4 = 27.
+        _mario = {32.0f, 27.0f, 0, 0};
         _mario.targetX = 8.0f; // Initial target
         _lastMin = -1;
     }
@@ -112,8 +114,9 @@ public:
 private:
     void DrawGirders() {
         uint32_t girderCol = kRed;
-        g()->drawLine(0, 7, 24, 7, CRGB(girderCol)); // DK platform
-        g()->drawLine(0, 8, 24, 8, CRGB(girderCol)); // Thicken
+        int dkPlatformEdge = MATRIX_WIDTH / 4 + 8;
+        g()->drawLine(0, 7, dkPlatformEdge, 7, CRGB(girderCol)); // DK platform
+        g()->drawLine(0, 8, dkPlatformEdge, 8, CRGB(girderCol)); // Thicken
         
         // Use a loop to draw 2-pixel thick slanted girders for solidity
         auto drawThickLine = [&](int x1, int y1, int x2, int y2) {
@@ -121,14 +124,15 @@ private:
             g()->drawLine(x1, y1 + 1, x2, y2 + 1, CRGB(girderCol));
         };
 
-        drawThickLine(25, 9, MATRIX_WIDTH - 1, 11); // T3
+        drawThickLine(dkPlatformEdge + 1, 9, MATRIX_WIDTH - 1, 11); // T3
         drawThickLine(MATRIX_WIDTH - 1, 19, 0, 21); // T2
         drawThickLine(0, 27, MATRIX_WIDTH - 1, 29); // T1
         g()->drawLine(0, 31, MATRIX_WIDTH - 1, 31, CRGB(girderCol)); // Ground
 
         DrawLadder(MATRIX_WIDTH - 8, 11, 8); // T3 to T2
         DrawLadder(8, 21, 8);               // T2 to T1
-        DrawLadder(MATRIX_WIDTH - 24, 29, 2); // T1 to Ground
+        int groundLadderX = MATRIX_WIDTH / 2;
+        DrawLadder(groundLadderX, 29, 2); // T1 to Ground
     }
 
     void DrawLadder(int x, int y, int h) {
@@ -212,26 +216,40 @@ private:
                 _mario.lastAnimTime = nowTime;
                 
                 // Persistent target AI to prevent jitter
+                int L1 = 8;
+                int L2 = MATRIX_WIDTH / 2;
+                int L3 = MATRIX_WIDTH - 8;
+
                 if (abs(_mario.x - _mario.targetX) < 1.0f) {
-                    _mario.targetX = (_mario.targetX == 8.0f) ? (MATRIX_WIDTH - 24.0f) : 8.0f;
+                    // Pick a new ladder target
+                    _mario.targetX = (random_range(0, 100) < 50) ? L2 : (random_range(0, 100) < 50 ? L1 : L3);
                 }
                 _mario.vx = (_mario.x < _mario.targetX) ? 0.7f : -0.7f;
                 _mario.x += _mario.vx;
                 
-                // Check ladder proximity (T1 ladder at MW-24, T2 ladder at 8)
-                if (abs(_mario.x - (MATRIX_WIDTH - 24)) < 2.0f && _mario.y > 30.0f) {
-                    if (random_range(0, 100) < 80) { // 80% chance to climb
-                        _mario.state = CLIMBING; _mario.x = MATRIX_WIDTH - 24; _mario.vy = -0.4f; _mario.vx = 0;
-                        _mario.targetX = 8.0f; // Next target on T1
+                // Check ladder proximity
+                bool nearL1 = abs(_mario.x - L1) < 2.0f;
+                bool nearL2 = abs(_mario.x - L2) < 2.0f;
+                bool nearL3 = abs(_mario.x - L3) < 2.0f;
+
+                if (nearL2 && _mario.y > 30.0f) { // Ground to T1
+                    if (random_range(0, 100) < 60) {
+                        _mario.state = CLIMBING; _mario.x = L2; _mario.vy = -0.4f; _mario.vx = 0;
+                        _mario.targetX = L1; // Seek L1 on T1
                     }
-                } else if (abs(_mario.x - 8) < 2.0f && _mario.y > 27.5f && _mario.y < 28.5f) {
-                    if (random_range(0, 100) < 80) { // 80% chance to climb
-                        _mario.state = CLIMBING; _mario.x = 8; _mario.vy = -0.4f; _mario.vx = 0;
-                        _mario.targetX = MATRIX_WIDTH - 8.0f; // Next target on T2
+                } else if (nearL1 && _mario.y > 27.0f && _mario.y < 28.0f) { // T1 to T2
+                    if (random_range(0, 100) < 60) {
+                        _mario.state = CLIMBING; _mario.x = L1; _mario.vy = -0.4f; _mario.vx = 0;
+                        _mario.targetX = L3; // Seek L3 on T2
+                    }
+                } else if (nearL3 && _mario.y > 19.0f && _mario.y < 20.0f) { // T2 to T3
+                    if (random_range(0, 100) < 60) {
+                        _mario.state = CLIMBING; _mario.x = L3; _mario.vy = -0.4f; _mario.vx = 0;
+                        _mario.targetX = L1; // Seek L1 on T3
                     }
                 }
                 
-                if (_mario.x > MATRIX_WIDTH - 8 || _mario.x < 4) _mario.vx *= -1.0f;
+                if (_mario.x > MATRIX_WIDTH - 4 || _mario.x < 4) _mario.vx *= -1.0f;
             }
         } else if (_mario.state == CLIMBING) {
             _mario.y += _mario.vy;
