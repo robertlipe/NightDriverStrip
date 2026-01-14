@@ -269,26 +269,27 @@ private:
                     }
                 }
 
-                // Check ladder proximity - WIDENED WINDOW for v9 to ensure he catches them
+                // Check ladder proximity - WIDENED WINDOW for v9 + Forced Logic for v10
                 bool nearL1 = abs(_mario.x - L1) < 2.5f;
                 bool nearL2 = abs(_mario.x - L2) < 2.5f;
                 bool nearL3 = abs(_mario.x - L3) < 2.5f;
 
+                // Helper to start climb
+                auto startClimb = [&](float ladderX, float topY) {
+                    _mario.state = CLIMBING; 
+                    _mario.x = ladderX; // SNAP to ladder center
+                    _mario.vy = -0.4f; 
+                    _mario.vx = 0;
+                    _mario.targetX = (ladderX == L1) ? L3 : (ladderX == L3 ? L1 : (random_range(0,100)<50?L1:L3));
+                    debugA("Mario climbing %.1f\n", ladderX);
+                };
+
                 if (nearL2 && _mario.y > 27.0f) { // Ground to T1
-                    if (random_range(0, 100) < 80) {
-                        _mario.state = CLIMBING; _mario.x = L2; _mario.vy = -0.4f; _mario.vx = 0;
-                        _mario.targetX = L1; debugA("Mario climbing L2 (Gnd->T1)\n");
-                    }
-                } else if (nearL1 && _mario.y > 24.5f && _mario.y < 28.0f) { // T1 to T2 (Widened window > 24.5 && < 28)
-                    if (random_range(0, 100) < 80) {
-                        _mario.state = CLIMBING; _mario.x = L1; _mario.vy = -0.4f; _mario.vx = 0;
-                        _mario.targetX = L3; debugA("Mario climbing L1 (T1->T2)\n");
-                    }
-                } else if (nearL3 && _mario.y > 19.5f && _mario.y < 22.0f) { // T2 to T3 (Widened window)
-                    if (random_range(0, 100) < 80) {
-                        _mario.state = CLIMBING; _mario.x = L3; _mario.vy = -0.4f; _mario.vx = 0;
-                        _mario.targetX = L1; debugA("Mario climbing L3 (T2->T3)\n");
-                    }
+                    if (_mario.targetX == L2 || random_range(0, 100) < 80) startClimb(L2, 0); 
+                } else if (nearL1 && _mario.y > 24.5f && _mario.y < 28.0f) { // T1 to T2
+                    if (_mario.targetX == L1 || random_range(0, 100) < 80) startClimb(L1, 0);
+                } else if (nearL3 && _mario.y > 19.5f && _mario.y < 22.0f) { // T2 to T3
+                    if (_mario.targetX == L3 || random_range(0, 100) < 80) startClimb(L3, 0);
                 }
                 
                 if (_mario.x > MATRIX_WIDTH - 4 || _mario.x < 4) _mario.vx *= -1.0f;
@@ -402,9 +403,25 @@ private:
 
     void DrawBarrels() {
         for (const auto& b : _barrels) {
-            if (b.active) {
-                g()->drawPixelXYF_Wu(b.x, b.y, b.isBlue ? CRGB(CRGB::Blue) : CRGB(CRGB::Orange));
-            }
+            if (!b.active) continue;
+            // Draw 4x3 bitmap centered on b.x, b.y
+            // 4x3 bitmap:
+            // .XX.
+            // XXXX
+            // .XX.
+            CRGB col = b.isBlue ? CRGB::Blue : CRGB(0x994400);
+            
+            // Row 0 (.XX.)
+            g()->drawPixelXYF_Wu(b.x - 1, b.y - 1, col);
+            g()->drawPixelXYF_Wu(b.x,     b.y - 1, col);
+            // Row 1 (XXXX)
+            g()->drawPixelXYF_Wu(b.x - 2, b.y,     col);
+            g()->drawPixelXYF_Wu(b.x - 1, b.y,     col);
+            g()->drawPixelXYF_Wu(b.x,     b.y,     col);
+            g()->drawPixelXYF_Wu(b.x + 1, b.y,     col);
+            // Row 2 (.XX.)
+            g()->drawPixelXYF_Wu(b.x - 1, b.y + 1, col);
+            g()->drawPixelXYF_Wu(b.x,     b.y + 1, col);
         }
     }
 };
