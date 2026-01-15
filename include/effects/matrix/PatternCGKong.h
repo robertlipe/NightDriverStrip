@@ -272,7 +272,8 @@ private:
                 // Spawn barrel on the pounding frame return
                 // Spawn barrel on the pounding frame return
                 // v24: User requested higher frequency ("bring that back"). Bump to 40%.
-                if (random_range(0, 100) < 40) { 
+                // v25: Balance Pass. User felt 40% was "rain". Reduced to 20%.
+                if (random_range(0, 100) < 20) { 
                     _barrels.push_back({25.0f, 9.5f, kClimbSpeed + (random_range(0, 100)/500.0f), 0.0f, true, false});
                 }
             }
@@ -344,9 +345,9 @@ private:
                     float dx = b.x - _mario.x;
                     float dy = b.y - _mario.y;
                     
-                    // If barrel is AHEAD (<15px) and ON SAME TIER (dy < 10)
-                    bool approaching = (_mario.vx > 0 && dx > 0 && dx < 15.0f) || 
-                                     (_mario.vx < 0 && dx < 0 && dx > -15.0f);
+                    // If barrel is AHEAD (<10px, was 15) and ON SAME TIER (dy < 10)
+                    bool approaching = (_mario.vx > 0 && dx > 0 && dx < 10.0f) || 
+                                     (_mario.vx < 0 && dx < 0 && dx > -10.0f);
                                      
                     if (approaching && abs(dy) < 8.0f) {
                         nearDanger = true;
