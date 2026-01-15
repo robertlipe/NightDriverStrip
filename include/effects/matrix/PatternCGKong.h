@@ -159,11 +159,11 @@ public:
         
         if (tier == 1) { // T1: (0, 27) -> (Max, 29)
              // y = 27 + (x / W) * 2
-             return 27.0f + (x / MATRIX_WIDTH) * 2.0f + 0.5f; // v20: Sink 0.5
+             return 27.0f + (x / MATRIX_WIDTH) * 2.0f;
         }
         if (tier == 2) { // T2: (Max, 21) -> (0, 23)
              // y = 21 + ((W-x) / W) * 2
-             return 21.0f + ((MATRIX_WIDTH - x) / MATRIX_WIDTH) * 2.0f + 0.5f; // v20: Sink 0.5
+             return 21.0f + ((MATRIX_WIDTH - x) / MATRIX_WIDTH) * 2.0f;
         }
         if (tier == 3) { // T3: (DKEdge+1, 13) -> (Max, 17)
              float dkEdge = MATRIX_WIDTH / 4.0f + 8.0f;
@@ -213,8 +213,10 @@ private:
         struct tm* t = localtime_r(&now, &tm_buf);
         int hours = t->tm_hour;
         int mins = t->tm_min;
+        int digits[5] = {hours / 10, hours % 10, 10, mins / 10, mins % 10};
+
         if (_winTime > 0) { // v20: Spin digits on win!
-             uint8_t spin = (millis() / 100) % 10;
+             uint8_t spin = (millis() / 50) % 10;
              for(int& d : digits) d = (d + spin) % 10;
         }
         int clockWidth = (5 * 6) + 4;
@@ -310,16 +312,16 @@ private:
                 debugA("Mario: x%.1f y%.1f Feet: %.1f TierThresh: G%.1f T1%.1f\n", _mario.x, _mario.y, feetY, kThreshG, kThreshT1);
 
                 if (_mario.y > kThreshG) { // Ground
-                     _mario.y = GetFloorY(_mario.x, 0) - 4.0f;
+                     _mario.y = GetFloorY(_mario.x, 0) - 3.0f;
                 }
                 else if (_mario.y > kThreshT1) { // T1
-                     _mario.y = GetFloorY(_mario.x, 1) - 4.0f;
+                     _mario.y = GetFloorY(_mario.x, 1) - 3.0f;
                 }
                 else if (_mario.y > kThreshT2) { // T2
-                     _mario.y = GetFloorY(_mario.x, 2) - 4.0f;
+                     _mario.y = GetFloorY(_mario.x, 2) - 3.0f;
                 }
                 else { // T3
-                     _mario.y = GetFloorY(_mario.x, 3) - 4.0f;
+                     _mario.y = GetFloorY(_mario.x, 3) - 3.0f;
                      
                      // WIN CONDITION: Approach DK (Target x < 14)
                      float dkEdge = MATRIX_WIDTH / 4.0f + 8.0f;
@@ -449,6 +451,9 @@ private:
     void UpdateBarrels() {
         for (auto& b : _barrels) {
             if (!b.active) continue;
+            // v21 Watchdog
+            if (b.vx == 0 && b.vy == 0) debugA("STUCK BARREL! %.1f,%.1f\n", b.x, b.y);
+
             b.x += b.vx;
             b.y += b.vy;
 
