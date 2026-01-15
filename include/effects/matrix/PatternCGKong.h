@@ -22,14 +22,14 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     static constexpr float kJumpStrength = -1.1f; // v30: Restored to original high jump to clear barrels
     static constexpr float kWalkSpeed = 0.7f;
     static constexpr float kClimbSpeed = 0.4f;
-    
+
     // Layout & Threshold Constants
-    static constexpr float kGroundY = 31.0f; 
-    static constexpr float kT1Y = 27.0f;     
-    static constexpr float kT2Y = 23.0f;    
-    static constexpr float kT3Y = 17.0f;     
+    static constexpr float kGroundY = 31.0f;
+    static constexpr float kT1Y = 27.0f;
+    static constexpr float kT2Y = 23.0f;
+    static constexpr float kT3Y = 17.0f;
     static constexpr float kDkPlatformY = 13.0f;
-    
+
     // v18: Derived Thresholds (No Magic Numbers)
     // Used to determine if Mario "fell" below a tier.
     static constexpr float kThreshG = kT1Y - 1.0f; // > 26
@@ -37,6 +37,21 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     static constexpr float kThreshT2 = kT3Y - 2.0f; // > 15
 
     // Ladder positions
+    static constexpr float kLadder1X = 8.0f;
+    static constexpr float kLadder2X = 32.0f; // MATRIX_WIDTH / 2
+    static constexpr float kLadder3X = 56.0f; // MATRIX_WIDTH - 8
+    static constexpr float kLadder4X = 12.0f;
+
+    // Safety & Tolerance Constants
+    static constexpr float kLadderSnapDist = 2.0f;
+    static constexpr float kLadderProximity = 4.0f;
+    static constexpr float kBailProximity = 6.0f;
+    static constexpr float kWaitOffset = 10.0f;
+    static constexpr float kWaitOffsetLarge = 12.0f;
+    static constexpr float kSafetyRadSmall = 6.0f;
+    static constexpr float kSafetyRadLarge = 12.0f;
+    static constexpr float kSafetyRadHuge = 20.0f;
+
     static constexpr int kLadderWidth = 4;
 
     enum EntityState { WALKING, CLIMBING, JUMPING };
@@ -51,7 +66,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
         float targetX = 0.0f;
         bool faceLeft = false;
         float jumpFloorY = 28.0f;
-        float climbTargetY = 0.0f; 
+        float climbTargetY = 0.0f;
         int tier = 0; // v30: Explicit tier tracking
         uint32_t lastClimbTime = 0; // v32: Cooldown to prevent ladder jitter
         uint32_t panicTime = 0; // v34: Retreat persistence
@@ -90,7 +105,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     };
     // DK Skin (Tan) - Facial features v7
     static constexpr uint16_t dkTan[3][12] = {
-        {0x000, 0x000, 0x0A0, 0x000, 0x1F0, 0x1F0, 0x000, 0x1F0, 0x1F0, 0x0C0, 0x000, 0x000}, 
+        {0x000, 0x000, 0x0A0, 0x000, 0x1F0, 0x1F0, 0x000, 0x1F0, 0x1F0, 0x0C0, 0x000, 0x000},
         {0x000, 0x000, 0x0A0, 0x000, 0x1F0, 0x1F0, 0x000, 0x1F0, 0x1F0, 0x0C0, 0x000, 0x000},
         {0x000, 0x000, 0x0A0, 0x000, 0x1F0, 0x1F0, 0x000, 0x3F0, 0x3F0, 0x1E0, 0x000, 0x000}
     };
@@ -134,18 +149,18 @@ public:
         _mario.state = WALKING;
         _mario.x = 4.0f;
         _mario.tier = 0; // v31: Explicit tier initialization
-        _mario.y = GetFloorY(4.0f, 0) - 3.0f; 
+        _mario.y = GetFloorY(4.0f, 0) - 3.0f;
         _mario.vx = kWalkSpeed;
         _mario.vy = 0;
         _mario.targetX = 64.0f;
         _mario.faceLeft = false;
         _mario.lastClimbTime = 0;
         _mario.panicTime = 0;
-        
+
         _dk.x = 12.0f;
-        _dk.y = 7.0f; 
+        _dk.y = 7.0f;
         _dk.frame = 0;
-        
+
         _gameActive = true;
         _winTime = 0;
         _tier0Time = millis(); // v37.2: Start ground floor timer
@@ -170,7 +185,7 @@ public:
         if (_flashAmount > 0.1f) g()->DimAll(uint8_t(160 * (1.0f - _flashAmount))); // Pulse background
         DrawGirders();
         DrawGhostClock();
-        
+
         // v16: Win Delay
         if (_winTime > 0) {
              if (millis() - _winTime > 2000) ResetGame();
@@ -178,7 +193,7 @@ public:
              UpdateEntities();
              UpdateBarrels();
         }
-        
+
         DrawEntities();
         DrawBarrels();
         if (_flashAmount > 0) _flashAmount *= 0.92f; // Fade out flash
@@ -188,7 +203,7 @@ public:
     // tier: 0=Ground, 1=T1, 2=T2, 3=T3
     float GetFloorY(float x, int tier) {
         if (tier == 0) return kGroundY; // Flat ground
-        
+
         if (tier == 1) { // T1: (0, 27) -> (Max, 29)
              return 27.0f + (x / MATRIX_WIDTH) * 2.0f;
         }
@@ -217,8 +232,8 @@ public:
                  if (b.y < floorY - 2.0f && b.y > floorY - 10.0f) return false;
             }
 
-            if (abs(b.y - (floorY - 2.0f)) > 3.0f) continue; 
-            
+            if (abs(b.y - (floorY - 2.0f)) > 3.0f) continue;
+
             // Horizontal Danger
             if (abs(b.x - x) < radius) return false;
         }
@@ -231,13 +246,13 @@ public:
             if (!b.active) continue;
             // 1. Direct Danger: Vertical movement near ladder
             if (abs(b.x - ladderX) < 6.0f && b.vy != 0) return true;
-            
+
             // 2. Predictive Danger: Rolling towards ladder on the same tier
             // Only relevant if barrel is on the same tier (above logic handles falling)
             // Wait, barrel on T2 rolls Left to L4(12).
             // Barrel on T1 rolls Right to L3(56).
             // Barrel on T3 rolls Right to drop.
-            
+
             // Allow loose Y matching for tier check
             float floorY = GetFloorY(b.x, tier);
             if (abs(b.y - (floorY - 2.0f)) > 4.0f) continue; // Not on this tier
@@ -247,7 +262,7 @@ public:
             if (tier == 2 && b.x > ladderX && b.x < ladderX + 20.0f && b.vx < 0) incoming = true; // L4: From Right
             if (tier == 1 && b.x < ladderX && b.x > ladderX - 20.0f && b.vx > 0) incoming = true; // L3: From Left
             if (tier == 0 && b.x > ladderX && b.x < ladderX + 20.0f && b.vx < 0) incoming = true; // T0? Barrels roll Left.
-            
+
             if (incoming) return true;
         }
         return false;
@@ -261,7 +276,7 @@ private:
         int dkPlatformEdge = MATRIX_WIDTH / 4 + 8;
         g()->drawLine(0, 13, dkPlatformEdge, 13, CRGB(girderCol)); // DK platform
         g()->drawLine(0, 14, dkPlatformEdge, 14, CRGB(girderCol)); // Thicken
-        
+
         // Use a loop to draw 2-pixel thick slanted girders for solidity
         auto drawThickLine = [&](int x1, int y1, int x2, int y2) {
             g()->drawLine(x1, y1, x2, y2, CRGB(girderCol));
@@ -303,14 +318,14 @@ private:
         int clockWidth = (5 * 6) + 4;
         int startX = (MATRIX_WIDTH - clockWidth) / 2;
         int startY = 10;
-        
+
         CRGB ghostBase(30, 30, 30);
 
         for (int d = 0; d < 5; d++) {
             float highlight = 0.0f;
             int dx = startX + (d * 6);
             int dy = (d == 2) ? startY + 2 : startY;
-            
+
             for (const auto& b : _barrels) {
                 if (!b.active) continue;
                 float distSq = powf(b.x - (dx + 3), 2) + powf(b.y - (dy + 6), 2);
@@ -355,7 +370,7 @@ private:
                 // v24: User requested higher frequency ("bring that back"). Bump to 40%.
                 // v25: Balance Pass. User felt 40% was "rain". Reduced to 20%.
                 // v33.3: Balanced chaos
-                if (random_range(0, 100) < 40) { 
+                if (random_range(0, 100) < 40) {
                     _barrels.push_back({25.0f, 9.5f, kClimbSpeed + (random_range(0, 100)/500.0f), 0.0f, true, false});
                 }
             }
@@ -369,33 +384,28 @@ private:
             if (nowTime - _mario.lastAnimTime > 100) {
                 _mario.frame = (_mario.frame == 1) ? 2 : 1;
                 _mario.lastAnimTime = nowTime;
-                
+
                 // Persistent target AI to prevent jitter
-                int L1 = 8;
-                int L2 = MATRIX_WIDTH / 2;
-                int L3 = MATRIX_WIDTH - 8;
+                // v37.10 Refactoring: Used named constants instead of local magic variables
+                // int L1 = 8; int L2 = MATRIX_WIDTH / 2; int L3 = MATRIX_WIDTH - 8; (REMOVED)
 
                 if (abs(_mario.x - _mario.targetX) < 1.0f) {
                     // Pick a new ladder target if we're not climbing
                     // _mario.targetX = (random_range(0, 100) < 50) ? L2 : (random_range(0, 100) < 50 ? L1 : L3);
                     if (_mario.tier == 0) {
-                        // Target: Ladder L2 at 25.0f
-                        // Approaching from Left (Start=4). Wait Left.
-                        float target = 25.0f;
+                        float target = kLadder2X;
                         if (IsLadderBusy(target, 0)) {
-                            _mario.targetX = (_mario.x < target) ? target - 10.0f : target + 10.0f;
+                            _mario.targetX = (_mario.x < target) ? target - kWaitOffset : target + kWaitOffset;
                             debugA("Ladder L2 Busy! Waiting at %.1f\n", _mario.targetX);
                         } else {
                             _mario.targetX = target;
                         }
-                    } 
+                    }
                     else if (_mario.tier == 1) {
-                         // Target: Ladder L3 at 56.0f
-                         // Approaching from Left (L2=25). Wait Left.
-                         float target = 56.0f;
+                         float target = kLadder3X;
                          if (IsLadderBusy(target, 1)) {
-                             float waitX = (_mario.x < target) ? target - 12.0f : target + 12.0f;
-                             bool safe = IsAreaSafe(waitX, 1, 6.0f);
+                             float waitX = (_mario.x < target) ? target - kWaitOffsetLarge : target + kWaitOffsetLarge;
+                             bool safe = IsAreaSafe(waitX, 1, kSafetyRadSmall);
                              _mario.targetX = waitX;
                              if (!safe) debugA("Ladder L3 Busy & Wait Spot Unsafe!\n");
                              else debugA("Ladder L3 Busy! Waiting at %.1f\n", waitX);
@@ -404,35 +414,32 @@ private:
                          }
                     }
                     else if (_mario.tier == 2) {
-                         // Target: Ladder L3 (x=56) to go UP to T3 (Corrected from 12.0f)
-                         // Approaching from Left (Start=8 at L1). Wait Left relative to L3.
-                         float target = 56.0f;
+                         float target = kLadder3X;
                          if (IsLadderBusy(target, 2)) {
-                             // Wait at x=44.0f (Left of 56)
-                             _mario.targetX = 44.0f; 
+                             _mario.targetX = 44.0f; // Hardcoded safe spot
                               debugA("Ladder L3 Busy! Waiting at %.1f\n", _mario.targetX);
                          } else {
                              _mario.targetX = target;
                          }
-                    } 
+                    }
                     else if (_mario.tier == 3) {
                          _mario.targetX = 0.0f; // Run to DK
                     }
                 }
-                
+
                 if (_mario.vx > 0) _mario.faceLeft = false;
                 else if (_mario.vx < 0) _mario.faceLeft = true;
 
                 _mario.vx = (_mario.x < _mario.targetX) ? kWalkSpeed : -kWalkSpeed;
                 _mario.x += _mario.vx;
-                
+
                 // v16.1 Pants Logic: Draw uses CENTERED y (y+r-4).
                 // Feet are row 7. y_feet = y + 7 - 4 = y + 3.
                 // We want Feet at FloorY - 1 (Standing ON line).
                 // y + 3 = FloorY - 1  =>  y = FloorY - 4.
-                
+
                 // v17/18 Thresholds: Uses named constants kThreshG/T1/T2
-                
+
                 float feetY = _mario.y + 3.0f;
                 debugA("Mario: x%.1f y%.1f Feet: %.1f Tier: %d\n", _mario.x, _mario.y, feetY, _mario.tier);
 
@@ -466,7 +473,7 @@ private:
                     if (!b.active) continue;
                     float dx = b.x - _mario.x;
                     float dy = b.y - _mario.y; // b.y - m.y
-                    
+
                     // Same-floor collision: dy should be ~1.0
                     bool sameFloor = (dy > -1.0f && dy < 2.5f);
                     // Falling collision: catches barrels between floors (gap is 4-6px)
@@ -475,7 +482,7 @@ private:
                     // v37.9: TIGHTENED FURTHER to dy > -2.0f based on 120s log analysis (4 headshots at -2.2)
                     bool fallingHit = (dy > -2.0f && dy <= -1.0f);
 
-                    if (abs(dx) < 3.2f && (sameFloor || fallingHit)) { 
+                    if (abs(dx) < 3.2f && (sameFloor || fallingHit)) {
                          if (_mario.state != JUMPING) {
                              debugA("Mario Died! Collision (dx:%.1f dy:%.1f Floor:%d Fall:%d)\n", dx, dy, sameFloor, fallingHit);
                              ResetGame();
@@ -501,8 +508,8 @@ private:
                         bool trapped = (_mario.x < 8.0f || _mario.x > MATRIX_WIDTH - 8.0f);
                         bool inPanic = (nowTime - _mario.panicTime < 1000);
                         float jumpDist = (trapped && inPanic) ? 10.0f : 7.0f;
-                        
-                        // v37.9: Sandwich Panic Boost! 
+
+                        // v37.9: Sandwich Panic Boost!
                         // If sandwiched, we MUST jump earlier (shield is 30px, jump at 15px).
                         // Otherwise we wait until 7px and get crushed.
                         if (b2close) jumpDist = 15.0f;
@@ -512,7 +519,7 @@ private:
                             // If barrel is high up (falling/ladder) or still far away, defer jump to avoid landing on it
                             bool barrelFalling = (b.vy != 0);
                             // v37.8: Force Jump if Sandwiched (b2close) to escape crushing
-                            bool almostDead = (abs(dx) < 7.0f) || b2close; 
+                            bool almostDead = (abs(dx) < 7.0f) || b2close;
 
                             // v37.8: Check Safety of Landing Zone (Ladder Bases are dangerous!)
                             float landingX = _mario.x + (_mario.vx * 15.0f);
@@ -524,8 +531,8 @@ private:
                                 debugA("Jump Deferred: Landing Unsafe!\n");
                             } else if (!almostDead && landingOnLadder) { // v37.8: Don't jump into a fire
                                 debugA("Jump Deferred: Landing on Busy Ladder!\n");
-                            } else if (b2close && !almostDead) { 
-                                // v37.8: Replaced by 'almostDead' override above. 
+                            } else if (b2close && !almostDead) {
+                                // v37.8: Replaced by 'almostDead' override above.
                                 // If we get here, it means we are NOT almostDead (so not sandwiched close enough?)
                                 // Actually, b2close sets almostDead=true, so we skip this.
                                 // Logic preserved for historical diffs if we revert.
@@ -533,8 +540,8 @@ private:
                             } else {
                                 if (b2close) debugA("Desperation Jump! SANDWICH ESCAPE!\n");
                                 else if (abs(dx) > 7.0f) debugA("Desperation Jump! Trapped at x:%.1f\n", _mario.x);
-                                
-                                _mario.state = JUMPING; 
+
+                                _mario.state = JUMPING;
                                 _mario.vy = kJumpStrength;
                                 _mario.jumpFloorY = _mario.y;
                                 // v37: Horizontal Jump Kick (Ensure momentum)
@@ -543,7 +550,7 @@ private:
                                     _mario.vx = (abs(dx) < 1.0f) ? kick : (_mario.vx = (dx > 0 ? -0.4f : 0.4f));
                                 }
                                 debugA("Mario jumped! dx:%.1f vx:%.2f\n", dx, _mario.vx);
-                                break; 
+                                break;
                             }
                         }
 
@@ -555,28 +562,28 @@ private:
                              float safeDist = retreating ? 30.0f : baseDist;
                              if (abs(dx) < safeDist) {
                                   debugA("Cluster Panic! dx:%.1f (T%d)\n", dx, _mario.tier);
-                                  _mario.x -= _mario.vx * 2.5f; 
-                                  _mario.vx = 0; 
+                                  _mario.x -= _mario.vx * 2.5f;
+                                  _mario.vx = 0;
                                   _mario.panicTime = nowTime;
                              }
                         }
                     }
                 }
-                
+
                 // PERSISTENT RETREAT/PAUSE (v37.2: Tier-specific panic duration)
                 uint32_t panicDuration = (_mario.tier == 0) ? 700 : 1000; // Faster recovery on ground
                 if (nowTime - _mario.panicTime < panicDuration) {
                      // Active backpedal away from target (v36: 1.2f, STOP at wall)
                      bool atWall = (_mario.x < 5.0f || _mario.x > MATRIX_WIDTH - 5.0f);
                      float retreatDir = (_mario.x < _mario.targetX) ? -1.2f : 1.2f;
-                     
+
                      // v37.4: Sandwich Evasion (Heel Check)
                      // Before running backward, check if we are running into another barrel!
                      if (!IsAreaSafe(_mario.x + (retreatDir * 10.0f), _mario.tier, 6.0f)) {
                          _mario.vx = 0; // Hold Ground!
                          debugA("Sandwich! Holding ground. (Heel Check)\n");
                      } else {
-                         _mario.vx = atWall ? 0 : retreatDir; 
+                         _mario.vx = atWall ? 0 : retreatDir;
                      }
                      _mario.faceLeft = (_mario.x < _mario.targetX); // Face danger while retreating
                 } else {
@@ -591,31 +598,32 @@ private:
                 _mario.x += _mario.vx;
 
                 // Check ladder proximity (v34.5: Widen detection for bailing)
-                bool nearL1 = abs(_mario.x - L1) < 4.0f;
-                bool nearL2 = abs(_mario.x - L2) < 4.0f;
-                bool nearL3 = abs(_mario.x - L3) < 4.0f;
-                bool bailL1 = abs(_mario.x - L1) < 6.0f;
-                bool bailL2 = abs(_mario.x - L2) < 6.0f;
-                bool bailL3 = abs(_mario.x - L3) < 6.0f;
+                // v37.10: Use constants
+                bool nearL1 = abs(_mario.x - kLadder1X) < kLadderProximity;
+                bool nearL2 = abs(_mario.x - kLadder2X) < kLadderProximity;
+                bool nearL3 = abs(_mario.x - kLadder3X) < kLadderProximity;
+                bool bailL1 = abs(_mario.x - kLadder1X) < kBailProximity;
+                bool bailL2 = abs(_mario.x - kLadder2X) < kBailProximity;
+                bool bailL3 = abs(_mario.x - kLadder3X) < kBailProximity;
                 bool climbCooldown = (nowTime - _mario.lastClimbTime < 1500);
 
                 // Helper to start climb
                 auto startClimb = [&](float ladderX, float targetY) {
-                    _mario.state = CLIMBING; 
+                    _mario.state = CLIMBING;
                     _mario.x = ladderX; // SNAP to ladder center
                     _mario.vy = (targetY < _mario.y) ? -kClimbSpeed : kClimbSpeed; // UP or DOWN
                     _mario.vx = 0;
-                    _mario.climbTargetY = targetY; 
-                    
-                    // v28: Smart Target Logic
+                    _mario.climbTargetY = targetY;
+
+                    // v28: Smart Target Logic (v37.10: Refactored constants)
                     if (targetY < _mario.y) { // UP
-                        if (abs(ladderX - L2) < 2.0f) _mario.targetX = L1;
-                        else if (abs(ladderX - L1) < 2.0f) _mario.targetX = L3;
-                        else if (abs(ladderX - L3) < 2.0f) _mario.targetX = 12.0f;
+                        if (abs(ladderX - kLadder2X) < kLadderSnapDist) _mario.targetX = kLadder1X;
+                        else if (abs(ladderX - kLadder1X) < kLadderSnapDist) _mario.targetX = kLadder3X;
+                        else if (abs(ladderX - kLadder3X) < kLadderSnapDist) _mario.targetX = kLadder4X;
                     } else { // DOWN
-                        if (abs(ladderX - L3) < 2.0f) _mario.targetX = L1;
-                        else if (abs(ladderX - L1) < 2.0f) _mario.targetX = L2;
-                        else _mario.targetX = (random_range(0,100)<50) ? 8.0f : 56.0f;
+                        if (abs(ladderX - kLadder3X) < kLadderSnapDist) _mario.targetX = kLadder1X;
+                        else if (abs(ladderX - kLadder1X) < kLadderSnapDist) _mario.targetX = kLadder2X;
+                        else _mario.targetX = (random_range(0,100)<50) ? kLadder1X : kLadder3X;
                     }
                     debugA("Mario climbing %.1f to %.1f. Next Target: %.1f\n", ladderX, targetY, _mario.targetX);
                 };
@@ -624,16 +632,16 @@ private:
                     auto checkL = [&](float lx, int targetT, float rBase, float rDest, const char* label) {
                          bool safeDest = IsAreaSafe(lx, targetT, rDest);
                          bool safeBase = IsAreaSafe(lx, _mario.tier, rBase);
-                         
+
                          // v37.2: Tier-specific Safe Waiting Zone
                          bool waiting = false;
                          if (!safeDest || !safeBase) {
                              float distToLadder = abs(_mario.x - lx);
                              // Tighter wait zone on Tier 0 for L2 to capitalize on gaps
-                             float waitDist = (_mario.tier == 0 && abs(lx - L2) < 2.0f) ? 6.0f : 12.0f;
+                             float waitDist = (_mario.tier == 0 && abs(lx - kLadder2X) < kLadderSnapDist) ? kSafetyRadSmall : kSafetyRadLarge;
                              if (distToLadder < waitDist) {
                                  float offset = (lx < MATRIX_WIDTH/2) ? waitDist : -waitDist;
-                                 _mario.targetX = lx + offset; 
+                                 _mario.targetX = lx + offset;
                                  waiting = true;
                              }
                          }
@@ -654,45 +662,45 @@ private:
 
                     // v34.1: Correctly split LX proximity checks
                     if (_mario.tier == 0) {
-                        if (nearL2 && (desperateClimb || checkL(L2, 1, 6.0f, 12.0f, "L2")) && !crowdAbove) { 
-                            if (_mario.targetX == L2 || random_range(0, 100) < 80 || dangerBehind || desperateClimb) startClimb(L2, 25.0f); 
+                        if (nearL2 && (desperateClimb || checkL(kLadder2X, 1, kSafetyRadSmall, kSafetyRadLarge, "L2")) && !crowdAbove) {
+                            if (_mario.targetX == kLadder2X || random_range(0, 100) < 80 || dangerBehind || desperateClimb) startClimb(kLadder2X, 25.0f);
                         }
                     } else if (_mario.tier == 1) {
-                        if (nearL1 && checkL(L1, 2, 6.0f, 20.0f, "L1") && !crowdAbove) {
-                            if (_mario.targetX == L1 || random_range(0, 100) < 80 || dangerBehind) startClimb(L1, 19.5f);
+                        if (nearL1 && checkL(kLadder1X, 2, kSafetyRadSmall, kSafetyRadHuge, "L1") && !crowdAbove) {
+                            if (_mario.targetX == kLadder1X || random_range(0, 100) < 80 || dangerBehind) startClimb(kLadder1X, 19.5f);
                         }
-                        if (bailL2 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(L2, 0, 10.0f)) {
+                        if (bailL2 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(kLadder2X, 0, kWaitOffset)) {
                             debugA("Mario bailing to T0! Crowd:%d\n", (int)crowdLevel);
-                            startClimb(L2, 31.0f);
+                            startClimb(kLadder2X, 31.0f);
                         }
                     } else if (_mario.tier == 2) {
-                        if (nearL3 && checkL(L3, 3, 6.0f, 12.0f, "L3") && !crowdAbove) {
-                            if (_mario.targetX == L3 || random_range(0, 100) < 80) startClimb(L3, 13.0f);
+                        if (nearL3 && checkL(kLadder3X, 3, kSafetyRadSmall, kSafetyRadLarge, "L3") && !crowdAbove) {
+                            if (_mario.targetX == kLadder3X || random_range(0, 100) < 80) startClimb(kLadder3X, 13.0f);
                         }
-                        if (bailL1 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(L1, 1, 10.0f)) {
+                        if (bailL1 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(kLadder1X, 1, kWaitOffset)) {
                             // v37.7: Check if L1 is safe to descend!
-                            if (!IsLadderBusy(L1, 1)) { // Check destination tier (1) or current? Descending into 1.
+                            if (!IsLadderBusy(kLadder1X, 1)) { // Check destination tier (1) or current? Descending into 1.
                                 debugA("Mario bailing to T1! Crowd:%d\n", (int)crowdLevel);
-                                startClimb(L1, 26.0f);
+                                startClimb(kLadder1X, 26.0f);
                             } else {
                                 // Stuck near L1 and it's busy? Wait LEFT (x=4) if safe.
-                                if (IsAreaSafe(4.0f, 2, 6.0f)) _mario.targetX = 4.0f;
+                                if (IsAreaSafe(4.0f, 2, kSafetyRadSmall)) _mario.targetX = 4.0f;
                             }
                         }
                     } else if (_mario.tier == 3) {
-                         if (bailL3 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(L3, 2, 12.0f)) { 
+                         if (bailL3 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(kLadder3X, 2, kSafetyRadLarge)) {
                              debugA("Mario bailing to T2! Crowd:%d\n", (int)crowdLevel);
-                             startClimb(L3, 19.5f); 
+                             startClimb(kLadder3X, 19.5f);
                          }
                     }
                 }
-                
+
                 if (_mario.x > MATRIX_WIDTH - 4 || _mario.x < 4) _mario.vx *= -1.0f;
             }
         } else if (_mario.state == CLIMBING) {
             _mario.y += _mario.vy;
             _mario.frame = 3; // Climbing frame
-            
+
             if (_mario.vy < 0) { // UP
                 if (_mario.y <= _mario.climbTargetY) {
                     _mario.state = WALKING;
@@ -720,13 +728,13 @@ private:
             _mario.x += _mario.vx;
             _mario.y += _mario.vy;
             _mario.vy += kGravity; // Gravity
-            
+
             // Land on floor (Snap to jumpFloorY)
             if (_mario.y >= _mario.jumpFloorY && _mario.vy > 0) {
                  _mario.y = _mario.jumpFloorY; _mario.vy = 0; _mario.state = WALKING;
             }
         }
-        
+
         // v24: Negative X Check (Safety Clamp)
         if (_mario.x < 4.0f) _mario.x = 4.0f;
         if (_mario.x > MATRIX_WIDTH + 4.0f) _mario.x = MATRIX_WIDTH + 4.0f; // Allow off-screen win, but limit garbage
@@ -759,11 +767,11 @@ private:
                 // Sprite Source assumed LEFT-FACING based on user feedback.
                 // If vx > 0 (Right), faceLeft=false. We want RIGHT. If source is LEFT, we must FLIP (7-c).
                 // If vx < 0 (Left), faceLeft=true. We want LEFT. If source is LEFT, we use NORMAL (c).
-                int colIdx = _mario.faceLeft ? c : (7 - c); 
-                if ((rBits >> (7 - colIdx)) & 1) col = CRGB::Red; 
+                int colIdx = _mario.faceLeft ? c : (7 - c);
+                if ((rBits >> (7 - colIdx)) & 1) col = CRGB::Red;
                 else if ((bBits >> (7 - colIdx)) & 1) col = CRGB::Blue;
                 else if ((sBits >> (7 - colIdx)) & 1) col = skinCol;
-                
+
                 if (col != CRGB::Black) g()->drawPixelXYF_Wu(_mario.x + c - 4, _mario.y + r - 4, col);
             }
         }
@@ -781,7 +789,7 @@ private:
 
             // v14 Physics: Use GetFloorY helpers for slope targets
             // To roll ON top of line: Target Y = FloorY - 2.0f. (Bottom row at FloorY-1, Line at FloorY)
-            
+
             // Current Tier Logic (simplified vs FSM for brevity, but kept structure)
             if (b.y < kT3Y + 1.0f && b.vx > 0) { // T3 Slope
                  b.y = GetFloorY(b.x, 3) - 2.0f;
@@ -789,14 +797,14 @@ private:
             }
             else if (b.vx == 0 && b.vy > 0 && b.y < 22) { // Ladder T3->T2
                  // v23: Add X-bound (>32) to prevent catching L1 drops (x=8)!
-                 if (b.x > 32 && b.y >= 20.0f) { b.y = 20.0f; b.vx = -0.5f; b.vy = 0; } 
+                 if (b.x > 32 && b.y >= 20.0f) { b.y = 20.0f; b.vx = -0.5f; b.vy = 0; }
             }
             else if (b.vx < 0 && b.y < 24) { // T2 Slope
                  b.y = GetFloorY(b.x, 2) - 2.0f;
-                 if (b.x <= 10) { 
-                     b.x = 8.0f; b.vx = 0; b.vy = 0.5f; 
+                 if (b.x <= 10) {
+                     b.x = 8.0f; b.vx = 0; b.vy = 0.5f;
                      // debugA("Barrel hitting L1 descent! Snap to 8.\n"); // v19: Silenced
-                 } 
+                 }
             }
             else if (b.vx == 0 && b.vy > 0 && b.y < 28) { // Ladder T2->T1
                  // Target T1 Top. v20: Add X Check to prevent catching T1->Gnd drops!
@@ -807,16 +815,16 @@ private:
                  if (b.x >= MATRIX_WIDTH - 16) { b.x = MATRIX_WIDTH - 16; b.vx = 0; b.vy = 0.5f; }
             }
             else if (b.vx == 0 && b.vy > 0 && b.y >= kT1Y + 0.5f) { // Ladder T1->Ground
-                 if (b.x > 32 && b.y >= 30.0f) { 
-                     b.y = 30.0f; 
+                 if (b.x > 32 && b.y >= 30.0f) {
+                     b.y = 30.0f;
                      b.vx = -0.6f; // v15: Always roll LEFT on ground to use full floor
-                     b.vy = 0; 
+                     b.vy = 0;
                  }
             } else if (b.y >= 30.0f) { // Ground Roll
                  b.y = GetFloorY(b.x, 0) - 2.0f;
                  if (b.x < 2) b.active = false; // Despawn at left edge
             }
-            
+
             if (b.x < -10 || b.x > MATRIX_WIDTH + 10) b.active = false;
         }
     }
@@ -830,7 +838,7 @@ private:
             // XXXX
             // .XX.
             CRGB col = b.isBlue ? CRGB::Blue : CRGB(0x994400);
-            
+
             // Row 0 (.XX.)
             g()->drawPixelXYF_Wu(b.x - 1, b.y - 1, col);
             g()->drawPixelXYF_Wu(b.x,     b.y - 1, col);
