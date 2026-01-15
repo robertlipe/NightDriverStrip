@@ -224,6 +224,10 @@ private:
                 int L2 = MATRIX_WIDTH / 2;
                 int L3 = MATRIX_WIDTH - 8;
 
+                if (random_range(0, 100) < 2) {
+                     debugA("Mario @ %.1f, %.1f\n", _mario.x, _mario.y);
+                }
+
                 if (abs(_mario.x - _mario.targetX) < 1.0f) {
                     // Pick a new ladder target if we're not climbing
                     _mario.targetX = (random_range(0, 100) < 50) ? L2 : (random_range(0, 100) < 50 ? L1 : L3);
@@ -294,11 +298,11 @@ private:
                 };
 
                 // Targets: Gnd->T1 (25.0), T1->T2 (19.5), T2->T3 (13.0)
-                if (nearL2 && _mario.y > 27.0f) { // Ground to T1
+                if (nearL2 && _mario.y > 26.0f) { // Ground to T1 (Mario at 28.0)
                     if (_mario.targetX == L2 || random_range(0, 100) < 80) startClimb(L2, 25.0f); 
-                } else if (nearL1 && _mario.y > 24.5f && _mario.y < 28.0f) { // T1 to T2
+                } else if (nearL1 && _mario.y > 23.5f && _mario.y < 26.0f) { // T1 to T2 (Mario at 24.5)
                     if (_mario.targetX == L1 || random_range(0, 100) < 80) startClimb(L1, 19.5f);
-                } else if (nearL3 && _mario.y > 19.5f && _mario.y < 22.0f) { // T2 to T3
+                } else if (nearL3 && _mario.y > 17.5f && _mario.y < 20.0f) { // T2 to T3 (Mario at 18.5)
                     if (_mario.targetX == L3 || random_range(0, 100) < 80) startClimb(L3, 13.0f);
                 }
                 
