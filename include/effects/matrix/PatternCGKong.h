@@ -270,7 +270,9 @@ private:
             else if (_dk.frame == 2) {
                 _dk.frame = 0;
                 // Spawn barrel on the pounding frame return
-                if (random_range(0, 100) < 10) { // v19: Throttle to 10% (was 60%)
+                // Spawn barrel on the pounding frame return
+                // v24: User requested higher frequency ("bring that back"). Bump to 40%.
+                if (random_range(0, 100) < 40) { 
                     _barrels.push_back({25.0f, 9.5f, kClimbSpeed + (random_range(0, 100)/500.0f), 0.0f, true, false});
                 }
             }
@@ -334,9 +336,32 @@ private:
                 }
 
                 // Jump over barrels OR Die
+                // v24 Smart Mario: Evasion Logic
+                bool nearDanger = false;
                 for (const auto& b : _barrels) {
+                    if (!b.active) continue;
+                    // Check horizontal distance
+                    float dx = b.x - _mario.x;
+                    float dy = b.y - _mario.y;
+                    
+                    // If barrel is AHEAD (<15px) and ON SAME TIER (dy < 10)
+                    bool approaching = (_mario.vx > 0 && dx > 0 && dx < 15.0f) || 
+                                     (_mario.vx < 0 && dx < 0 && dx > -15.0f);
+                                     
+                    if (approaching && abs(dy) < 8.0f) {
+                        nearDanger = true;
+                         // If we are WALKING, retreat!
+                         if (_mario.state == WALKING) {
+                             _mario.x -= _mario.vx * 1.5f; // Backpedal faster!
+                             _mario.vx = 0; // Stop momentarily or reverse? 
+                             // Let's just reverse target momentarily? No, just reverse velocity for this frame
+                             // actually, let's just force retreat
+                             // But we need to verify we don't retreat off a ledge!
+                         }
+                    }
+
                     // v14: Tweak jump trigger to happen slightly earlier/closer
-                    if (abs(b.x - _mario.x) < 5.0f && abs(b.y - (_mario.y + 3)) < 3.0f) {
+                    if (abs(b.x - _mario.x) < 6.0f && abs(b.y - (_mario.y + 3)) < 4.0f) { // Widen jump trigger slightly
                         if (_mario.state != JUMPING) {
                             _mario.state = JUMPING; 
                             _mario.vy = kJumpStrength;
@@ -350,6 +375,12 @@ private:
                         ResetGame();
                         return;
                     }
+                }
+                
+                if (nearDanger && _mario.state == WALKING) {
+                     // Reverse direction if safe?
+                     // Simple Evasion: Just stop moving forward, maybe move back slightly.
+                     _mario.x -= (_mario.vx > 0 ? 1.0f : -1.0f); 
                 }
 
                 // Check ladder proximity (v18 Widen to < 4.0f)
@@ -409,6 +440,10 @@ private:
                  _mario.y = _mario.jumpFloorY; _mario.vy = 0; _mario.state = WALKING;
             }
         }
+        
+        // v24: Negative X Check (Safety Clamp)
+        if (_mario.x < 4.0f) _mario.x = 4.0f;
+        if (_mario.x > MATRIX_WIDTH + 4.0f) _mario.x = MATRIX_WIDTH + 4.0f; // Allow off-screen win, but limit garbage
     }
 
     void UpdateEntities() {
@@ -451,8 +486,9 @@ private:
     void UpdateBarrels() {
         for (auto& b : _barrels) {
             if (!b.active) continue;
-            // v21 Watchdog
-            if (b.vx == 0 && b.vy == 0) debugA("STUCK BARREL! %.1f,%.1f\n", b.x, b.y);
+            if (!b.active) continue;
+            // v22: Verbose Logging as requested
+            debugA("B: x%.1f y%.1f vx%.1f vy%.1f\n", b.x, b.y, b.vx, b.vy);
 
             b.x += b.vx;
             b.y += b.vy;
@@ -466,8 +502,8 @@ private:
                  if (b.x >= MATRIX_WIDTH - 8) { b.x = MATRIX_WIDTH - 8; b.vx = 0; b.vy = 0.5f; }
             }
             else if (b.vx == 0 && b.vy > 0 && b.y < 22) { // Ladder T3->T2
-                 // Target T2 Top (GetFloorY(x,2) - 2.0) ~ 21 - 2 = 19?
-                 if (b.y >= 20.0f) { b.y = 20.0f; b.vx = -0.5f; b.vy = 0; } 
+                 // v23: Add X-bound (>32) to prevent catching L1 drops (x=8)!
+                 if (b.x > 32 && b.y >= 20.0f) { b.y = 20.0f; b.vx = -0.5f; b.vy = 0; } 
             }
             else if (b.vx < 0 && b.y < 24) { // T2 Slope
                  b.y = GetFloorY(b.x, 2) - 2.0f;
@@ -485,7 +521,7 @@ private:
                  if (b.x >= MATRIX_WIDTH - 16) { b.x = MATRIX_WIDTH - 16; b.vx = 0; b.vy = 0.5f; }
             }
             else if (b.vx == 0 && b.vy > 0 && b.y >= kT1Y + 0.5f) { // Ladder T1->Ground
-                 if (b.y >= 30.0f) { 
+                 if (b.x > 32 && b.y >= 30.0f) { 
                      b.y = 30.0f; 
                      b.vx = -0.6f; // v15: Always roll LEFT on ground to use full floor
                      b.vy = 0; 
