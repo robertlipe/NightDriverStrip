@@ -140,8 +140,10 @@ public:
         
         _gameActive = true;
         _winTime = 0;
+        _barrels.clear();
+        _barrels.push_back({25.0f, 9.5f, 0.6f, 0.0f, true, false}); // v35: Forced Start
         _flashAmount = 0.0f;
-        debugA("ResetGame: Mario @ %.1f,%.1f (Tier 0). DK @ 12.0,7.0\n", _mario.x, _mario.y);
+        debugA("ResetGame: Mario @ %.1f,%.1f (Tier %d). DK @ %.1f,%.1f\n", _mario.x, _mario.y, _mario.tier, _dk.x, _dk.y);
     }
 
     void Draw() override {
@@ -189,6 +191,13 @@ public:
             // Barrel Y is roughly FloorY - 2.0. Mario Y is FloorY - 3.0.
             // Check if barrel is on the same tier
             float floorY = GetFloorY(x, tier);
+
+            // v35.1: Detect falling barrels near this X coordinate (Vertical Safety)
+            if (b.vy > 0 && abs(b.x - x) < 3.0f) {
+                 // If the barrel is "above" the target x but within 8 pixels vertically
+                 if (b.y < floorY - 2.0f && b.y > floorY - 10.0f) return false;
+            }
+
             if (abs(b.y - (floorY - 2.0f)) > 3.0f) continue; 
             
             if (abs(b.x - x) < radius) return false;
@@ -361,8 +370,6 @@ private:
                 bool crowdAbove = countBarrels(_mario.tier + 1) >= 2;
 
                 // v32: Global Collision
-                // v32: Global Collision
-                bool multiBarrelNearby = false;
                 for (const auto& b : _barrels) {
                     if (!b.active) continue;
                     float dx = b.x - _mario.x;
@@ -377,13 +384,14 @@ private:
                     }
 
                     if (_mario.state == WALKING && abs(dy - 2.0f) < 3.0f) {
-                        // v34: Smarter multi-check (Wider: 25px)
+                        // Multi-barrel detection (v35: 30px shield)
                         bool b2close = false;
-                        for (const auto& b2 : _barrels) {
-                            if (&b == &b2 || !b2.active) continue;
-                            float dx2 = b2.x - _mario.x;
-                            if (abs(dx2) > abs(dx) && abs(dx2) < 25.0f && abs(b2.y - b.y) < 2.0f) {
-                                b2close = true; multiBarrelNearby = true;
+                        for (auto& b2 : _barrels) {
+                            if (&b2 == &b) continue;
+                            if (abs(b2.y - _mario.y) > 2.0f) continue;
+                            float d2 = b2.x - _mario.x;
+                            if (abs(d2) < 30.0f) {
+                                b2close = true;
                                 break;
                             }
                         }
@@ -418,12 +426,19 @@ private:
                     }
                 }
                 
-                // v34.3: Longer Panic logic (1.0s)
+                // PERSISTENT RETREAT/PAUSE (v35: Agile Backpedal)
                 if (nowTime - _mario.panicTime < 1000) {
-                     _mario.vx = 0; // Hunker/Pause
+                     // Active backpedal away from target (v35.1: 1.2f)
+                     _mario.vx = (_mario.x < _mario.targetX) ? -1.2f : 1.2f; 
+                     _mario.faceLeft = (_mario.vx < 0);
                 } else {
-                     if (_mario.vx == 0 && _mario.state == WALKING) debugA("Panic cleared, resuming walk.\n");
-                     _mario.vx = (_mario.x < _mario.targetX) ? kWalkSpeed : -kWalkSpeed;
+                     // Always update walk direction towards target (v35.1: fixed logic)
+                     float dir = (_mario.x < _mario.targetX) ? 1.0f : -1.0f;
+                     if (abs(_mario.vx) > kWalkSpeed || _mario.vx == 0) {
+                          debugA("Panic cleared, resuming walk.\n");
+                     }
+                     _mario.vx = dir * kWalkSpeed;
+                     _mario.faceLeft = (_mario.vx < 0);
                 }
                 _mario.x += _mario.vx;
 
@@ -475,7 +490,7 @@ private:
                         if (nearL1 && checkL(L1, 2, 6.0f, 12.0f, "L1") && !crowdAbove) {
                             if (_mario.targetX == L1 || random_range(0, 100) < 80) startClimb(L1, 19.5f);
                         }
-                        if (bailL2 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(L2, 0, 12.0f)) {
+                        if (bailL2 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(L2, 0, 10.0f)) {
                             debugA("Mario bailing to T0! Crowd:%d\n", (int)crowdLevel);
                             startClimb(L2, 31.0f);
                         }
