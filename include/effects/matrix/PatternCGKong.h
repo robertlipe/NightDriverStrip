@@ -472,7 +472,8 @@ private:
                     // Falling collision: catches barrels between floors (gap is 4-6px)
                     // v37.5: Loosened from dy > -4.0f to dy > -3.5f for "Headshot" grace
                     // v37.8: Tightened to dy > -3.0f to be even more forgiving of head-grazes
-                    bool fallingHit = (dy > -3.0f && dy <= -1.0f);
+                    // v37.9: TIGHTENED FURTHER to dy > -2.0f based on 120s log analysis (4 headshots at -2.2)
+                    bool fallingHit = (dy > -2.0f && dy <= -1.0f);
 
                     if (abs(dx) < 3.2f && (sameFloor || fallingHit)) { 
                          if (_mario.state != JUMPING) {
@@ -500,6 +501,11 @@ private:
                         bool trapped = (_mario.x < 8.0f || _mario.x > MATRIX_WIDTH - 8.0f);
                         bool inPanic = (nowTime - _mario.panicTime < 1000);
                         float jumpDist = (trapped && inPanic) ? 10.0f : 7.0f;
+                        
+                        // v37.9: Sandwich Panic Boost! 
+                        // If sandwiched, we MUST jump earlier (shield is 30px, jump at 15px).
+                        // Otherwise we wait until 7px and get crushed.
+                        if (b2close) jumpDist = 15.0f;
 
                         if (abs(dx) < jumpDist) {
                             // v37.4 Smart Jump Timing: Refuse "Bad Hops"
