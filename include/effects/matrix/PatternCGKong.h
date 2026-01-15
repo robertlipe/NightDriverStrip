@@ -404,14 +404,16 @@ private:
                             }
                         }
 
-                        // EVASION (Retreat persistence)
-                        bool retreating = (_mario.vx < 0 && dx > 0) || (_mario.vx > 0 && dx < 0);
-                        float safeDist = (retreating || b2close) ? 25.0f : 12.0f;
-                        if (abs(dx) < safeDist) {
-                             if (!crowdLevel) debugA("Mario panicked! dx:%.1f\n", dx);
-                             _mario.x -= _mario.vx * (b2close ? 3.0f : 1.5f); 
-                             _mario.vx = 0; 
-                             _mario.panicTime = nowTime; // Start/Refresh panic
+                        // EVASION (Only for clusters)
+                        bool retreating = (_mario.vx * dx < 0);
+                        if (b2close) {
+                             float safeDist = retreating ? 30.0f : 20.0f;
+                             if (abs(dx) < safeDist) {
+                                  debugA("Cluster Panic! dx:%.1f\n", dx);
+                                  _mario.x -= _mario.vx * 2.5f; 
+                                  _mario.vx = 0; 
+                                  _mario.panicTime = nowTime;
+                             }
                         }
                     }
                 }
@@ -425,10 +427,13 @@ private:
                 }
                 _mario.x += _mario.vx;
 
-                // Check ladder proximity (v18 Widen to < 4.0f)
+                // Check ladder proximity (v34.5: Widen detection for bailing)
                 bool nearL1 = abs(_mario.x - L1) < 4.0f;
                 bool nearL2 = abs(_mario.x - L2) < 4.0f;
                 bool nearL3 = abs(_mario.x - L3) < 4.0f;
+                bool bailL1 = abs(_mario.x - L1) < 6.0f;
+                bool bailL2 = abs(_mario.x - L2) < 6.0f;
+                bool bailL3 = abs(_mario.x - L3) < 6.0f;
                 bool climbCooldown = (nowTime - _mario.lastClimbTime < 1500);
 
                 // Helper to start climb
@@ -470,21 +475,21 @@ private:
                         if (nearL1 && checkL(L1, 2, 6.0f, 12.0f, "L1") && !crowdAbove) {
                             if (_mario.targetX == L1 || random_range(0, 100) < 80) startClimb(L1, 19.5f);
                         }
-                        if (nearL2 && (random_range(0,100) < 50 || crowdLevel) && IsAreaSafe(L2, 0, 12.0f)) {
-                            debugA("Mario bailing to T0! CrowdLevel:%d\n", crowdLevel);
+                        if (bailL2 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(L2, 0, 12.0f)) {
+                            debugA("Mario bailing to T0! Crowd:%d\n", (int)crowdLevel);
                             startClimb(L2, 31.0f);
                         }
                     } else if (_mario.tier == 2) {
                         if (nearL3 && checkL(L3, 3, 6.0f, 12.0f, "L3") && !crowdAbove) {
                             if (_mario.targetX == L3 || random_range(0, 100) < 80) startClimb(L3, 13.0f);
                         }
-                        if (nearL1 && (random_range(0,100) < 50 || crowdLevel) && IsAreaSafe(L1, 1, 12.0f)) {
-                            debugA("Mario bailing to T1! CrowdLevel:%d\n", crowdLevel);
+                        if (bailL1 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(L1, 1, 12.0f)) {
+                            debugA("Mario bailing to T1! Crowd:%d\n", (int)crowdLevel);
                             startClimb(L1, 26.0f);
                         }
                     } else if (_mario.tier == 3) {
-                         if (nearL3 && (random_range(0,100) < 50 || crowdLevel) && IsAreaSafe(L3, 2, 12.0f)) { 
-                             debugA("Mario bailing to T2! CrowdLevel:%d\n", crowdLevel);
+                         if (bailL3 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(L3, 2, 12.0f)) { 
+                             debugA("Mario bailing to T2! Crowd:%d\n", (int)crowdLevel);
                              startClimb(L3, 19.5f); 
                          }
                     }
