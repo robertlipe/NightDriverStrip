@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <cmath>
 
+// #define debugEffect if (false) debugA
+#define debugEffect if (true) debugA
+
 
 class PatternCGKong : public EffectWithId<PatternCGKong>
 {
@@ -70,6 +73,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
         int tier = 0; // v30: Explicit tier tracking
         uint32_t lastClimbTime = 0; // v32: Cooldown to prevent ladder jitter
         uint32_t panicTime = 0; // v34: Retreat persistence
+	bool _wasJumping {false};
     };
 
     std::vector<Barrel> _barrels;
@@ -81,6 +85,9 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     uint32_t _winTime = 0; // v16: Time of victory
     uint32_t _resetTime = 0; // v37: Fade reset timer
     uint32_t _tier0Time = 0; // v37.2: Track time on ground floor
+    float _dkBreath;
+// FIXME: rename to _frameTime
+    uint32_t frameTime;
 
     // 7x12 font (scaffolding style)
     static constexpr uint16_t font7x12[11][12] = {
@@ -131,6 +138,14 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     };
 
     static constexpr uint32_t kRed = 0x440000; // Darker Crimson
+					       //
+    // CGKong palette expressed as RGB565 *intent*.
+    // Conversion to CRGB is gamma-corrected at draw time.
+    static constexpr uint16_t kDKFur565     = 0xA145;
+    static constexpr uint16_t kDKTan565     = 0xF6B2;
+    static constexpr uint16_t kMarioSkin565 = 0xFBA0;
+    static constexpr uint16_t kBarrel565    = 0xC618;
+    static constexpr uint16_t kGirder565    = 0xD800;
 
 public:
     PatternCGKong() : EffectWithId<PatternCGKong>("CG Kong") { ResetGame(); }
@@ -141,7 +156,7 @@ public:
     void ResetGame() {
         if (_resetTime == 0) {
             _resetTime = millis();
-            debugA("ResetGame triggered. Fading out...\n");
+            debugEffect("ResetGame triggered. Fading out...\n");
             return;
         }
         _resetTime = 0;
@@ -166,10 +181,25 @@ public:
         _tier0Time = millis(); // v37.2: Start ground floor timer
         _barrels.clear();
         _flashAmount = 0.0f;
-        debugA("ResetGame: Mario @ %.1f,%.1f (Tier %d). DK @ %.1f,%.1f\n", _mario.x, _mario.y, _mario.tier, _dk.x, _dk.y);
+        debugEffect("ResetGame: Mario @ %.1f,%.1f (Tier %d). DK @ %.1f,%.1f\n", _mario.x, _mario.y, _mario.tier, _dk.x, _dk.y);
     }
 
     void Draw() override {
+	frameTime = millis();
+	_dkBreath = sinf(frameTime * 0.002f) * 0.3f;
+	// 0.002f → ~3 second period (2π / 0.002 ≈ 3141 ms)
+        // 0.3f → visible via Wu blending, invisible as motion
+
+//	const CRGB dkFur     = g()->from16Bit(kDKFur565);
+//	const CRGB dkTan     = g()->from16Bit(kDKTan565);
+	const CRGB marioSkin = g()->from16Bit(kMarioSkin565);
+	const CRGB girderCol = g()->from16Bit(kGirder565);
+
+	// Fast, deterministic phase bits reused everywhere.
+	// Shift amounts chosen to land in visually useful bands.
+	const bool ditherPhase  = (frameTime >> 3) & 1;   // ~125 Hz
+	const bool barrelPhase  = (frameTime >> 5) & 1;   // ~30 Hz
+
         // v37: Visual Fade Reset
         if (_resetTime > 0) {
             uint32_t elapsed = millis() - _resetTime;
@@ -396,7 +426,7 @@ private:
                         float target = kLadder2X;
                         if (IsLadderBusy(target, 0)) {
                             _mario.targetX = (_mario.x < target) ? target - kWaitOffset : target + kWaitOffset;
-                            debugA("Ladder L2 Busy! Waiting at %.1f\n", _mario.targetX);
+                            debugEffect("Ladder L2 Busy! Waiting at %.1f\n", _mario.targetX);
                         } else {
                             _mario.targetX = target;
                         }
@@ -407,8 +437,8 @@ private:
                              float waitX = (_mario.x < target) ? target - kWaitOffsetLarge : target + kWaitOffsetLarge;
                              bool safe = IsAreaSafe(waitX, 1, kSafetyRadSmall);
                              _mario.targetX = waitX;
-                             if (!safe) debugA("Ladder L3 Busy & Wait Spot Unsafe!\n");
-                             else debugA("Ladder L3 Busy! Waiting at %.1f\n", waitX);
+                             if (!safe) debugEffect("Ladder L3 Busy & Wait Spot Unsafe!\n");
+                             else debugEffect("Ladder L3 Busy! Waiting at %.1f\n", waitX);
                          } else {
                              _mario.targetX = target;
                          }
@@ -417,7 +447,7 @@ private:
                          float target = kLadder3X;
                          if (IsLadderBusy(target, 2)) {
                              _mario.targetX = 44.0f; // Hardcoded safe spot
-                              debugA("Ladder L3 Busy! Waiting at %.1f\n", _mario.targetX);
+                              debugEffect("Ladder L3 Busy! Waiting at %.1f\n", _mario.targetX);
                          } else {
                              _mario.targetX = target;
                          }
@@ -441,7 +471,7 @@ private:
                 // v17/18 Thresholds: Uses named constants kThreshG/T1/T2
 
                 float feetY = _mario.y + 3.0f;
-                debugA("Mario: x%.1f y%.1f Feet: %.1f Tier: %d\n", _mario.x, _mario.y, feetY, _mario.tier);
+                debugEffect("Mario: x%.1f y%.1f Feet: %.1f Tier: %d\n", _mario.x, _mario.y, feetY, _mario.tier);
 
                 // v30: Deterministic snapping based on tier variable
                 _mario.y = GetFloorY(_mario.x, _mario.tier) - 3.0f;
@@ -450,7 +480,7 @@ private:
                      // WIN CONDITION: Approach DK (Target x < 14)
                      float dkEdge = MATRIX_WIDTH / 4.0f + 8.0f;
                       if (_mario.x < dkEdge - 2.0f) {
-                          debugA("Mario Reached DK! Win!\n");
+                          debugEffect("Mario Reached DK! Win!\n");
                           _flashAmount = 1.0f; // Flash!
                           _winTime = millis(); // Trigger delay
                           return;
@@ -484,7 +514,7 @@ private:
 
                     if (abs(dx) < 3.2f && (sameFloor || fallingHit)) {
                          if (_mario.state != JUMPING) {
-                             debugA("Mario Died! Collision (dx:%.1f dy:%.1f Floor:%d Fall:%d)\n", dx, dy, sameFloor, fallingHit);
+                             debugEffect("Mario Died! Collision (dx:%.1f dy:%.1f Floor:%d Fall:%d)\n", dx, dy, sameFloor, fallingHit);
                              ResetGame();
                              return;
                          }
@@ -526,20 +556,20 @@ private:
                             bool landingOnLadder = IsLadderBusy(landingX, _mario.tier); // Check if landing on a busy ladder
 
                             if (barrelFalling && abs(dx) > 10.0f) {
-                                debugA("Jump Deferred: Barrel too high/far (dx:%.1f)\n", dx);
+                                debugEffect("Jump Deferred: Barrel too high/far (dx:%.1f)\n", dx);
                             } else if (!almostDead && !IsAreaSafe(landingX, _mario.tier, 6.0f)) { // Check landing zone roughly
-                                debugA("Jump Deferred: Landing Unsafe!\n");
+                                debugEffect("Jump Deferred: Landing Unsafe!\n");
                             } else if (!almostDead && landingOnLadder) { // v37.8: Don't jump into a fire
-                                debugA("Jump Deferred: Landing on Busy Ladder!\n");
+                                debugEffect("Jump Deferred: Landing on Busy Ladder!\n");
                             } else if (b2close && !almostDead) {
                                 // v37.8: Replaced by 'almostDead' override above.
                                 // If we get here, it means we are NOT almostDead (so not sandwiched close enough?)
                                 // Actually, b2close sets almostDead=true, so we skip this.
                                 // Logic preserved for historical diffs if we revert.
-                                debugA("Jump Refused! Sandwich at dx:%.1f\n", dx);
+                                debugEffect("Jump Refused! Sandwich at dx:%.1f\n", dx);
                             } else {
-                                if (b2close) debugA("Desperation Jump! SANDWICH ESCAPE!\n");
-                                else if (abs(dx) > 7.0f) debugA("Desperation Jump! Trapped at x:%.1f\n", _mario.x);
+                                if (b2close) debugEffect("Desperation Jump! SANDWICH ESCAPE!\n");
+                                else if (abs(dx) > 7.0f) debugEffect("Desperation Jump! Trapped at x:%.1f\n", _mario.x);
 
                                 _mario.state = JUMPING;
                                 _mario.vy = kJumpStrength;
@@ -549,7 +579,7 @@ private:
                                     float kick = (_mario.x < MATRIX_WIDTH/2) ? 0.4f : -0.4f;
                                     _mario.vx = (abs(dx) < 1.0f) ? kick : (_mario.vx = (dx > 0 ? -0.4f : 0.4f));
                                 }
-                                debugA("Mario jumped! dx:%.1f vx:%.2f\n", dx, _mario.vx);
+                                debugEffect("Mario jumped! dx:%.1f vx:%.2f\n", dx, _mario.vx);
                                 break;
                             }
                         }
@@ -561,7 +591,7 @@ private:
                              float baseDist = (_mario.tier == 0) ? 15.0f : 20.0f; // Braver on ground
                              float safeDist = retreating ? 30.0f : baseDist;
                              if (abs(dx) < safeDist) {
-                                  debugA("Cluster Panic! dx:%.1f (T%d)\n", dx, _mario.tier);
+                                  debugEffect("Cluster Panic! dx:%.1f (T%d)\n", dx, _mario.tier);
                                   _mario.x -= _mario.vx * 2.5f;
                                   _mario.vx = 0;
                                   _mario.panicTime = nowTime;
@@ -581,7 +611,7 @@ private:
                      // Before running backward, check if we are running into another barrel!
                      if (!IsAreaSafe(_mario.x + (retreatDir * 10.0f), _mario.tier, 6.0f)) {
                          _mario.vx = 0; // Hold Ground!
-                         debugA("Sandwich! Holding ground. (Heel Check)\n");
+                         debugEffect("Sandwich! Holding ground. (Heel Check)\n");
                      } else {
                          _mario.vx = atWall ? 0 : retreatDir;
                      }
@@ -590,7 +620,7 @@ private:
                      // Always update walk direction towards target (v35.1: fixed logic)
                      float dir = (_mario.x < _mario.targetX) ? 1.0f : -1.0f;
                      if (abs(_mario.vx) > kWalkSpeed || _mario.vx == 0) {
-                          debugA("Panic cleared, resuming walk.\n");
+                          debugEffect("Panic cleared, resuming walk.\n");
                      }
                      _mario.vx = dir * kWalkSpeed;
                      _mario.faceLeft = (_mario.vx < 0);
@@ -625,7 +655,7 @@ private:
                         else if (abs(ladderX - kLadder1X) < kLadderSnapDist) _mario.targetX = kLadder2X;
                         else _mario.targetX = (random_range(0,100)<50) ? kLadder1X : kLadder3X;
                     }
-                    debugA("Mario climbing %.1f to %.1f. Next Target: %.1f\n", ladderX, targetY, _mario.targetX);
+                    debugEffect("Mario climbing %.1f to %.1f. Next Target: %.1f\n", ladderX, targetY, _mario.targetX);
                 };
 
                 if (!climbCooldown) {
@@ -646,8 +676,8 @@ private:
                              }
                          }
 
-                         if (!safeDest) debugA("Ladder %s UNSAFE at Dest. Waiting:%d\n", label, waiting);
-                         if (!safeBase) debugA("Ladder %s UNSAFE at Base. Waiting:%d\n", label, waiting);
+                         if (!safeDest) debugEffect("Ladder %s UNSAFE at Dest. Waiting:%d\n", label, waiting);
+                         if (!safeBase) debugEffect("Ladder %s UNSAFE at Base. Waiting:%d\n", label, waiting);
                          return safeDest && safeBase;
                     };
 
@@ -658,7 +688,7 @@ private:
 
                     // v37.2: Desperation climb if stuck on Tier 0 for >15 seconds
                     bool desperateClimb = (_mario.tier == 0 && (nowTime - _tier0Time) > 15000);
-                    if (desperateClimb) debugA("Desperation Climb! T0 time: %.1fs\n", (nowTime - _tier0Time) / 1000.0f);
+                    if (desperateClimb) debugEffect("Desperation Climb! T0 time: %.1fs\n", (nowTime - _tier0Time) / 1000.0f);
 
                     // v34.1: Correctly split LX proximity checks
                     if (_mario.tier == 0) {
@@ -670,7 +700,7 @@ private:
                             if (_mario.targetX == kLadder1X || random_range(0, 100) < 80 || dangerBehind) startClimb(kLadder1X, 19.5f);
                         }
                         if (bailL2 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(kLadder2X, 0, kWaitOffset)) {
-                            debugA("Mario bailing to T0! Crowd:%d\n", (int)crowdLevel);
+                            debugEffect("Mario bailing to T0! Crowd:%d\n", (int)crowdLevel);
                             startClimb(kLadder2X, 31.0f);
                         }
                     } else if (_mario.tier == 2) {
@@ -680,7 +710,7 @@ private:
                         if (bailL1 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(kLadder1X, 1, kWaitOffset)) {
                             // v37.7: Check if L1 is safe to descend!
                             if (!IsLadderBusy(kLadder1X, 1)) { // Check destination tier (1) or current? Descending into 1.
-                                debugA("Mario bailing to T1! Crowd:%d\n", (int)crowdLevel);
+                                debugEffect("Mario bailing to T1! Crowd:%d\n", (int)crowdLevel);
                                 startClimb(kLadder1X, 26.0f);
                             } else {
                                 // Stuck near L1 and it's busy? Wait LEFT (x=4) if safe.
@@ -689,7 +719,7 @@ private:
                         }
                     } else if (_mario.tier == 3) {
                          if (bailL3 && (random_range(0,100) < 60 || crowdLevel) && IsAreaSafe(kLadder3X, 2, kSafetyRadLarge)) {
-                             debugA("Mario bailing to T2! Crowd:%d\n", (int)crowdLevel);
+                             debugEffect("Mario bailing to T2! Crowd:%d\n", (int)crowdLevel);
                              startClimb(kLadder3X, 19.5f);
                          }
                     }
@@ -711,7 +741,7 @@ private:
                     if (prevTier == 0) _tier0Time = millis(); // v37.2: Reset ground floor timer
                     _mario.lastClimbTime = millis(); // v32: Set cooldown
                     _mario.vx = (_mario.x < _mario.targetX) ? kWalkSpeed : -kWalkSpeed;
-                    debugA("Mario arrived at target %.1f (Tier %d)\n", _mario.climbTargetY, _mario.tier);
+                    debugEffect("Mario arrived at target %.1f (Tier %d)\n", _mario.climbTargetY, _mario.tier);
                 }
             } else if (_mario.vy > 0) { // DOWN (v27 Fix)
                 if (_mario.y >= _mario.climbTargetY) {
@@ -721,7 +751,7 @@ private:
                     _mario.tier--; // v30: Moved DOWN a tier
                     _mario.lastClimbTime = millis(); // v32: Set cooldown
                     _mario.vx = (_mario.x < _mario.targetX) ? kWalkSpeed : -kWalkSpeed;
-                    debugA("Mario arrived (down) at target %.1f (Tier %d)\n", _mario.climbTargetY, _mario.tier);
+                    debugEffect("Mario arrived (down) at target %.1f (Tier %d)\n", _mario.climbTargetY, _mario.tier);
                 }
             }
         } else if (_mario.state == JUMPING) {
@@ -750,10 +780,12 @@ private:
         // DK - Draw palette layers
         for (int r = 0; r < 12; r++) {
             uint16_t furBits = dkFur[_dk.frame][r];
-            uint16_t tanBits = dkTan[_dk.frame][r];
+            // uint16_t tanBits = dkTan[_dk.frame][r];
+            uint16_t dkTanBits = dkTan[_dk.frame][r];
             for (int c = 0; c < 12; c++) {
-                if ((tanBits >> (11 - c)) & 1) g()->drawPixelXYF_Wu(_dk.x + c - 6, _dk.y + r - 6, CRGB(0xCC9977)); // Tan skin
-                else if ((furBits >> (11 - c)) & 1) g()->drawPixelXYF_Wu(_dk.x + c - 6, _dk.y + r - 6, CRGB(0x331100)); // Darker Brown
+// FIXME: Change these CRGBs to dkSkin and dkFur
+                if ((dkTanBits >> (11 - c)) & 1) g()->drawPixelXYF_Wu(_dk.x + c - 6, _dk.y + r - 6 + _dkBreath,  CRGB(0xCC9977)); // Tan skin
+                else if ((furBits >> (11 - c)) & 1) g()->drawPixelXYF_Wu(_dk.x + c - 6, _dk.y + r - 6 + _dkBreath, CRGB(0x331100)); // Darker Brown
             }
         }
         // Mario - Draw multi-color layers
@@ -772,7 +804,7 @@ private:
                 else if ((bBits >> (7 - colIdx)) & 1) col = CRGB::Blue;
                 else if ((sBits >> (7 - colIdx)) & 1) col = skinCol;
 
-                if (col != CRGB::Black) g()->drawPixelXYF_Wu(_mario.x + c - 4, _mario.y + r - 4, col);
+                if (col != CRGB::Black) g()->drawPixelXYF_Wu(_mario.x + c - 4, _mario.y + r - 4 + marioSquash, col);
             }
         }
     }
@@ -782,7 +814,7 @@ private:
             if (!b.active) continue;
             if (!b.active) continue;
             // v22: Verbose Logging as requested
-            debugA("B: x%.1f y%.1f vx%.1f vy%.1f\n", b.x, b.y, b.vx, b.vy);
+            debugEffect("B: x%.1f y%.1f vx%.1f vy%.1f\n", b.x, b.y, b.vx, b.vy);
 
             b.x += b.vx;
             b.y += b.vy;
@@ -803,7 +835,7 @@ private:
                  b.y = GetFloorY(b.x, 2) - 2.0f;
                  if (b.x <= 10) {
                      b.x = 8.0f; b.vx = 0; b.vy = 0.5f;
-                     // debugA("Barrel hitting L1 descent! Snap to 8.\n"); // v19: Silenced
+                     // debugEffect("Barrel hitting L1 descent! Snap to 8.\n"); // v19: Silenced
                  }
             }
             else if (b.vx == 0 && b.vy > 0 && b.y < 28) { // Ladder T2->T1
@@ -830,6 +862,10 @@ private:
     }
 
     void DrawBarrels() {
+	const CRGB barrelCol = g()->from16Bit(kBarrel565);
+// 	const int phase = barrelPhase ? 1 : 0;
+	const bool barrelPhase  = (frameTime >> 5) & 1;   // ~30 Hz
+
         for (const auto& b : _barrels) {
             if (!b.active) continue;
             // Draw 4x3 bitmap centered on b.x, b.y
@@ -837,7 +873,31 @@ private:
             // .XX.
             // XXXX
             // .XX.
-            CRGB col = b.isBlue ? CRGB::Blue : CRGB(0x994400);
+#if 1
+	    CRGB palBarrel = g()->from16Bit(kBarrel565);
+	    // Barrel color (blue or gamma-corrected brown)
+	    CRGB col = b.isBlue ? CRGB::Blue : palBarrel;
+
+	    // Simple rolling phase: offset rows to simulate rotation
+	    int barrelPhase = (frameTime >> 5) & 1;
+barrelPhase = 0;
+
+	    // Row 0
+	    g()->drawPixelXYF_Wu(b.x - (1 + barrelPhase), b.y - 1, col);
+	    g()->drawPixelXYF_Wu(b.x      + barrelPhase,  b.y - 1, col);
+
+	    // Row 1
+	    g()->drawPixelXYF_Wu(b.x - 2, b.y, col);
+	    g()->drawPixelXYF_Wu(b.x - 1, b.y, col);
+	    g()->drawPixelXYF_Wu(b.x    , b.y, col);
+	    g()->drawPixelXYF_Wu(b.x + 1, b.y, col);
+
+	    // Row 2
+	    g()->drawPixelXYF_Wu(b.x - (1 + (1 - barrelPhase)), b.y + 1, col);
+	    g()->drawPixelXYF_Wu(b.x      + (1 - barrelPhase),  b.y + 1, col);
+
+#else
+            CRGB col = b.isBlue ? CRGB::Blue : barrelCol;
 
             // Row 0 (.XX.)
             g()->drawPixelXYF_Wu(b.x - 1, b.y - 1, col);
@@ -850,6 +910,7 @@ private:
             // Row 2 (.XX.)
             g()->drawPixelXYF_Wu(b.x - 1, b.y + 1, col);
             g()->drawPixelXYF_Wu(b.x,     b.y + 1, col);
+#endif
         }
     }
 };
