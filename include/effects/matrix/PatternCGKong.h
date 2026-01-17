@@ -73,8 +73,19 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
         int tier = 0; // v30: Explicit tier tracking
         uint32_t lastClimbTime = 0; // v32: Cooldown to prevent ladder jitter
         uint32_t panicTime = 0; // v34: Retreat persistence
-	bool _wasJumping {false};
+	uint32_t _squashTime = 0;
     };
+
+    // ------------------------------------------------------------------
+    // CGKong palette expressed as RGB565 *intent*.
+    // Conversion to CRGB is gamma-corrected at draw time.
+    // ------------------------------------------------------------------
+    static constexpr uint16_t kDKFur565     = 0xA145;
+    static constexpr uint16_t kDKTan565     = 0xF6B2;
+    static constexpr uint16_t kMarioSkin565 = 0xFBA0;
+    static constexpr uint16_t kBarrel565    = 0xD2A0; // Burnt orange
+    static constexpr uint16_t kGirder565    = 0xB104; // Rusty steel red
+    static constexpr uint16_t kRed565       = 0xF800; // Mario Red
 
     std::vector<Barrel> _barrels;
     Entity _dk;
@@ -85,9 +96,18 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     uint32_t _winTime = 0; // v16: Time of victory
     uint32_t _resetTime = 0; // v37: Fade reset timer
     uint32_t _tier0Time = 0; // v37.2: Track time on ground floor
-    float _dkBreath;
-// FIXME: rename to _frameTime
-    uint32_t frameTime;
+    float _dkBreath = 0.0f;
+    uint32_t frameTime = 0;
+    bool _wasJumping = false; // v37.11: Track jump state for squash
+
+    // Palette members (computed per frame)
+    CRGB _palFur;
+    CRGB _palTan;
+    CRGB _palMarioSkin;
+    CRGB _palBarrel;
+    CRGB _palGirder;
+    CRGB _palRed;
+    CRGB _palBlue;
 
     // 7x12 font (scaffolding style)
     static constexpr uint16_t font7x12[11][12] = {
@@ -137,16 +157,6 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
         {0x00, 0x00, 0x3C, 0x7E, 0x00, 0x00, 0x00, 0x00}  // Climb
     };
 
-    static constexpr uint32_t kRed = 0x440000; // Darker Crimson
-					       //
-    // CGKong palette expressed as RGB565 *intent*.
-    // Conversion to CRGB is gamma-corrected at draw time.
-    static constexpr uint16_t kDKFur565     = 0xA145;
-    static constexpr uint16_t kDKTan565     = 0xF6B2;
-    static constexpr uint16_t kMarioSkin565 = 0xFBA0;
-    static constexpr uint16_t kBarrel565    = 0xC618;
-    static constexpr uint16_t kGirder565    = 0xD800;
-
 public:
     PatternCGKong() : EffectWithId<PatternCGKong>("CG Kong") { ResetGame(); }
     PatternCGKong(const JsonObjectConst& json) : EffectWithId<PatternCGKong>(json) { ResetGame(); }
@@ -171,6 +181,7 @@ public:
         _mario.faceLeft = false;
         _mario.lastClimbTime = 0;
         _mario.panicTime = 0;
+        _wasJumping = false;
 
         _dk.x = 12.0f;
         _dk.y = 7.0f;
@@ -185,20 +196,18 @@ public:
     }
 
     void Draw() override {
-	frameTime = millis();
-	_dkBreath = sinf(frameTime * 0.002f) * 0.3f;
-	// 0.002f → ~3 second period (2π / 0.002 ≈ 3141 ms)
-        // 0.3f → visible via Wu blending, invisible as motion
+        frameTime = millis();
+        // Calculate DK breathing (Sub-pixel breathing: < 0.5px keeps DK heavy, not floaty)
+        _dkBreath = sinf(frameTime * 0.002f) * 0.3f;
 
-//	const CRGB dkFur     = g()->from16Bit(kDKFur565);
-//	const CRGB dkTan     = g()->from16Bit(kDKTan565);
-	const CRGB marioSkin = g()->from16Bit(kMarioSkin565);
-	const CRGB girderCol = g()->from16Bit(kGirder565);
-
-	// Fast, deterministic phase bits reused everywhere.
-	// Shift amounts chosen to land in visually useful bands.
-	const bool ditherPhase  = (frameTime >> 3) & 1;   // ~125 Hz
-	const bool barrelPhase  = (frameTime >> 5) & 1;   // ~30 Hz
+        // Convert gamma-corrected palette values once per frame
+        _palFur       = GFXBase::from16Bit(kDKFur565);
+        _palTan       = GFXBase::from16Bit(kDKTan565);
+        _palMarioSkin = GFXBase::from16Bit(kMarioSkin565);
+        _palBarrel    = GFXBase::from16Bit(kBarrel565);
+        _palGirder    = GFXBase::from16Bit(kGirder565);
+        _palRed       = GFXBase::from16Bit(kRed565);
+        _palBlue      = GFXBase::from16Bit(0x001F); // Standard Blue
 
         // v37: Visual Fade Reset
         if (_resetTime > 0) {
@@ -213,6 +222,7 @@ public:
 
         g()->DimAll(160);
         if (_flashAmount > 0.1f) g()->DimAll(uint8_t(160 * (1.0f - _flashAmount))); // Pulse background
+
         DrawGirders();
         DrawGhostClock();
 
@@ -226,6 +236,11 @@ public:
 
         DrawEntities();
         DrawBarrels();
+
+        // Track jump state for squash effect in next frame
+        _wasJumping = (_mario.state == JUMPING);
+
+
         if (_flashAmount > 0) _flashAmount *= 0.92f; // Fade out flash
     }
 
@@ -302,22 +317,21 @@ public:
 
 private:
     void DrawGirders() {
-        uint32_t girderCol = kRed;
         int dkPlatformEdge = MATRIX_WIDTH / 4 + 8;
-        g()->drawLine(0, 13, dkPlatformEdge, 13, CRGB(girderCol)); // DK platform
-        g()->drawLine(0, 14, dkPlatformEdge, 14, CRGB(girderCol)); // Thicken
+        g()->drawLine(0, 13, dkPlatformEdge, 13, _palGirder); // DK platform
+        g()->drawLine(0, 14, dkPlatformEdge, 14, _palGirder); // Thicken
 
         // Use a loop to draw 2-pixel thick slanted girders for solidity
         auto drawThickLine = [&](int x1, int y1, int x2, int y2) {
-            g()->drawLine(x1, y1, x2, y2, CRGB(girderCol));
-            g()->drawLine(x1, y1 + 1, x2, y2 + 1, CRGB(girderCol));
+            g()->drawLine(x1, y1, x2, y2, _palGirder);
+            g()->drawLine(x1, y1 + 1, x2, y2 + 1, _palGirder);
         };
 
         // v13: T3 slope starts at y=13 (DK Edge) down to y=17
         drawThickLine(dkPlatformEdge + 1, 13, MATRIX_WIDTH - 1, 17); // T3
         drawThickLine(MATRIX_WIDTH - 1, 21, 0, 23); // T2
         drawThickLine(0, 27, MATRIX_WIDTH - 1, 29); // T1
-        g()->drawLine(0, 31, MATRIX_WIDTH - 1, 31, CRGB(girderCol)); // Ground
+        g()->drawLine(0, 31, MATRIX_WIDTH - 1, 31, _palGirder); // Ground
 
         DrawLadder(MATRIX_WIDTH - 8, 17, 4); // T3 to T2
         DrawLadder(8, 23, 4);               // T2 to T1
@@ -327,9 +341,9 @@ private:
 
     void DrawLadder(int x, int y, int h) {
         for (int i = 0; i < h; i++) {
-            g()->setPixel(x - 1, y + i, CRGB(CRGB::Blue));
-            g()->setPixel(x + 1, y + i, CRGB(CRGB::Blue));
-            if (i % 2 == 0) g()->setPixel(x, y + i, CRGB(CRGB::Blue));
+            g()->setPixel(x - 1, y + i, _palBlue);
+            g()->setPixel(x + 1, y + i, _palBlue);
+            if (i % 2 == 0) g()->setPixel(x, y + i, _palBlue);
         }
     }
 
@@ -780,16 +794,17 @@ private:
         // DK - Draw palette layers
         for (int r = 0; r < 12; r++) {
             uint16_t furBits = dkFur[_dk.frame][r];
-            // uint16_t tanBits = dkTan[_dk.frame][r];
             uint16_t dkTanBits = dkTan[_dk.frame][r];
             for (int c = 0; c < 12; c++) {
-// FIXME: Change these CRGBs to dkSkin and dkFur
-                if ((dkTanBits >> (11 - c)) & 1) g()->drawPixelXYF_Wu(_dk.x + c - 6, _dk.y + r - 6 + _dkBreath,  CRGB(0xCC9977)); // Tan skin
-                else if ((furBits >> (11 - c)) & 1) g()->drawPixelXYF_Wu(_dk.x + c - 6, _dk.y + r - 6 + _dkBreath, CRGB(0x331100)); // Darker Brown
+                if ((dkTanBits >> (11 - c)) & 1) g()->drawPixelXYF_Wu(_dk.x + c - 6, _dk.y + r - 6 + _dkBreath,  _palTan); // Tan skin
+                else if ((furBits >> (11 - c)) & 1) g()->drawPixelXYF_Wu(_dk.x + c - 6, _dk.y + r - 6 + _dkBreath, _palFur); // Darker Brown
             }
         }
         // Mario - Draw multi-color layers
-        CRGB skinCol(0xFFAAAA);
+        // Compress (squash) when grounded if the jump just ended
+        bool marioSquash = (_mario.state == WALKING && _wasJumping);
+	float yoff = 0.0f;
+
         for (int r = 0; r < 8; r++) {
             uint8_t rBits = marioRed[_mario.frame][r];
             uint8_t bBits = marioBlue[_mario.frame][r];
@@ -800,18 +815,31 @@ private:
                 // If vx > 0 (Right), faceLeft=false. We want RIGHT. If source is LEFT, we must FLIP (7-c).
                 // If vx < 0 (Left), faceLeft=true. We want LEFT. If source is LEFT, we use NORMAL (c).
                 int colIdx = _mario.faceLeft ? c : (7 - c);
-                if ((rBits >> (7 - colIdx)) & 1) col = CRGB::Red;
-                else if ((bBits >> (7 - colIdx)) & 1) col = CRGB::Blue;
-                else if ((sBits >> (7 - colIdx)) & 1) col = skinCol;
+                if ((rBits >> (7 - colIdx)) & 1) col = _palRed;
+                else if ((bBits >> (7 - colIdx)) & 1) col = _palBlue;
+                else if ((sBits >> (7 - colIdx)) & 1) col = _palMarioSkin;
 
-                if (col != CRGB::Black) g()->drawPixelXYF_Wu(_mario.x + c - 4, _mario.y + r - 4 + marioSquash, col);
+                if (col != CRGB::Black) {
+                    float yoff = marioSquash ? 1.0f : 0.0f;
+		    uint32_t squashAge = millis() - _mario._squashTime;
+		    if (squashAge < 90) { // ~3 frames @30Hz
+			yoff = (squashAge < 45) ? 1.0f : 0.5f;
+		    }
+
+                    g()->drawPixelXYF_Wu(_mario.x + c - 4, _mario.y + r - 4 + yoff, col);
+                }
             }
+
+	    uint32_t squashAge = millis() - _mario._squashTime;
+	    if (squashAge < 90) { // ~3 frames @30Hz
+		yoff = (squashAge < 45) ? 1.0f : 0.5f;
+	    }
         }
+
     }
 
     void UpdateBarrels() {
         for (auto& b : _barrels) {
-            if (!b.active) continue;
             if (!b.active) continue;
             // v22: Verbose Logging as requested
             debugEffect("B: x%.1f y%.1f vx%.1f vy%.1f\n", b.x, b.y, b.vx, b.vy);
@@ -862,9 +890,9 @@ private:
     }
 
     void DrawBarrels() {
-	const CRGB barrelCol = g()->from16Bit(kBarrel565);
-// 	const int phase = barrelPhase ? 1 : 0;
-	const bool barrelPhase  = (frameTime >> 5) & 1;   // ~30 Hz
+        // Simple rolling phase: offset rows to simulate rotation
+        int barrelPhase = (frameTime >> 5) & 1;
+        const int phase = barrelPhase ? 1 : 0;
 
         for (const auto& b : _barrels) {
             if (!b.active) continue;
@@ -873,44 +901,21 @@ private:
             // .XX.
             // XXXX
             // .XX.
-#if 1
-	    CRGB palBarrel = g()->from16Bit(kBarrel565);
-	    // Barrel color (blue or gamma-corrected brown)
-	    CRGB col = b.isBlue ? CRGB::Blue : palBarrel;
+            CRGB col = b.isBlue ? CRGB::Blue : _palBarrel;
 
-	    // Simple rolling phase: offset rows to simulate rotation
-	    int barrelPhase = (frameTime >> 5) & 1;
-barrelPhase = 0;
+            // Row 0 (.XX.) - biased by phase
+            g()->drawPixelXYF_Wu(b.x - (1 + barrelPhase), b.y - 1, col);
+            g()->drawPixelXYF_Wu(b.x      + barrelPhase,  b.y - 1, col);
 
-	    // Row 0
-	    g()->drawPixelXYF_Wu(b.x - (1 + barrelPhase), b.y - 1, col);
-	    g()->drawPixelXYF_Wu(b.x      + barrelPhase,  b.y - 1, col);
-
-	    // Row 1
-	    g()->drawPixelXYF_Wu(b.x - 2, b.y, col);
-	    g()->drawPixelXYF_Wu(b.x - 1, b.y, col);
-	    g()->drawPixelXYF_Wu(b.x    , b.y, col);
-	    g()->drawPixelXYF_Wu(b.x + 1, b.y, col);
-
-	    // Row 2
-	    g()->drawPixelXYF_Wu(b.x - (1 + (1 - barrelPhase)), b.y + 1, col);
-	    g()->drawPixelXYF_Wu(b.x      + (1 - barrelPhase),  b.y + 1, col);
-
-#else
-            CRGB col = b.isBlue ? CRGB::Blue : barrelCol;
-
-            // Row 0 (.XX.)
-            g()->drawPixelXYF_Wu(b.x - 1, b.y - 1, col);
-            g()->drawPixelXYF_Wu(b.x,     b.y - 1, col);
-            // Row 1 (XXXX)
+            // Row 1 (XXXX) - static (axle)
             g()->drawPixelXYF_Wu(b.x - 2, b.y,     col);
             g()->drawPixelXYF_Wu(b.x - 1, b.y,     col);
             g()->drawPixelXYF_Wu(b.x,     b.y,     col);
             g()->drawPixelXYF_Wu(b.x + 1, b.y,     col);
-            // Row 2 (.XX.)
-            g()->drawPixelXYF_Wu(b.x - 1, b.y + 1, col);
-            g()->drawPixelXYF_Wu(b.x,     b.y + 1, col);
-#endif
+
+            // Row 2 (.XX.) - biased counter-phase
+            g()->drawPixelXYF_Wu(b.x - (1 + (1 - barrelPhase)), b.y + 1, col);
+            g()->drawPixelXYF_Wu(b.x      + (1 - barrelPhase),  b.y + 1, col);
         }
     }
 };
