@@ -7,8 +7,12 @@
 #include <algorithm>
 #include <cmath>
 
+// TODO: DEBUG_EFFECT should be conditionalized based on
+// game state, actions, reactions, etc.
+
+#define DEBUG_EFFECT false
 // #define debugEffect if (false) debugA
-#define debugEffect if (true) debugA
+#define debugEffect if (DEBUG_EFFECT) debugA
 
 
 class PatternCGKong : public EffectWithId<PatternCGKong>
@@ -80,7 +84,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     // CGKong palette expressed as RGB565 *intent*.
     // Conversion to CRGB is gamma-corrected at draw time.
     // ------------------------------------------------------------------
-    static constexpr uint16_t kDKFur565     = 0xA145;
+    static constexpr uint16_t kDKFur565     = 0x9A44;
     static constexpr uint16_t kDKTan565     = 0xF6B2;
     static constexpr uint16_t kMarioSkin565 = 0xFBA0;
     static constexpr uint16_t kBarrel565    = 0xD2A0; // Burnt orange
@@ -98,7 +102,6 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     uint32_t _tier0Time = 0; // v37.2: Track time on ground floor
     float _dkBreath = 0.0f;
     uint32_t frameTime = 0;
-    bool _wasJumping = false; // v37.11: Track jump state for squash
 
     // Palette members (computed per frame)
     CRGB _palFur;
@@ -181,7 +184,6 @@ public:
         _mario.faceLeft = false;
         _mario.lastClimbTime = 0;
         _mario.panicTime = 0;
-        _wasJumping = false;
 
         _dk.x = 12.0f;
         _dk.y = 7.0f;
@@ -236,10 +238,6 @@ public:
 
         DrawEntities();
         DrawBarrels();
-
-        // Track jump state for squash effect in next frame
-        _wasJumping = (_mario.state == JUMPING);
-
 
         if (_flashAmount > 0) _flashAmount *= 0.92f; // Fade out flash
     }
@@ -774,9 +772,18 @@ private:
             _mario.vy += kGravity; // Gravity
 
             // Land on floor (Snap to jumpFloorY)
+#if 0
             if (_mario.y >= _mario.jumpFloorY && _mario.vy > 0) {
                  _mario.y = _mario.jumpFloorY; _mario.vy = 0; _mario.state = WALKING;
             }
+#else
+	    if (_mario.y >= _mario.jumpFloorY && _mario.vy > 0) {
+		_mario.y = _mario.jumpFloorY;
+		_mario.vy = 0;
+		_mario.state = WALKING;
+		_mario._squashTime = millis();
+	    }
+#endif
         }
 
         // v24: Negative X Check (Safety Clamp)
@@ -802,8 +809,18 @@ private:
         }
         // Mario - Draw multi-color layers
         // Compress (squash) when grounded if the jump just ended
-        bool marioSquash = (_mario.state == WALKING && _wasJumping);
 	float yoff = 0.0f;
+	float xscale = 1.0f;
+	uint32_t squashAge = millis() - _mario._squashTime;
+	if (_mario.state == WALKING && squashAge < 120) {
+	    if (squashAge < 60) {
+		yoff = 1.2f;      // thud
+		xscale = 1.3f;    // compress wide
+	    } else {
+		yoff = 0.6f;      // recovery
+		xscale = 1.15f;
+	    }
+	}
 
         for (int r = 0; r < 8; r++) {
             uint8_t rBits = marioRed[_mario.frame][r];
@@ -820,20 +837,10 @@ private:
                 else if ((sBits >> (7 - colIdx)) & 1) col = _palMarioSkin;
 
                 if (col != CRGB::Black) {
-                    float yoff = marioSquash ? 1.0f : 0.0f;
-		    uint32_t squashAge = millis() - _mario._squashTime;
-		    if (squashAge < 90) { // ~3 frames @30Hz
-			yoff = (squashAge < 45) ? 1.0f : 0.5f;
-		    }
-
-                    g()->drawPixelXYF_Wu(_mario.x + c - 4, _mario.y + r - 4 + yoff, col);
+                    g()->drawPixelXYF_Wu(_mario.x + (c - 4) + xscale,
+			                  _mario.y + r - 4 + yoff, col);
                 }
             }
-
-	    uint32_t squashAge = millis() - _mario._squashTime;
-	    if (squashAge < 90) { // ~3 frames @30Hz
-		yoff = (squashAge < 45) ? 1.0f : 0.5f;
-	    }
         }
 
     }
