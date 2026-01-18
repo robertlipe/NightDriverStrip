@@ -229,7 +229,7 @@ public:
         DrawGirders();
         DrawGhostClock();
 
-// v38: DK stomp shockwave (palette-only radial pulse)
+        // v38: DK stomp shockwave (palette-only radial pulse)
 	if (_dkShockTime > 0) {
 	    // If too fast, try 14.0f.
 	    const float kRingSpeed = 18.0f;
