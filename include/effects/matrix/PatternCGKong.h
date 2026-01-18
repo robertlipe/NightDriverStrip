@@ -102,6 +102,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     uint32_t _tier0Time = 0; // v37.2: Track time on ground floor
     float _dkBreath = 0.0f;
     uint32_t frameTime = 0;
+    uint32_t _dkShockTime = 0; // v38: DK stomp shockwave trigger
 
     // Palette members (computed per frame)
     CRGB _palFur;
@@ -227,6 +228,37 @@ public:
 
         DrawGirders();
         DrawGhostClock();
+
+// v38: DK stomp shockwave (palette-only radial pulse)
+	if (_dkShockTime > 0) {
+	    // If too fast, try 14.0f.
+	    const float kRingSpeed = 18.0f;
+	    // If too subtle, try 0.45f;
+	    const float kBrightness = 0.35f;
+	    const float kRingThickness = 1.2f;
+	    const float kDuration = 180.0f;
+
+	    uint32_t age = millis() - _dkShockTime;
+	    if (age < kDuration) {
+		float t = age / kDuration;        // 0..1
+		float radius = 3.0f + t * kRingSpeed;
+		float strength = (1.0f - t) * kBrightness;
+
+		for (int x = 0; x < MATRIX_WIDTH; x++) {
+		    for (int y = 0; y < MATRIX_HEIGHT; y++) {
+			float dx = x - _dk.x;
+			float dy = y - (_dk.y + _dkBreath);
+			float d = sqrtf(dx*dx + dy*dy);
+			if (fabsf(d - radius) < kRingThickness) {
+			    uint8_t v = uint8_t(255 * strength);
+			    g()->drawPixelXYF_Wu(x, y, CRGB(v, v, v));
+			}
+		    }
+		}
+	    } else {
+		_dkShockTime = 0;
+	    }
+	}
 
         // v16: Win Delay
         if (_winTime > 0) {
@@ -407,6 +439,9 @@ private:
             else if (_dk.frame == 1) _dk.frame = 2;
             else if (_dk.frame == 2) {
                 _dk.frame = 0;
+		// v38: DK stomp shockwave (visual only)
+                 _dkShockTime = millis();
+
                 // Spawn barrel on the pounding frame return
                 // Spawn barrel on the pounding frame return
                 // v24: User requested higher frequency ("bring that back"). Bump to 40%.
