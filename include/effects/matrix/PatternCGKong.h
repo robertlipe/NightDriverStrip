@@ -311,7 +311,8 @@ public:
                  if (b.y < floorY && b.y > floorY - 12.0f) return false;
             }
 
-            if (abs(b.y - (floorY - 2.0f)) > 3.0f) continue;
+            // v39.7: Strict tier check to prevent false positives (T3 barrels flagging T2 Mario)
+            if (abs(b.y - (floorY - 2.0f)) > 2.5f) continue;
 
             // Horizontal Danger
             if (abs(b.x - x) < radius) return false;
@@ -470,7 +471,7 @@ private:
                 float preferredTargetX = _mario.targetX; 
                 if (_mario.tier == 0) preferredTargetX = kLadder2X;
                 else if (_mario.tier == 1) preferredTargetX = IsLadderBusy(kLadder1X, 1) ? 32.0f : kLadder1X;
-                else if (_mario.tier == 2) preferredTargetX = IsLadderBusy(kLadder3X, 2) ? 50.0f : kLadder3X; // v39.6: Wait at x=50
+                else if (_mario.tier == 2) preferredTargetX = IsLadderBusy(kLadder3X, 2) ? 60.0f : kLadder3X; // v39.8: Hidey hole RIGHT
                 else preferredTargetX = 0.0f; // Walk to DK
 
                 // Lock the target for 300ms to prevent jitter
@@ -506,7 +507,7 @@ private:
                 if (approaching > 1) {
                     float retreatDir = (toTarget > 0) ? -1.0f : 1.0f;
                     if (IsAreaSafe(_mario.x + retreatDir * 6.0f, _mario.tier, 4.0f)) {
-                        _mario.vx = retreatDir * kWalkSpeed;
+                        _mario.vx = retreatDir * kWalkSpeed * 1.2f; // v39.7: Faster retreat to outpace barrels
                         debugEffect("[SAFETY] Mario Retreat (Sandwich Avoidance). vx:%.1f\n", _mario.vx);
                     } else {
                         _mario.vx = 0; // Wait
@@ -514,11 +515,13 @@ private:
                     }
                 }
 
-                // b) T3 Spawn Safety: Retreat if near spawn point while DK is winding up
-                if (_mario.tier == 3 && abs(_mario.x - 25.0f) < 8.0f && (_dk.frame == 1 || _dk.frame == 2)) {
+                // b) T3 Spawn Safety: Retreat if AT spawn point while DK is winding up
+                // v39.9: Only if Mario is close to spawn (x>23) OR moving away from DK
+                // Don't interfere if he's already past spawn and going for the win!
+                if (_mario.tier == 3 && _mario.x > 23.0f && _mario.x < 30.0f && (_dk.frame == 1 || _dk.frame == 2)) {
                     // Move AWAY from DK (DK is at x~12, spawn x=25). Retreat direction is RIGHT.
                     if (IsAreaSafe(_mario.x + 6.0f, 3, 4.0f)) {
-                        _mario.vx = kWalkSpeed; 
+                        _mario.vx = kWalkSpeed * 1.2f; // v39.7: Faster retreat
                         debugEffect("[SAFETY] Mario Retreat (Spawn Hazard). x:%.1f\n", _mario.x);
                     } else {
                         _mario.vx = 0; 
@@ -578,6 +581,9 @@ private:
                       _flashAmount = 1.0f; _winTime = millis(); return;
                  }
             }
+            // v39.7: Win-state invulnerability
+            if (_winTime > 0) return;
+            
             for (const auto& b : _barrels) {
                 if (!b.active) continue;
                 float dx = b.x - _mario.x;
