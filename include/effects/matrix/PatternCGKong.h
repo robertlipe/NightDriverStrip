@@ -530,7 +530,9 @@ private:
                 }
 
                 // c) Safety Stop: Inhibit forward movement into any immediate hazard (projected)
-                if (_mario.vx != 0) {
+                // v39.10: Don't interfere if Mario is going for the win on T3!
+                bool goingForWin = (_mario.tier == 3 && _mario.x < 18.0f);
+                if (_mario.vx != 0 && !goingForWin) {
                     // Check 2.5 steps ahead (approx 0.1sec behavioral lookahead)
                     if (!IsAreaSafe(_mario.x + _mario.vx * 2.5f, _mario.tier, 5.0f)) {
                         _mario.vx = 0;
@@ -561,6 +563,19 @@ private:
                     if (_mario.tier == 0 && nearL2 && checkL(kLadder2X, 1, kSafetyRadSmall, kSafetyRadLarge)) startClimb(kLadder2X, 25.0f);
                     else if (_mario.tier == 1 && nearL1 && checkL(kLadder1X, 2, kSafetyRadSmall, kSafetyRadHuge)) startClimb(kLadder1X, 19.5f);
                     else if (_mario.tier == 2 && nearL3 && checkL(kLadder3X, 3, kSafetyRadSmall, kSafetyRadLarge)) startClimb(kLadder3X, 13.0f);
+                    // v39.11: Ladder Decisiveness - if near ladder but unsafe, commit or retreat
+                    else if (_mario.tier == 2 && nearL3) {
+                        // Near L3 but ladder is unsafe - don't just pause!
+                        if (_mario.x > 55.0f) {
+                            // Close enough - accelerate through to hidey hole
+                            _mario.vx = kWalkSpeed * 1.5f;
+                            debugEffect("[LADDER] Accelerating through unsafe L3 to hidey hole. x:%.1f\n", _mario.x);
+                        } else if (_mario.x < 54.0f) {
+                            // Too far - retreat to give room for jump
+                            _mario.vx = -kWalkSpeed * 1.2f;
+                            debugEffect("[LADDER] Retreating from unsafe L3. x:%.1f\n", _mario.x);
+                        }
+                    }
                 }
 
                 const char* stNames[] = {"WALK", "CLIMB", "JUMP"};
