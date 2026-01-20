@@ -461,11 +461,6 @@ private:
 
     void UpdateMario(uint32_t nowTime) {
         if (_mario.state == WALKING) {
-            auto countBarrels = [&](int t) {
-                int c = 0;
-                for (const auto& b : _barrels) if (b.active && abs(b.y - (GetFloorY(b.x, t) - 2.0f)) < 3.0f) c++;
-                return c;
-            };
 
             // v100: Behavioral Logic (10Hz Timer)
             if (nowTime - _mario.lastAnimTime > 100) {
@@ -496,22 +491,37 @@ private:
                 }
 
                 // 3. AI Refinement: Safety Overrides
-                // a) Multiple barrels ahead? Wait.
+                // a) Multiple barrels ahead? Move BACKWARDS (True Retreat)
                 int approaching = 0;
                 for (const auto& b : _barrels) {
                     if (!b.active) continue;
                     float dx = b.x - _mario.x;
                     float dy = b.y - _mario.y;
                     if (abs(dy - 2.0f) > 3.0f) continue;
-                    // Approaching if in front and moving towards Mario (or Mario moving towards it)
                     bool inFront = (dx * _mario.vx > 0);
-                    if (inFront && abs(dx) < 15.0f) approaching++;
+                    if (inFront && abs(dx) < 25.0f) approaching++; // v39.3: Increased to 25px
                 }
-                if (approaching > 1) _mario.vx = 0;
+                if (approaching > 1) {
+                    float retreatDir = (_mario.vx > 0) ? -1.0f : 1.0f;
+                    if (IsAreaSafe(_mario.x + retreatDir * 6.0f, _mario.tier, 4.0f)) {
+                        _mario.vx = retreatDir * kWalkSpeed;
+                        debugEffect("[SAFETY] Mario Retreat (Sandwich Avoidance). vx:%.1f\n", _mario.vx);
+                    } else {
+                        _mario.vx = 0; // Wait
+                        debugEffect("[SAFETY] Mario Stop (Sandwich Avoidance - Rear Blocked). x:%.1f\n", _mario.x);
+                    }
+                }
 
-                // b) T3 Spawn Safety: Stop near spawn point if DK is about to throw
-                if (_mario.tier == 3 && abs(_mario.x - 25.0f) < 6.0f && _dk.frame == 2) {
-                    _mario.vx = 0;
+                // b) T3 Spawn Safety: Retreat if near spawn point while DK is winding up
+                if (_mario.tier == 3 && abs(_mario.x - 25.0f) < 8.0f && (_dk.frame == 1 || _dk.frame == 2)) {
+                    // Move AWAY from DK (DK is at x~12, spawn x=25). Retreat direction is RIGHT.
+                    if (IsAreaSafe(_mario.x + 6.0f, 3, 4.0f)) {
+                        _mario.vx = kWalkSpeed; 
+                        debugEffect("[SAFETY] Mario Retreat (Spawn Hazard). x:%.1f\n", _mario.x);
+                    } else {
+                        _mario.vx = 0; 
+                        debugEffect("[SAFETY] Mario Stop (Spawn Hazard - Rear Blocked). x:%.1f\n", _mario.x);
+                    }
                 }
 
                 // 4. Animation 
