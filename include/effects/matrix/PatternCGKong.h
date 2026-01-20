@@ -573,30 +573,6 @@ private:
                     if (_mario.tier == 0 && nearL2 && checkL(kLadder2X, 1, kSafetyRadSmall, kSafetyRadLarge)) startClimb(kLadder2X, 25.0f);
                     else if (_mario.tier == 1 && nearL1 && checkL(kLadder1X, 2, kSafetyRadSmall, kSafetyRadHuge)) startClimb(kLadder1X, 19.5f);
                     else if (_mario.tier == 2 && nearL3 && checkL(kLadder3X, 3, kSafetyRadSmall, kSafetyRadLarge)) startClimb(kLadder3X, 13.0f);
-                    // v39.11: Ladder Decisiveness - if near ladder but unsafe, commit or retreat
-                    // v39.12: Extended to cover x=52-58 (no dead zone)
-                    else if (_mario.tier == 2 && abs(_mario.x - kLadder3X) < 6.0f) {
-                        // Near L3 but ladder is unsafe - don't just pause!
-                        if (_mario.x > 54.5f) {
-                            // Close enough - accelerate through to hidey hole
-                            _mario.vx = kWalkSpeed * 1.5f;
-                            debugEffect("[LADDER] Accelerating through unsafe L3 to hidey hole. x:%.1f\n", _mario.x);
-                        } else {
-                            // Too far - retreat to give room for jump
-                            _mario.vx = -kWalkSpeed * 1.2f;
-                            debugEffect("[LADDER] Retreating from unsafe L3. x:%.1f\n", _mario.x);
-                        }
-                    }
-                } else if (_mario.tier == 2 && abs(_mario.x - kLadder3X) < 6.0f && _mario.x < 58.0f) {
-                    // v39.13: Ladder decisiveness even during cooldown - don't just stick there!
-                    // v39.14: Don't apply if already in hidey hole (x>58) - let him come back naturally
-                    if (_mario.x > 54.5f) {
-                        _mario.vx = kWalkSpeed * 1.5f;
-                        debugEffect("[LADDER-CD] Accelerating through L3 (cooldown). x:%.1f\n", _mario.x);
-                    } else {
-                        _mario.vx = -kWalkSpeed * 1.2f;
-                        debugEffect("[LADDER-CD] Retreating from L3 (cooldown). x:%.1f\n", _mario.x);
-                    }
                 }
 
                 const char* stNames[] = {"WALK", "CLIMB", "JUMP"};
