@@ -306,9 +306,9 @@ public:
             float floorY = GetFloorY(x, tier);
 
             // v35.1: Detect falling barrels near this X coordinate (Vertical Safety)
-            if (b.vy > 0 && abs(b.x - x) < 3.0f) {
-                 // If the barrel is "above" the target x but within 8 pixels vertically
-                 if (b.y < floorY - 2.0f && b.y > floorY - 10.0f) return false;
+            if (b.vy > 0 && abs(b.x - x) < 4.0f) {
+                 // v39.5: Paranoid vertical window (12px) to catch ladder-drop hazards
+                 if (b.y < floorY && b.y > floorY - 12.0f) return false;
             }
 
             if (abs(b.y - (floorY - 2.0f)) > 3.0f) continue;
@@ -470,7 +470,7 @@ private:
                 float preferredTargetX = _mario.targetX; 
                 if (_mario.tier == 0) preferredTargetX = kLadder2X;
                 else if (_mario.tier == 1) preferredTargetX = IsLadderBusy(kLadder1X, 1) ? 32.0f : kLadder1X;
-                else if (_mario.tier == 2) preferredTargetX = IsLadderBusy(kLadder3X, 2) ? 44.0f : kLadder3X;
+                else if (_mario.tier == 2) preferredTargetX = IsLadderBusy(kLadder3X, 2) ? 50.0f : kLadder3X; // v39.6: Wait at x=50
                 else preferredTargetX = 0.0f; // Walk to DK
 
                 // Lock the target for 300ms to prevent jitter
@@ -492,17 +492,19 @@ private:
 
                 // 3. AI Refinement: Safety Overrides
                 // a) Multiple barrels ahead? Move BACKWARDS (True Retreat)
+                // v39.6: Only consider barrels between Mario and his target
                 int approaching = 0;
+                float toTarget = (_mario.targetX - _mario.x);
                 for (const auto& b : _barrels) {
                     if (!b.active) continue;
                     float dx = b.x - _mario.x;
                     float dy = b.y - _mario.y;
                     if (abs(dy - 2.0f) > 3.0f) continue;
-                    bool inFront = (dx * _mario.vx > 0);
-                    if (inFront && abs(dx) < 25.0f) approaching++; // v39.3: Increased to 25px
+                    bool towardsTarget = (dx * toTarget > 0);
+                    if (towardsTarget && abs(dx) < 25.0f) approaching++; 
                 }
                 if (approaching > 1) {
-                    float retreatDir = (_mario.vx > 0) ? -1.0f : 1.0f;
+                    float retreatDir = (toTarget > 0) ? -1.0f : 1.0f;
                     if (IsAreaSafe(_mario.x + retreatDir * 6.0f, _mario.tier, 4.0f)) {
                         _mario.vx = retreatDir * kWalkSpeed;
                         debugEffect("[SAFETY] Mario Retreat (Sandwich Avoidance). vx:%.1f\n", _mario.vx);
@@ -524,6 +526,15 @@ private:
                     }
                 }
 
+                // c) Safety Stop: Inhibit forward movement into any immediate hazard (projected)
+                if (_mario.vx != 0) {
+                    // Check 2.5 steps ahead (approx 0.1sec behavioral lookahead)
+                    if (!IsAreaSafe(_mario.x + _mario.vx * 2.5f, _mario.tier, 5.0f)) {
+                        _mario.vx = 0;
+                        debugEffect("[STOP] Marching Inhibited: Hazard Ahead at %.1f\n", _mario.x);
+                    }
+                }
+
                 // 4. Animation 
                 if (_mario.vx != 0) _mario.frame = (_mario.frame == 1) ? 2 : 1;
                 else _mario.frame = 1;
@@ -539,7 +550,7 @@ private:
                          _mario.state = CLIMBING; _mario.x = ladderX;
                          _mario.vy = (targetY < _mario.y) ? -kClimbSpeed : kClimbSpeed;
                          _mario.vx = 0; _mario.climbTargetY = targetY;
-                         debugEffect("Mario StartClimb: targetY%.1f\n", targetY);
+                         debugEffect("[CLIMB] Mario committing to climb. TargetY:%.1f Tier:%d x:%.1f\n", targetY, _mario.tier, _mario.x);
                     };
                     auto checkL = [&](float lx, int targetT, float rBase, float rDest) {
                          return IsAreaSafe(lx, targetT, rDest) && IsAreaSafe(lx, _mario.tier, rBase);
@@ -723,7 +734,8 @@ private:
 
     void DrawBarrels() {
         // Simple rolling phase: offset rows to simulate rotation
-        int barrelPhase = (frameTime >> 5) & 1;
+        // v39.4: Freeze animation on win
+        int barrelPhase = (_winTime > 0) ? 0 : (frameTime >> 5) & 1;
         const int phase = barrelPhase ? 1 : 0;
 
         for (const auto& b : _barrels) {
