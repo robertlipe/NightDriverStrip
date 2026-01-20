@@ -164,6 +164,10 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     };
 
 public:
+    // v39.13: Compile-time checks - this effect requires specific dimensions
+    static_assert(MATRIX_WIDTH >= 64, "PatternCGKong requires MATRIX_WIDTH >= 64");
+    static_assert(MATRIX_HEIGHT >= 32, "PatternCGKong requires MATRIX_HEIGHT >= 32");
+    
     PatternCGKong() : EffectWithId<PatternCGKong>("CG Kong") { ResetGame(); }
     PatternCGKong(const JsonObjectConst& json) : EffectWithId<PatternCGKong>(json) { ResetGame(); }
 
@@ -491,7 +495,11 @@ private:
                      _mario.faceLeft = (_mario.vx < 0);
                 }
 
-                // 3. AI Refinement: Safety Overrides
+                // v39.12: Disable ALL safety overrides when going for the win!
+                bool goingForWin = (_mario.tier == 3 && _mario.x < 20.0f);
+
+                // 3. AI Refinement: Safety Overrides (skip if going for win)
+                if (!goingForWin) {
                 // a) Multiple barrels ahead? Move BACKWARDS (True Retreat)
                 // v39.6: Only consider barrels between Mario and his target
                 int approaching = 0;
@@ -540,6 +548,8 @@ private:
                     }
                 }
 
+                } // End safety overrides
+
                 // 4. Animation 
                 if (_mario.vx != 0) _mario.frame = (_mario.frame == 1) ? 2 : 1;
                 else _mario.frame = 1;
@@ -564,17 +574,28 @@ private:
                     else if (_mario.tier == 1 && nearL1 && checkL(kLadder1X, 2, kSafetyRadSmall, kSafetyRadHuge)) startClimb(kLadder1X, 19.5f);
                     else if (_mario.tier == 2 && nearL3 && checkL(kLadder3X, 3, kSafetyRadSmall, kSafetyRadLarge)) startClimb(kLadder3X, 13.0f);
                     // v39.11: Ladder Decisiveness - if near ladder but unsafe, commit or retreat
-                    else if (_mario.tier == 2 && nearL3) {
+                    // v39.12: Extended to cover x=52-58 (no dead zone)
+                    else if (_mario.tier == 2 && abs(_mario.x - kLadder3X) < 6.0f) {
                         // Near L3 but ladder is unsafe - don't just pause!
-                        if (_mario.x > 55.0f) {
+                        if (_mario.x > 54.5f) {
                             // Close enough - accelerate through to hidey hole
                             _mario.vx = kWalkSpeed * 1.5f;
                             debugEffect("[LADDER] Accelerating through unsafe L3 to hidey hole. x:%.1f\n", _mario.x);
-                        } else if (_mario.x < 54.0f) {
+                        } else {
                             // Too far - retreat to give room for jump
                             _mario.vx = -kWalkSpeed * 1.2f;
                             debugEffect("[LADDER] Retreating from unsafe L3. x:%.1f\n", _mario.x);
                         }
+                    }
+                } else if (_mario.tier == 2 && abs(_mario.x - kLadder3X) < 6.0f && _mario.x < 58.0f) {
+                    // v39.13: Ladder decisiveness even during cooldown - don't just stick there!
+                    // v39.14: Don't apply if already in hidey hole (x>58) - let him come back naturally
+                    if (_mario.x > 54.5f) {
+                        _mario.vx = kWalkSpeed * 1.5f;
+                        debugEffect("[LADDER-CD] Accelerating through L3 (cooldown). x:%.1f\n", _mario.x);
+                    } else {
+                        _mario.vx = -kWalkSpeed * 1.2f;
+                        debugEffect("[LADDER-CD] Retreating from L3 (cooldown). x:%.1f\n", _mario.x);
                     }
                 }
 
@@ -641,6 +662,32 @@ private:
                  _mario.y = _mario.jumpFloorY; _mario.vy = 0; _mario.state = WALKING;
                  _mario._squashTime = millis();
                  debugEffect("[%p] Mario Jump Landed. x:%.1f\n", this, _mario.x);
+                 
+                 // v39.13: Landing Re-Evaluation - check for immediate threats
+                 // Fixed: Check threats in BOTH directions, not just current vx direction
+                 int threatsAhead = 0;
+                 for (const auto& b : _barrels) {
+                     if (!b.active) continue;
+                     float dx = b.x - _mario.x;
+                     float dy = b.y - _mario.y;
+                     if (abs(dy - 2.0f) > 3.0f) continue;
+                     // Check barrels within 15px in EITHER direction
+                     if (abs(dx) < 15.0f) threatsAhead++;
+                 }
+                 if (threatsAhead > 0) {
+                     // Threat detected on landing - retreat away from nearest barrel
+                     float nearestDx = 100.0f;
+                     for (const auto& b : _barrels) {
+                         if (!b.active) continue;
+                         float dx = b.x - _mario.x;
+                         float dy = b.y - _mario.y;
+                         if (abs(dy - 2.0f) > 3.0f) continue;
+                         if (abs(dx) < abs(nearestDx)) nearestDx = dx;
+                     }
+                     // Retreat away from nearest barrel
+                     _mario.vx = (nearestDx > 0) ? -kWalkSpeed * 1.2f : kWalkSpeed * 1.2f;
+                     debugEffect("[LANDING] Threat detected! Retreating away from barrel. x:%.1f vx:%.1f\n", _mario.x, _mario.vx);
+                 }
             }
         }
         if (_mario.x < 4.0f) _mario.x = 4.0f;
