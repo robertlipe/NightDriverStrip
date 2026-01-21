@@ -15,7 +15,7 @@
 #define LOG_MASK_ALL      0xFF
 
 // Current Debug Level
-#define LOG_CURRENT_MASK  (LOG_MASK_THREATS | LOG_MASK_PHYSICS)
+#define LOG_CURRENT_MASK  (LOG_MASK_ALL)
 
 #define DEBUG_EFFECT true
 #define debugEffect(mask, ...) if (DEBUG_EFFECT && ((mask) & LOG_CURRENT_MASK)) debugA(__VA_ARGS__)
@@ -57,7 +57,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
 
     // Safety & Tolerance Constants
     static constexpr float kLadderSnapDist = 2.0f;
-    static constexpr float kLadderProximity = 4.0f;
+    static constexpr float kLadderProximity = 6.0f; // v39.29: Increased reach so Mario can climb from safe offset
     static constexpr float kBailProximity = 6.0f;
     static constexpr float kWaitOffset = 10.0f;
     static constexpr float kWaitOffsetLarge = 12.0f;
@@ -87,6 +87,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
         float lastTargetX = 0.0f;
 	uint32_t _squashTime = 0;
         uint32_t ladderBusyTime = 0; // v39.17: Ladder busy hysteresis
+        uint32_t lastJumpTime = 0; // v39.29: Prevent pogo-sticking
     };
 
     // ------------------------------------------------------------------
@@ -197,7 +198,9 @@ public:
         _mario.targetX = 64.0f;
         _mario.faceLeft = false;
         _mario.lastClimbTime = 0;
+        _mario.lastClimbTime = 0;
         _mario.panicTime = 0;
+        _mario.lastJumpTime = 0;
         _mario.lastAnimTime = millis(); // v38.6: Initialize timer
 
         _dk.x = 12.0f;
@@ -485,8 +488,8 @@ private:
                 // 1. Behavioral Targeting - v39.0: Added Hysteresis
                 float preferredTargetX = _mario.targetX; 
                 if (_mario.tier == 0) preferredTargetX = kLadder2X;
-                else if (_mario.tier == 1) preferredTargetX = IsLadderBusy(kLadder1X, 1) ? 32.0f : kLadder1X;
-                else if (_mario.tier == 2) preferredTargetX = IsLadderBusy(kLadder3X, 2) ? 60.0f : kLadder3X; // v39.8: Hidey hole RIGHT
+                else if (_mario.tier == 1) preferredTargetX = IsLadderBusy(kLadder1X, 1) ? 32.0f : (kLadder1X - 3.0f); // v39.29: Stand Left of drop (x=5)
+                else if (_mario.tier == 2) preferredTargetX = IsLadderBusy(kLadder3X, 2) ? 60.0f : (kLadder3X + 3.0f); // v39.29: Stand Right of drop (x=59)
                 else preferredTargetX = 0.0f; // Walk to DK
 
                 // Lock the target for 300ms to prevent jitter and respect overrides
@@ -562,9 +565,10 @@ private:
                              _mario.targetLockTime = millis();
                              debugEffect(LOG_MASK_THREATS, "[FORCE-HIDEY] SPRINTING through danger. x:%.1f\n", _mario.x);
                         } else {
-                            // v39.23: Speed Nudge - 1.7x to decisively outrun fast barrels (0.6 vs 0.68)
-                            _mario.vx = -kWalkSpeed * 1.7f; 
-                            debugEffect(LOG_MASK_THREATS, "[SAFETY-RETREAT] Hazard Ahead! Backing off fast. x:%.1f\n", _mario.x);
+                            // v39.30: Dynamic Retreat Direction. T3 flows Left, so Retreat Right. Others Retreat Left.
+                            float retreatDir = (_mario.tier == 3) ? 1.0f : -1.0f;
+                            _mario.vx = retreatDir * kWalkSpeed * 1.7f; 
+                            debugEffect(LOG_MASK_THREATS, "[SAFETY-RETREAT] Hazard Ahead! Backing off. vx:%.1f\n", _mario.vx);
                         }
                     }
                 }
@@ -629,6 +633,9 @@ private:
                 bool goingForWin = (_mario.tier == 3 && _mario.x < 25.0f);
 
                 if (abs(dy - 2.0f) < 3.0f && _mario.state == WALKING && !goingForWin) { // Same tier barrels
+                    // v39.29: Jump Cooldown (500ms) to prevent "Pogo Stick" behavior
+                    if (nowTime - _mario.lastJumpTime < 500) continue;
+
                     float jumpDist = 12.0f;
                     // v39.2: Only jump if barrel is IN FRONT and CLOSING
                     float relVx = b.vx - (_mario.vx / 6.0f);
@@ -669,6 +676,7 @@ private:
             if (_mario.y >= _mario.jumpFloorY && _mario.vy > 0) {
                  _mario.y = _mario.jumpFloorY; _mario.vy = 0; _mario.state = WALKING;
                  _mario._squashTime = millis();
+                 _mario.lastJumpTime = millis(); // v39.29: Cooldown start
                  debugEffect(LOG_MASK_PHYSICS, "[%p] Mario Jump Landed. x:%.1f\n", this, _mario.x);
                  
                   // v39.13: Landing Re-Evaluation - check for immediate threats
