@@ -17,7 +17,7 @@
 // Current Debug Level
 #define LOG_CURRENT_MASK  (LOG_MASK_ALL)
 
-#define DEBUG_EFFECT true
+#define DEBUG_EFFECT false
 #define debugEffect(mask, ...) if (DEBUG_EFFECT && ((mask) & LOG_CURRENT_MASK)) debugA(__VA_ARGS__)
 
 
@@ -565,8 +565,8 @@ private:
                              _mario.targetLockTime = millis();
                              debugEffect(LOG_MASK_THREATS, "[FORCE-HIDEY] SPRINTING through danger. x:%.1f\n", _mario.x);
                         } else {
-                            // v39.30: Dynamic Retreat Direction. T3 flows Left, so Retreat Right. Others Retreat Left.
-                            float retreatDir = (_mario.tier == 3) ? 1.0f : -1.0f;
+                            // v39.31: Dynamic Retreat Direction. Odd Tiers (1,3) Flow Right -> Retreat Right. Even (0,2) Flow Left -> Retreat Left.
+                            float retreatDir = (_mario.tier & 1) ? 1.0f : -1.0f;
                             _mario.vx = retreatDir * kWalkSpeed * 1.7f; 
                             debugEffect(LOG_MASK_THREATS, "[SAFETY-RETREAT] Hazard Ahead! Backing off. vx:%.1f\n", _mario.vx);
                         }
