@@ -3,6 +3,7 @@
 #include <deque>
 #include <vector>
 #include <ctime>
+#include <array>
 
 #include "globals.h"
 #include "ledstripeffect.h"
@@ -84,14 +85,14 @@ static const TetrisPoint TetrominoDefinitions[7][4][4] = {
     // 5: Purple (T) -> L-Corner 3-blocks (2x2 minus 1)
     {
         {{0,0}, {1,0}, {0,1}, {0,0}}, // Top-Left + Right + Down (Corner at 0,0)
-        {{0,0}, {1,0}, {0,1}, {0,0}}, 
+        {{0,0}, {1,0}, {0,1}, {0,0}},
         {{0,0}, {1,0}, {0,1}, {0,0}},
         {{0,0}, {1,0}, {0,1}, {0,0}}
     },
     // 6: Red (Z) -> Line 2 (Same as Orange, for variety)
     {
-        {{0,0}, {1,0}, {0,0}, {0,0}}, 
-        {{0,0}, {0,1}, {0,0}, {0,0}}, 
+        {{0,0}, {1,0}, {0,0}, {0,0}},
+        {{0,0}, {0,1}, {0,0}, {0,0}},
         {{0,0}, {1,0}, {0,0}, {0,0}},
         {{0,0}, {0,1}, {0,0}, {0,0}}
     }
@@ -109,106 +110,72 @@ private:
     uint8_t grid[MAX_GRID_W][MAX_GRID_H]; // Stores ColorIndex + 1 (0=Empty)
     int gridW; // Calculated at runtime
     int gridH;
-    
+
     std::vector<Tetromino> fallingPieces;
     int lastMinute = -1;
-    
+
     // State
     enum State { IDLE, CLEARING, SPAWNING };
     State currentState = IDLE;
     int stateTimer = 0;
-    
+
     // Digit Construction Queue
     std::deque<BlueprintStep> buildQueue;
 
+    struct BlueprintSpan {
+        const BlueprintStep* ptr;
+        size_t count;
+        const BlueprintStep* begin() const { return ptr; }
+        const BlueprintStep* end() const { return ptr + count; }
+    };
+
     // Blueprint definitions (Clean, legible digits 3 wide x 7 high)
     // Uses simplified shapes for construction.
-    static const std::vector<BlueprintStep>& GetBlueprint(int digit) {
-        static const std::vector<std::vector<BlueprintStep>> blueprints = {
-            // 0: Box (Open Center)
-            {
-                {T_J, 0, 0, 1}, // Blue Left Vert 3
-                {T_J, 0, 4, 1}, // Blue Left Vert 3
-                {T_S, 0, 3, 0}, // Green Dot (Gap fill)
-                {T_J, 2, 0, 1}, // Blue Right Vert 3
-                {T_J, 2, 4, 1}, // Blue Right Vert 3
-                {T_S, 2, 3, 0}, // Green Dot
-                {T_S, 1, 0, 0}, // Top Center Dot
-                {T_S, 1, 6, 0}  // Bot Center Dot
-            },
-            // 1: Center Line
-            {
-                {T_I, 1, 0, 1}, // Cyan Vert 4
-                {T_J, 1, 4, 1}  // Blue Vert 3
-            },
-            // 2: Top, Right-Top, Mid, Left-Bot, Bot
-            {
-                {T_L, 0, 0, 0}, // Orange Horiz 2
-                {T_S, 2, 0, 0}, // Green Dot
-                {T_Z, 2, 1, 1}, // Red Vert 2 (Variety)
-                {T_L, 0, 3, 0}, // Mid Bar 2
-                {T_S, 2, 3, 0}, // Green dot
-                {T_Z, 0, 4, 1}, // Red Vert 2 (Variety)
-                {T_J, 0, 6, 0}  // Bot Bar 3
-            },
-            // 3: E-like (Top, Mid, Bot, Right bar)
-            {
-                {T_J, 2, 0, 1}, // Right Vert 3
-                {T_J, 2, 4, 1}, // Right Vert 3
-                {T_S, 2, 3, 0}, // Mid Dot
-                {T_L, 0, 0, 0}, // Top Bar 2 (Orange)
-                {T_Z, 0, 3, 0}, // Mid Bar 2 (Red)
-                {T_L, 0, 6, 0}  // Bot Bar 2
-            },
-            // 4: L-shape + Right Vert
-            {
-                {T_J, 0, 0, 1}, // Left Vert 3
-                {T_S, 1, 3, 0}, // Mid Center Dot
-                {T_I, 2, 0, 1}, // Right Vert 4
-                {T_J, 2, 4, 1}  // Right Vert 3
-            },
-            // 5: S-like
-            {
-                {T_J, 0, 0, 0}, // Top Bar 3
-                {T_Z, 0, 1, 1}, // Left Vert 2 (Red)
-                {T_J, 0, 3, 0}, // Mid Bar 3
-                {T_Z, 2, 4, 1}, // Right Vert 2 (Red)
-                {T_J, 0, 6, 0}  // Bot Bar 3
-            },
-            // 6: Loop
-            {
-                {T_I, 0, 0, 1}, // Left Vert 4
-                {T_J, 0, 4, 1}, // Left Vert 3
-                {T_L, 1, 0, 0}, // Top Bar 2 (Orange)
-                {T_Z, 1, 3, 0}, // Mid Bar 2 (Red)
-                {T_L, 1, 6, 0}, // Bot Bar 2
-                {T_Z, 2, 4, 1}  // Right Bot Vert 2 (Red)
-            },
-            // 7: Top + Right
-            {
-                {T_J, 0, 0, 0}, // Top Bar 3
-                {T_I, 2, 1, 1}, // Right Vert 4
-                {T_Z, 2, 5, 1}  // Right Vert 2 (Red)
-            },
-            // 8: All
-            {
-                {T_J, 0, 0, 1}, // Left 3
-                {T_J, 0, 4, 1}, // Left 3
-                {T_J, 2, 0, 1}, // Right 3
-                {T_J, 2, 4, 1}, // Right 3
-                {T_S, 1, 0, 0}, // Top Dot
-                {T_S, 1, 3, 0}, // Mid Dot
-                {T_S, 1, 6, 0}  // Bot Dot
-            },
-            // 9: Top Loop + Tail
-            {
-                {T_J, 0, 0, 0}, // Top Bar 3
-                {T_L, 0, 1, 1}, // Left Top Vert 2
-                {T_Z, 2, 1, 1}, // Right Top Vert 2 (Red)
-                {T_J, 0, 3, 0}, // Mid Bar 3
-                {T_I, 2, 3, 1}  // Right Bot Vert 4
-            }
+    static BlueprintSpan GetBlueprint(int digit) {
+        static const BlueprintStep d0[] = {
+            {T_J, 0, 0, 1}, {T_J, 0, 4, 1}, {T_S, 0, 3, 0}, {T_J, 2, 0, 1},
+            {T_J, 2, 4, 1}, {T_S, 2, 3, 0}, {T_S, 1, 0, 0}, {T_S, 1, 6, 0}
         };
+        static const BlueprintStep d1[] = {
+            {T_I, 1, 0, 1}, {T_J, 1, 4, 1}
+        };
+        static const BlueprintStep d2[] = {
+            {T_L, 0, 0, 0}, {T_S, 2, 0, 0}, {T_Z, 2, 1, 1}, {T_L, 0, 3, 0},
+            {T_S, 2, 3, 0}, {T_Z, 0, 4, 1}, {T_J, 0, 6, 0}
+        };
+        static const BlueprintStep d3[] = {
+            {T_J, 2, 0, 1}, {T_J, 2, 4, 1}, {T_S, 2, 3, 0}, {T_L, 0, 0, 0},
+            {T_Z, 0, 3, 0}, {T_L, 0, 6, 0}
+        };
+        static const BlueprintStep d4[] = {
+            {T_J, 0, 0, 1}, {T_S, 1, 3, 0}, {T_I, 2, 0, 1}, {T_J, 2, 4, 1}
+        };
+        static const BlueprintStep d5[] = {
+            {T_J, 0, 0, 0}, {T_Z, 0, 1, 1}, {T_J, 0, 3, 0}, {T_Z, 2, 4, 1}, {T_J, 0, 6, 0}
+        };
+        static const BlueprintStep d6[] = {
+            {T_I, 0, 0, 1}, {T_J, 0, 4, 1}, {T_L, 1, 0, 0}, {T_Z, 1, 3, 0},
+            {T_L, 1, 6, 0}, {T_Z, 2, 4, 1}
+        };
+        static const BlueprintStep d7[] = {
+            {T_J, 0, 0, 0}, {T_I, 2, 1, 1}, {T_Z, 2, 5, 1}
+        };
+        static const BlueprintStep d8[] = {
+            {T_J, 0, 0, 1}, {T_J, 0, 4, 1}, {T_J, 2, 0, 1}, {T_J, 2, 4, 1},
+            {T_S, 1, 0, 0}, {T_S, 1, 3, 0}, {T_S, 1, 6, 0}
+        };
+        static const BlueprintStep d9[] = {
+            {T_J, 0, 0, 0}, {T_L, 0, 1, 1}, {T_Z, 2, 1, 1}, {T_J, 0, 3, 0}, {T_I, 2, 3, 1}
+        };
+
+        static const BlueprintSpan blueprints[] = {
+            {d0, sizeof(d0)/sizeof(d0[0])}, {d1, sizeof(d1)/sizeof(d1[0])},
+            {d2, sizeof(d2)/sizeof(d2[0])}, {d3, sizeof(d3)/sizeof(d3[0])},
+            {d4, sizeof(d4)/sizeof(d4[0])}, {d5, sizeof(d5)/sizeof(d5[0])},
+            {d6, sizeof(d6)/sizeof(d6[0])}, {d7, sizeof(d7)/sizeof(d7[0])},
+            {d8, sizeof(d8)/sizeof(d8[0])}, {d9, sizeof(d9)/sizeof(d9[0])}
+        };
+
         if (digit < 0 || digit > 9) return blueprints[0];
         return blueprints[digit];
     }
@@ -217,7 +184,7 @@ private:
         int totalWidth = 16;
         int startX = (gridW - totalWidth) / 2;
         if (startX < 0) startX = 0;
-        
+
         switch(pos) {
             case 0: return startX + 0;
             case 1: return startX + 4;
@@ -226,7 +193,7 @@ private:
         }
         return 0;
     }
-    
+
     // Bottom alignment for max fall height
     int GetDigitOffsetY() {
         int contentH = 7;
@@ -235,17 +202,16 @@ private:
     }
 
     // Helper: Get shapes (4 coordinates for each rotation)
-    std::vector<TetrisPoint> GetPoints(const Tetromino& p) {
-         std::vector<TetrisPoint> points;
-         if (p.type == T_NONE) return points;
-         
+    std::array<TetrisPoint, 4> GetPoints(const Tetromino& p) {
+         std::array<TetrisPoint, 4> points;
+
+         const auto& shape = TetrominoDefinitions[p.type][p.rotation % 4];
          for (int i = 0; i < 4; i++) {
-             TetrisPoint pt = TetrominoDefinitions[p.type][p.rotation % 4][i];
-             points.push_back({p.x + pt.x, (int)p.y + pt.y});
+             points[i] = {p.x + shape[i].x, (int)p.y + shape[i].y};
          }
          return points;
     }
-    
+
     void ClearGrid() {
         memset(grid, 0, sizeof(grid));
     }
@@ -253,14 +219,14 @@ private:
     // Optimized bounds check
     void DrawBlock(int gx, int gy, uint8_t colorIdx) {
         if ((unsigned)gx >= gridW || (unsigned)gy >= gridH) return;
-        
+
         int x = gx * BLOCK_SIZE;
         int y = gy * BLOCK_SIZE;
-        
+
         // Block Size 3: Draws pixels 0, 1. Gap at 2.
-        int w = BLOCK_SIZE - 1; 
+        int w = BLOCK_SIZE - 1;
         int h = BLOCK_SIZE - 1;
-        
+
         g()->fillRectangle(x, y, x + w, y + h, TETRIS_COLORS[colorIdx]);
     }
 
@@ -331,26 +297,27 @@ public:
                          grid[x][0] = 0; // Clear top
                      }
                 }
-                
+
                 // Done when enough time passed for full height to clear
                 if (stateTimer > (gridH * kMeltInterval + 10)) {
                     ClearGrid(); // Ensure perfectly clean
                     currentState = SPAWNING;
-                    
+		    stateTimer = 0;
+
                     // Queue up the time
                     time_t now;
                     time(&now);
                     struct tm *local = localtime(&now);
                     int h = local->tm_hour;
                     int m = local->tm_min;
-                    
+
                     QueueDigit(h / 10, 0);
                     QueueDigit(h % 10, 1);
                     QueueDigit(m / 10, 2);
                     QueueDigit(m % 10, 3);
                 }
                 break;
-                
+
             case SPAWNING:
                 // Drop one piece every N frames
                 if (stateTimer++ % kSpawnDelay == 0 && !buildQueue.empty()) {
@@ -363,7 +330,7 @@ public:
                 }
                 if (fallingPieces.empty() && buildQueue.empty()) currentState = IDLE;
                 break;
-                
+
             case IDLE:
                 break;
         }
@@ -371,14 +338,14 @@ public:
         // Physics (Gravity & Rotation)
         for (auto& p : fallingPieces) {
             if (p.settled) continue;
-            
+
             float newY = p.y + kFallSpeed;
-            
+
             // Spin animation: Rotate towards target
             float dist = p.targetY - p.y;
             if (dist > 2.0f) {
                 // Spin towards target every few frames
-                if ((int)(p.y * 10) % kSpinInterval == 0) { 
+                if ((int)(p.y * 10) % kSpinInterval == 0) {
                      if (p.rotation != p.targetRotation) {
                          p.rotation = (p.rotation + 1) % 4;
                      }
@@ -386,15 +353,15 @@ public:
             } else {
                 p.rotation = p.targetRotation; // Snap
             }
-            
+
             // Check Collision (Floor mostly)
             if (newY >= p.targetY) {
                 p.y = (float)p.targetY;
                 p.rotation = p.targetRotation;
                 p.settled = true;
-                
+
                 // Lock into grid
-                std::vector<TetrisPoint> pts = GetPoints(p);
+                auto pts = GetPoints(p);
                 for (const auto& pt : pts) {
                     if (pt.x >= 0 && pt.x < gridW && pt.y >= 0 && pt.y < gridH) {
                         grid[pt.x][pt.y] = p.type + 1;
@@ -406,8 +373,8 @@ public:
         }
 
         // Render
-        g()->fillScreen(0); 
-        
+        g()->fillScreen(0);
+
         // Draw Grid
         for (int x = 0; x < gridW; x++) {
             for (int y = 0; y < gridH; y++) {
@@ -416,11 +383,11 @@ public:
                 }
             }
         }
-        
+
         // Draw Falling
         for (const auto& p : fallingPieces) {
             if (!p.settled) {
-                std::vector<TetrisPoint> pts = GetPoints(p);
+                auto pts = GetPoints(p);
                 for (const auto& pt : pts) {
                     DrawBlock(pt.x, pt.y, p.type);
                 }
