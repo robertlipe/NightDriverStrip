@@ -9,20 +9,16 @@
 
 // Tetris Clock for 64x32 Matrix
 // Architecture: "The Assembler"
-// Instead of solving bin-packing, we use pre-scripted "Blueprints" for each digit.
-// We spawn pieces at the top that are pre-destined to land in the right spot.
-// Grid: 64x32 pixels -> 16x8 "Macro Blocks" (4x4 pixels each).
+// Uses "Construction Primitives" shapes to build legible digits.
 
-#define TETRIS_GRID_W 16
-#define TETRIS_GRID_H 8
-#define BLOCK_SIZE 4
+#define MAX_GRID_W 64
+#define MAX_GRID_H 32
+#define BLOCK_SIZE 3
 
 // Tetromino Types
 enum TetrominoType { T_I=0, T_J, T_L, T_O, T_S, T_T, T_Z, T_NONE };
 
 // Colors (Standard Tetris Colors)
-// I=Cyan, J=Blue, L=Orange, O=Yellow, S=Green, T=Purple, Z=Red
-// Uses FastLED predefined colors to avoid runtime construction
 static const CRGB TETRIS_COLORS[] = {
     CRGB::Cyan,
     CRGB::Blue,
@@ -36,23 +32,84 @@ static const CRGB TETRIS_COLORS[] = {
 
 struct Tetromino {
     TetrominoType type;
-    int x;          // Grid X (0-15)
-    float y;        // Grid Y (float for smooth gravity)
-    int rotation;   // 0-3
-    int targetY;    // Where it should stop
-    bool settled;   // True if locked in grid
+    int x;          // Grid X
+    float y;        // Grid Y
+    int rotation;   // Current Rotation
+    int targetRotation; // Final Rotation
+    int targetY;    // Stop Y
+    bool settled;   // Locked?
+};
+
+struct TetrisPoint { int x, y; };
+
+// Tetromino Definitions: "Construction Set" Mode
+// To ensure legibility, we redefine standard shapes into useful primitives for digit construction.
+// Colors correspond to TetrominoType indices: 0=Cyan, 1=Blue, 2=Orange, 3=Yellow, 4=Green, 5=Purple, 6=Red.
+static const TetrisPoint TetrominoDefinitions[7][4][4] = {
+    // 0: Cyan (I) -> Line 4
+    {
+        {{0,0}, {1,0}, {2,0}, {3,0}}, // Horiz
+        {{0,0}, {0,1}, {0,2}, {0,3}}, // Vert
+        {{0,0}, {1,0}, {2,0}, {3,0}},
+        {{0,0}, {0,1}, {0,2}, {0,3}}
+    },
+    // 1: Blue (J) -> Line 3
+    {
+        {{0,0}, {1,0}, {2,0}, {0,0}}, // Horiz 3
+        {{0,0}, {0,1}, {0,2}, {0,0}}, // Vert 3
+        {{0,0}, {1,0}, {2,0}, {0,0}},
+        {{0,0}, {0,1}, {0,2}, {0,0}}
+    },
+    // 2: Orange (L) -> Line 2
+    {
+        {{0,0}, {1,0}, {0,0}, {0,0}}, // Horiz 2
+        {{0,0}, {0,1}, {0,0}, {0,0}}, // Vert 2
+        {{0,0}, {1,0}, {0,0}, {0,0}},
+        {{0,0}, {0,1}, {0,0}, {0,0}}
+    },
+    // 3: Yellow (O) -> Box 2x2
+    {
+        {{0,0}, {1,0}, {0,1}, {1,1}},
+        {{0,0}, {1,0}, {0,1}, {1,1}},
+        {{0,0}, {1,0}, {0,1}, {1,1}},
+        {{0,0}, {1,0}, {0,1}, {1,1}}
+    },
+    // 4: Green (S) -> Dot 1x1
+    {
+        {{0,0}, {0,0}, {0,0}, {0,0}}, // Just 0,0 repeated
+        {{0,0}, {0,0}, {0,0}, {0,0}},
+        {{0,0}, {0,0}, {0,0}, {0,0}},
+        {{0,0}, {0,0}, {0,0}, {0,0}}
+    },
+    // 5: Purple (T) -> L-Corner 3-blocks (2x2 minus 1)
+    {
+        {{0,0}, {1,0}, {0,1}, {0,0}}, // Top-Left + Right + Down (Corner at 0,0)
+        {{0,0}, {1,0}, {0,1}, {0,0}}, 
+        {{0,0}, {1,0}, {0,1}, {0,0}},
+        {{0,0}, {1,0}, {0,1}, {0,0}}
+    },
+    // 6: Red (Z) -> Line 2 (Same as Orange, for variety)
+    {
+        {{0,0}, {1,0}, {0,0}, {0,0}}, 
+        {{0,0}, {0,1}, {0,0}, {0,0}}, 
+        {{0,0}, {1,0}, {0,0}, {0,0}},
+        {{0,0}, {0,1}, {0,0}, {0,0}}
+    }
 };
 
 struct BlueprintStep {
-    TetrominoType type;
+    TetrominoType type; // 0=I(4), 1=J(3), 2=L(2), 3=O(2x2), 4=S(1), 5=T(Corn), 6=Z(2)
     int targetX;
     int targetY;
-    int rotation;
+    int rotation; // 0=Horiz, 1=Vert
 };
 
 class PatternCGTetris : public EffectWithId<PatternCGTetris> {
 private:
-    uint8_t grid[TETRIS_GRID_W][TETRIS_GRID_H]; // Stores ColorIndex + 1 (0=Empty)
+    uint8_t grid[MAX_GRID_W][MAX_GRID_H]; // Stores ColorIndex + 1 (0=Empty)
+    int gridW; // Calculated at runtime
+    int gridH;
+    
     std::vector<Tetromino> fallingPieces;
     int lastMinute = -1;
     
@@ -64,23 +121,146 @@ private:
     // Digit Construction Queue
     std::deque<BlueprintStep> buildQueue;
 
-    // Helper: Get shapes (4x2 coordinates for each rotation)
-    // We will hardcode these later.
+    // Blueprint definitions (Clean, legible digits 3 wide x 7 high)
+    // Uses simplified shapes for construction.
+    static const std::vector<BlueprintStep>& GetBlueprint(int digit) {
+        static const std::vector<std::vector<BlueprintStep>> blueprints = {
+            // 0: Box (Open Center)
+            {
+                {T_J, 0, 0, 1}, // Blue Left Vert 3
+                {T_J, 0, 4, 1}, // Blue Left Vert 3
+                {T_S, 0, 3, 0}, // Green Dot (Gap fill)
+                {T_J, 2, 0, 1}, // Blue Right Vert 3
+                {T_J, 2, 4, 1}, // Blue Right Vert 3
+                {T_S, 2, 3, 0}, // Green Dot
+                {T_S, 1, 0, 0}, // Top Center Dot
+                {T_S, 1, 6, 0}  // Bot Center Dot
+            },
+            // 1: Center Line
+            {
+                {T_I, 1, 0, 1}, // Cyan Vert 4
+                {T_J, 1, 4, 1}  // Blue Vert 3
+            },
+            // 2: Top, Right-Top, Mid, Left-Bot, Bot
+            {
+                {T_L, 0, 0, 0}, // Orange Horiz 2
+                {T_S, 2, 0, 0}, // Green Dot
+                {T_Z, 2, 1, 1}, // Red Vert 2 (Variety)
+                {T_L, 0, 3, 0}, // Mid Bar 2
+                {T_S, 2, 3, 0}, // Green dot
+                {T_Z, 0, 4, 1}, // Red Vert 2 (Variety)
+                {T_J, 0, 6, 0}  // Bot Bar 3
+            },
+            // 3: E-like (Top, Mid, Bot, Right bar)
+            {
+                {T_J, 2, 0, 1}, // Right Vert 3
+                {T_J, 2, 4, 1}, // Right Vert 3
+                {T_S, 2, 3, 0}, // Mid Dot
+                {T_L, 0, 0, 0}, // Top Bar 2 (Orange)
+                {T_Z, 0, 3, 0}, // Mid Bar 2 (Red)
+                {T_L, 0, 6, 0}  // Bot Bar 2
+            },
+            // 4: L-shape + Right Vert
+            {
+                {T_J, 0, 0, 1}, // Left Vert 3
+                {T_S, 1, 3, 0}, // Mid Center Dot
+                {T_I, 2, 0, 1}, // Right Vert 4
+                {T_J, 2, 4, 1}  // Right Vert 3
+            },
+            // 5: S-like
+            {
+                {T_J, 0, 0, 0}, // Top Bar 3
+                {T_Z, 0, 1, 1}, // Left Vert 2 (Red)
+                {T_J, 0, 3, 0}, // Mid Bar 3
+                {T_Z, 2, 4, 1}, // Right Vert 2 (Red)
+                {T_J, 0, 6, 0}  // Bot Bar 3
+            },
+            // 6: Loop
+            {
+                {T_I, 0, 0, 1}, // Left Vert 4
+                {T_J, 0, 4, 1}, // Left Vert 3
+                {T_L, 1, 0, 0}, // Top Bar 2 (Orange)
+                {T_Z, 1, 3, 0}, // Mid Bar 2 (Red)
+                {T_L, 1, 6, 0}, // Bot Bar 2
+                {T_Z, 2, 4, 1}  // Right Bot Vert 2 (Red)
+            },
+            // 7: Top + Right
+            {
+                {T_J, 0, 0, 0}, // Top Bar 3
+                {T_I, 2, 1, 1}, // Right Vert 4
+                {T_Z, 2, 5, 1}  // Right Vert 2 (Red)
+            },
+            // 8: All
+            {
+                {T_J, 0, 0, 1}, // Left 3
+                {T_J, 0, 4, 1}, // Left 3
+                {T_J, 2, 0, 1}, // Right 3
+                {T_J, 2, 4, 1}, // Right 3
+                {T_S, 1, 0, 0}, // Top Dot
+                {T_S, 1, 3, 0}, // Mid Dot
+                {T_S, 1, 6, 0}  // Bot Dot
+            },
+            // 9: Top Loop + Tail
+            {
+                {T_J, 0, 0, 0}, // Top Bar 3
+                {T_L, 0, 1, 1}, // Left Top Vert 2
+                {T_Z, 2, 1, 1}, // Right Top Vert 2 (Red)
+                {T_J, 0, 3, 0}, // Mid Bar 3
+                {T_I, 2, 3, 1}  // Right Bot Vert 4
+            }
+        };
+        if (digit < 0 || digit > 9) return blueprints[0];
+        return blueprints[digit];
+    }
+
+    int GetDigitOffset(int pos) {
+        int totalWidth = 16;
+        int startX = (gridW - totalWidth) / 2;
+        if (startX < 0) startX = 0;
+        
+        switch(pos) {
+            case 0: return startX + 0;
+            case 1: return startX + 4;
+            case 2: return startX + 9;
+            case 3: return startX + 13;
+        }
+        return 0;
+    }
+    
+    // Bottom alignment for max fall height
+    int GetDigitOffsetY() {
+        int contentH = 7;
+        int y = gridH - contentH; // Flush Bottom
+        return (y < 0) ? 0 : y;
+    }
+
+    // Helper: Get shapes (4 coordinates for each rotation)
+    std::vector<TetrisPoint> GetPoints(const Tetromino& p) {
+         std::vector<TetrisPoint> points;
+         if (p.type == T_NONE) return points;
+         
+         for (int i = 0; i < 4; i++) {
+             TetrisPoint pt = TetrominoDefinitions[p.type][p.rotation % 4][i];
+             points.push_back({p.x + pt.x, (int)p.y + pt.y});
+         }
+         return points;
+    }
     
     void ClearGrid() {
         memset(grid, 0, sizeof(grid));
     }
-    // Optimized bounds check using unsigned cast to catch negative values
+
+    // Optimized bounds check
     void DrawBlock(int gx, int gy, uint8_t colorIdx) {
-        if ((unsigned)gx >= TETRIS_GRID_W || (unsigned)gy >= TETRIS_GRID_H) return;
-        // Draw 3x3 block with 1px border (implicit by being 3x3 in 4x4 space? No, 4x4 filled is easiest)
-        // Let's do 3x3 filled, top-left aligned, leaving bottom-right gap?
-        // Or full 4x4 for CHONKY look? User said 4x4.
-        // Use fillRectangle(x0, y0, x1, y1, color) to support CRGB without conversion
+        if ((unsigned)gx >= gridW || (unsigned)gy >= gridH) return;
+        
         int x = gx * BLOCK_SIZE;
         int y = gy * BLOCK_SIZE;
-        int w = BLOCK_SIZE - 1;
+        
+        // Block Size 3: Draws pixels 0, 1. Gap at 2.
+        int w = BLOCK_SIZE - 1; 
         int h = BLOCK_SIZE - 1;
+        
         g()->fillRectangle(x, y, x + w, y + h, TETRIS_COLORS[colorIdx]);
     }
 
@@ -96,10 +276,36 @@ public:
     PatternCGTetris(const JsonObjectConst& json) : EffectWithId<PatternCGTetris>(json) {}
 
     void Start() override {
+        // Calculate Grid Definition from Matrix Size
+        if (g()->width() > 0 && BLOCK_SIZE > 0) {
+            gridW = g()->width() / BLOCK_SIZE;
+            gridH = g()->height() / BLOCK_SIZE;
+        }
+        if (gridW > MAX_GRID_W) gridW = MAX_GRID_W;
+        if (gridH > MAX_GRID_H) gridH = MAX_GRID_H;
+
         ClearGrid();
         fallingPieces.clear();
         currentState = IDLE;
         lastMinute = -1;
+    }
+
+    // Animation Constants
+    static constexpr float kFallSpeed = 0.20f; // Grid units per frame
+    static constexpr int kSpawnDelay = 20;     // Frames between piece spawns
+    static constexpr int kMeltInterval = 2;    // Frames between grid melt shifts
+    static constexpr int kSpinInterval = 20;   // Frames between rotation ticks
+
+    void QueueDigit(int digit, int pos) {
+        int offsetX = GetDigitOffset(pos);
+        int offsetY = GetDigitOffsetY();
+        const auto& steps = GetBlueprint(digit);
+        for (const auto& step : steps) {
+            BlueprintStep s = step;
+            s.targetX += offsetX;
+            s.targetY += offsetY;
+            buildQueue.push_back(s);
+        }
     }
 
     void Draw() override {
@@ -108,29 +314,51 @@ public:
         if (min != lastMinute) {
             currentState = CLEARING;
             stateTimer = 0;
+            fallingPieces.clear(); // Remove falling pieces so we only animate the grid
             lastMinute = min;
-            // TODO: Queue up the new digits here
         }
 
         // Logic
         switch (currentState) {
             case CLEARING:
-                // TODO: Line clear animation on old digits
-                if (++stateTimer > 30) {
-                    ClearGrid();
+                // Animation: Melt/Fall through floor
+                // Shift grid down every kMeltInterval frames
+                if (stateTimer++ % kMeltInterval == 0) {
+                     for (int x = 0; x < gridW; x++) {
+                         for (int y = gridH - 1; y > 0; y--) {
+                             grid[x][y] = grid[x][y-1];
+                         }
+                         grid[x][0] = 0; // Clear top
+                     }
+                }
+                
+                // Done when enough time passed for full height to clear
+                if (stateTimer > (gridH * kMeltInterval + 10)) {
+                    ClearGrid(); // Ensure perfectly clean
                     currentState = SPAWNING;
-                    // Mockup: Queue a '1' just to see it work
-                    // BuildQueue: I-Piece at x=2, y=6
-                    // buildQueue.push_back({T_I, 2, 6, 0}); 
+                    
+                    // Queue up the time
+                    time_t now;
+                    time(&now);
+                    struct tm *local = localtime(&now);
+                    int h = local->tm_hour;
+                    int m = local->tm_min;
+                    
+                    QueueDigit(h / 10, 0);
+                    QueueDigit(h % 10, 1);
+                    QueueDigit(m / 10, 2);
+                    QueueDigit(m % 10, 3);
                 }
                 break;
                 
             case SPAWNING:
                 // Drop one piece every N frames
-                if (stateTimer++ % 20 == 0 && !buildQueue.empty()) {
+                if (stateTimer++ % kSpawnDelay == 0 && !buildQueue.empty()) {
                     BlueprintStep step = buildQueue.front();
                     buildQueue.pop_front();
-                    Tetromino newPiece = { step.type, step.targetX, -4.0f, step.rotation, step.targetY, false };
+                    // Random start rotation
+                    int startRot = random(4);
+                    Tetromino newPiece = { step.type, step.targetX, -4.0f, startRot, step.rotation, step.targetY, false };
                     fallingPieces.push_back(newPiece);
                 }
                 if (fallingPieces.empty() && buildQueue.empty()) currentState = IDLE;
@@ -140,28 +368,49 @@ public:
                 break;
         }
 
-        // Physics (Gravity)
+        // Physics (Gravity & Rotation)
         for (auto& p : fallingPieces) {
             if (p.settled) continue;
             
-            p.y += 0.25f; // fast fall
+            float newY = p.y + kFallSpeed;
             
-            // Hard landing (Fake collision)
-            if (p.y >= p.targetY) {
+            // Spin animation: Rotate towards target
+            float dist = p.targetY - p.y;
+            if (dist > 2.0f) {
+                // Spin towards target every few frames
+                if ((int)(p.y * 10) % kSpinInterval == 0) { 
+                     if (p.rotation != p.targetRotation) {
+                         p.rotation = (p.rotation + 1) % 4;
+                     }
+                }
+            } else {
+                p.rotation = p.targetRotation; // Snap
+            }
+            
+            // Check Collision (Floor mostly)
+            if (newY >= p.targetY) {
                 p.y = (float)p.targetY;
+                p.rotation = p.targetRotation;
                 p.settled = true;
-                // Lock into grid (simplified: just 1 block for now to test rendering)
-                // Real Tetris needs to lock 4 blocks based on shape
-                grid[p.x][p.targetY] = p.type + 1; // Hack for single block test
+                
+                // Lock into grid
+                std::vector<TetrisPoint> pts = GetPoints(p);
+                for (const auto& pt : pts) {
+                    if (pt.x >= 0 && pt.x < gridW && pt.y >= 0 && pt.y < gridH) {
+                        grid[pt.x][pt.y] = p.type + 1;
+                    }
+                }
+            } else {
+                p.y = newY;
             }
         }
 
         // Render
-        g()->fillScreen(0); // Black background
+        g()->fillScreen(0); 
         
         // Draw Grid
-        for (int x = 0; x < TETRIS_GRID_W; x++) {
-            for (int y = 0; y < TETRIS_GRID_H; y++) {
+        for (int x = 0; x < gridW; x++) {
+            for (int y = 0; y < gridH; y++) {
                 if (grid[x][y] > 0) {
                     DrawBlock(x, y, grid[x][y] - 1);
                 }
@@ -171,13 +420,11 @@ public:
         // Draw Falling
         for (const auto& p : fallingPieces) {
             if (!p.settled) {
-                DrawBlock(p.x, (int)p.y, p.type); // Hack: Drawing just pivot for now
+                std::vector<TetrisPoint> pts = GetPoints(p);
+                for (const auto& pt : pts) {
+                    DrawBlock(pt.x, pt.y, p.type);
+                }
             }
-        }
-        
-        // Blink Colon (Cols 7 & 8?)
-        if (millis() % 1000 < 500) {
-            // gfx->fillRect...
         }
     }
 };
