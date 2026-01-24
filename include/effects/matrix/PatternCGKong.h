@@ -51,9 +51,8 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
 
     // Ladder positions
     static constexpr float kLadder1X = 8.0f;
-    static constexpr float kLadder2X = 32.0f; // MATRIX_WIDTH / 2
-    static constexpr float kLadder3X = 56.0f; // MATRIX_WIDTH - 8
-    static constexpr float kLadder4X = 12.0f;
+    static constexpr float kLadder2X = MATRIX_WIDTH / 2.0f;
+    static constexpr float kLadder3X = MATRIX_WIDTH - 8.0f;
 
     // Safety & Tolerance Constants
     static constexpr float kLadderSnapDist = 2.0f;
@@ -85,7 +84,7 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
         uint32_t panicTime = 0; // v34: Retreat persistence
         uint32_t targetLockTime = 0; // v39.0: Decision persistence
         float lastTargetX = 0.0f;
-	uint32_t _squashTime = 0;
+        uint32_t _squashTime = 0;
         uint32_t ladderBusyTime = 0; // v39.17: Ladder busy hysteresis
         uint32_t lastJumpTime = 0; // v39.29: Prevent pogo-sticking
     };
@@ -104,7 +103,6 @@ class PatternCGKong : public EffectWithId<PatternCGKong>
     std::vector<Barrel> _barrels;
     Entity _dk;
     Entity _mario;
-    int _lastMin = -1;
     float _flashAmount = 0.0f;
     bool _gameActive = true;
     uint32_t _winTime = 0; // v16: Time of victory
@@ -175,7 +173,7 @@ public:
     // v39.13: Compile-time checks - this effect requires specific dimensions
     static_assert(MATRIX_WIDTH >= 64, "PatternCGKong requires MATRIX_WIDTH >= 64");
     static_assert(MATRIX_HEIGHT >= 32, "PatternCGKong requires MATRIX_HEIGHT >= 32");
-    
+
     PatternCGKong() : EffectWithId<PatternCGKong>("CG Kong") { ResetGame(); }
     PatternCGKong(const JsonObjectConst& json) : EffectWithId<PatternCGKong>(json) { ResetGame(); }
 
@@ -247,40 +245,40 @@ public:
         DrawGhostClock();
 
         // v38: DK stomp shockwave (palette-only radial pulse)
-	if (_dkShockTime > 0) {
-	    // perceptual tuning for shockwave
-	    const float kRingSpeed = 16.0f; // slightly slower
-	    // If too subtle, try 0.45f;
-	    const float kRingThickness = 1.4f; // ticker for smoother ring
-	    const float kBrightness = 0.40f; // perceptually punchy
-	    const float kDuration = 180.0f;
+        if (_dkShockTime > 0) {
+            // perceptual tuning for shockwave
+            const float kRingSpeed = 16.0f; // slightly slower
+            // If too subtle, try 0.45f;
+            const float kRingThickness = 1.4f; // ticker for smoother ring
+            const float kBrightness = 0.40f; // perceptually punchy
+            const float kDuration = 180.0f;
 
-	    uint32_t age = millis() - _dkShockTime;
-	    if (age < kDuration) {
-		float t = age / kDuration;        // 0..1
-		float radius = 3.0f + t * kRingSpeed;
-		float strength = (1.0f - t) * kBrightness;
+            uint32_t age = millis() - _dkShockTime;
+            if (age < kDuration) {
+                float t = age / kDuration;        // 0..1
+                float radius = 3.0f + t * kRingSpeed;
+                float strength = (1.0f - t) * kBrightness;
 
-			    // v37.11: Optimized Primitive Circle
-			    int cx = (int)_dk.x;
-			    int cy = (int)(_dk.y + _dkBreath);
-			    uint8_t v = uint8_t(255 * strength);
-			    CRGB c(v, v, v);
+                // v37.11: Optimized Primitive Circle
+                int cx = (int)_dk.x;
+                int cy = (int)(_dk.y + _dkBreath);
+                uint8_t v = uint8_t(255 * strength);
+                CRGB c(v, v, v);
 
-			    g()->DrawSafeCircle(cx, cy, (int)radius, c);
-			    if (kRingThickness > 1.2f) {
-				g()->DrawSafeCircle(cx, cy, (int)radius + 1, c);
-			    }
-	    } else {
-		_dkShockTime = 0;
-	    }
-	}
+                g()->DrawSafeCircle(cx, cy, (int)radius, c);
+                if (kRingThickness > 1.2f) {
+                    g()->DrawSafeCircle(cx, cy, (int)radius + 1, c);
+                }
+            } else {
+                _dkShockTime = 0;
+            }
+        }
 
         if (_winTime > 0) {
             UpdateDK(millis()); // Keep DK breathing on win screen
             if (millis() - _winTime > 3000) ResetGame();
         } else {
-             UpdateEntities();
+            UpdateEntities();
         }
 
         DrawEntities();
@@ -336,8 +334,6 @@ public:
 
     // v37.6 Ladder Safety: Check if a ladder is currently dangerous (descending OR approaching)
     // v39.17: Added hysteresis - once busy, stay busy for 500ms
-    // v37.6 Ladder Safety: Check if a ladder is currently dangerous (descending OR approaching)
-    // v39.17: Added hysteresis - once busy, stay busy for 500ms
     bool IsLadderBusy(float ladderX, int tier) {
         uint32_t nowTime = millis();
         // If ladder was recently marked busy, keep it busy (hysteresis)
@@ -347,7 +343,7 @@ public:
 
         for (const auto& b : _barrels) {
             if (!b.active) continue;
-            
+
             // Allow loose Y matching for tier check
             float floorY = GetFloorY(b.x, tier);
             if (abs(b.y - (floorY - 2.0f)) > 4.0f) continue; // Not on this tier
@@ -386,10 +382,9 @@ private:
         drawThickLine(0, 27, MATRIX_WIDTH - 1, 29); // T1
         g()->drawLine(0, 31, MATRIX_WIDTH - 1, 31, _palGirder); // Ground
 
-        DrawLadder(MATRIX_WIDTH - 8, 17, 4); // T3 to T2
-        DrawLadder(8, 23, 4);               // T2 to T1
-        int groundLadderX = MATRIX_WIDTH / 2;
-        DrawLadder(groundLadderX, 29, 2); // T1 to Ground
+        DrawLadder(kLadder3X, 17, 4); // T3 to T2
+        DrawLadder(kLadder1X, 23, 4); // T2 to T1
+        DrawLadder(kLadder2X, 29, 2); // T1 to Ground
     }
 
     void DrawLadder(int x, int y, int h) {
@@ -486,9 +481,9 @@ private:
                 _mario.lastAnimTime = nowTime;
 
                 // 1. Behavioral Targeting - v39.0: Added Hysteresis
-                float preferredTargetX = _mario.targetX; 
+                float preferredTargetX = _mario.targetX;
                 if (_mario.tier == 0) preferredTargetX = kLadder2X;
-                else if (_mario.tier == 1) preferredTargetX = IsLadderBusy(kLadder1X, 1) ? 32.0f : (kLadder1X - 3.0f); // v39.29: Stand Left of drop (x=5)
+                else if (_mario.tier == 1) preferredTargetX = IsLadderBusy(kLadder1X, 1) ? kLadder2X : (kLadder1X - 3.0f); // v39.29: Stand Left of drop (x=5)
                 else if (_mario.tier == 2) preferredTargetX = IsLadderBusy(kLadder3X, 2) ? 60.0f : (kLadder3X + 3.0f); // v39.29: Stand Right of drop (x=59)
                 else preferredTargetX = 0.0f; // Walk to DK
 
@@ -502,7 +497,7 @@ private:
                 // 2. Behavioral Movement Direction
                 float dist = _mario.targetX - _mario.x;
                 if (abs(dist) < 1.0f) {
-                     _mario.vx = 0; 
+                     _mario.vx = 0;
                 } else {
                      float dir = (dist > 0) ? 1.0f : -1.0f;
                      _mario.vx = dir * kWalkSpeed;
@@ -515,67 +510,62 @@ private:
 
                 // 3. AI Refinement: Safety Overrides (skip if going for win)
                 if (!goingForWin) {
-                // a) Multiple barrels ahead? Move BACKWARDS (True Retreat)
-                // v39.6: Only consider barrels between Mario and his target
-                int approaching = 0;
-                float toTarget = (_mario.targetX - _mario.x);
-                for (const auto& b : _barrels) {
-                    if (!b.active) continue;
-                    float dx = b.x - _mario.x;
-                    float dy = b.y - _mario.y;
-                    if (abs(dy - 2.0f) > 3.0f) continue;
-                    bool towardsTarget = (dx * toTarget > 0);
-                    if (towardsTarget && abs(dx) < 25.0f) approaching++; 
-                }
-                if (approaching > 1) {
-                    float retreatDir = (toTarget > 0) ? -1.0f : 1.0f;
-                    if (IsAreaSafe(_mario.x + retreatDir * 6.0f, _mario.tier, 4.0f)) {
-                        _mario.vx = retreatDir * kWalkSpeed * 1.2f; // v39.7: Faster retreat to outpace barrels
-                        debugEffect(LOG_MASK_THREATS, "[SAFETY] Mario Retreat (Sandwich Avoidance). vx:%.1f\n", _mario.vx);
-                    } else {
-                        _mario.vx = 0; // Wait
-                        debugEffect(LOG_MASK_THREATS, "[SAFETY] Mario Stop (Sandwich Avoidance - Rear Blocked). x:%.1f\n", _mario.x);
+                    // a) Multiple barrels ahead? Move BACKWARDS (True Retreat)
+                    // v39.6: Only consider barrels between Mario and his target
+                    int approaching = 0;
+                    float toTarget = (_mario.targetX - _mario.x);
+                    for (const auto& b : _barrels) {
+                        if (!b.active) continue;
+                        float dx = b.x - _mario.x;
+                        float dy = b.y - _mario.y;
+                        if (abs(dy - 2.0f) > 3.0f) continue;
+                        bool towardsTarget = (dx * toTarget > 0);
+                        if (towardsTarget && abs(dx) < 25.0f) approaching++;
                     }
-                }
-
-                // b) T3 Spawn Safety: Retreat if AT spawn point while DK is winding up
-                // v39.9: Only if Mario is close to spawn (x>23) OR moving away from DK
-                // Don't interfere if he's already past spawn and going for the win!
-                if (_mario.tier == 3 && _mario.x > 23.0f && _mario.x < 30.0f && (_dk.frame == 1 || _dk.frame == 2)) {
-                    // Move AWAY from DK (DK is at x~12, spawn x=25). Retreat direction is RIGHT.
-                    if (IsAreaSafe(_mario.x + 6.0f, 3, 4.0f)) {
-                        _mario.vx = kWalkSpeed * 1.2f; // v39.7: Faster retreat
-                        debugEffect(LOG_MASK_THREATS, "[SAFETY] Mario Retreat (Spawn Hazard). x:%.1f\n", _mario.x);
-                    } else {
-                        _mario.vx = 0; 
-                        debugEffect(LOG_MASK_THREATS, "[SAFETY] Mario Stop (Spawn Hazard - Rear Blocked). x:%.1f\n", _mario.x);
+                    if (approaching > 1) {
+                        float retreatDir = (toTarget > 0) ? -1.0f : 1.0f;
+                        if (IsAreaSafe(_mario.x + retreatDir * 6.0f, _mario.tier, 4.0f)) {
+                            _mario.vx = retreatDir * kWalkSpeed * 1.2f; // v39.7: Faster retreat to outpace barrels
+                            debugEffect(LOG_MASK_THREATS, "[SAFETY] Mario Retreat (Sandwich Avoidance). vx:%.1f\n", _mario.vx);
+                        } else {
+                            _mario.vx = 0; // Wait
+                            debugEffect(LOG_MASK_THREATS, "[SAFETY] Mario Stop (Sandwich Avoidance - Rear Blocked). x:%.1f\n", _mario.x);
+                        }
                     }
-                }
 
-                // c) Safety Stop: Inhibit forward movement into any immediate hazard (projected)
-                // v39.15: Consistent goingForWin threshold (x<25)
-                bool goingForWin = (_mario.tier == 3 && _mario.x < 25.0f);
-                // v39.26: ALWAYS check safety, even if standing still (vx=0)!
-                if (!goingForWin) {
+                    // b) T3 Spawn Safety: Retreat if AT spawn point while DK is winding up
+                    // v39.9: Only if Mario is close to spawn (x>23) OR moving away from DK
+                    // Don't interfere if he's already past spawn and going for the win!
+                    if (_mario.tier == 3 && _mario.x > 23.0f && _mario.x < 30.0f && (_dk.frame == 1 || _dk.frame == 2)) {
+                        // Move AWAY from DK (DK is at x~12, spawn x=25). Retreat direction is RIGHT.
+                        if (IsAreaSafe(_mario.x + 6.0f, 3, 4.0f)) {
+                            _mario.vx = kWalkSpeed * 1.2f; // v39.7: Faster retreat
+                            debugEffect(LOG_MASK_THREATS, "[SAFETY] Mario Retreat (Spawn Hazard). x:%.1f\n", _mario.x);
+                        } else {
+                            _mario.vx = 0;
+                            debugEffect(LOG_MASK_THREATS, "[SAFETY] Mario Stop (Spawn Hazard - Rear Blocked). x:%.1f\n", _mario.x);
+                        }
+                    }
+
+                    // c) Safety Stop: Inhibit forward movement into any immediate hazard (projected)
+                    // v39.26: ALWAYS check safety, even if standing still (vx=0)!
                     if (!IsAreaSafe(_mario.x + _mario.vx * 2.5f, _mario.tier, 5.0f)) {
                         // v39.21: If near unsafe ladder (x>52), SPRINT THROUGH to hidey hole
                         if (_mario.tier == 2 && _mario.x > 52.0f) {
-                             _mario.vx = kWalkSpeed * 1.5f; 
-                             _mario.targetX = 60.0f; _mario.lastTargetX = 60.0f;
-                             _mario.targetLockTime = millis();
-                             debugEffect(LOG_MASK_THREATS, "[FORCE-HIDEY] SPRINTING through danger. x:%.1f\n", _mario.x);
+                            _mario.vx = kWalkSpeed * 1.5f;
+                            _mario.targetX = 60.0f; _mario.lastTargetX = 60.0f;
+                            _mario.targetLockTime = millis();
+                            debugEffect(LOG_MASK_THREATS, "[FORCE-HIDEY] SPRINTING through danger. x:%.1f\n", _mario.x);
                         } else {
                             // v39.31: Dynamic Retreat Direction. Odd Tiers (1,3) Flow Right -> Retreat Right. Even (0,2) Flow Left -> Retreat Left.
                             float retreatDir = (_mario.tier & 1) ? 1.0f : -1.0f;
-                            _mario.vx = retreatDir * kWalkSpeed * 1.7f; 
+                            _mario.vx = retreatDir * kWalkSpeed * 1.7f;
                             debugEffect(LOG_MASK_THREATS, "[SAFETY-RETREAT] Hazard Ahead! Backing off. vx:%.1f\n", _mario.vx);
                         }
                     }
-                }
-
                 } // End safety overrides
 
-                // 4. Animation 
+                // 4. Animation
                 if (_mario.vx != 0) _mario.frame = (_mario.frame == 1) ? 2 : 1;
                 else _mario.frame = 1;
 
@@ -678,13 +668,13 @@ private:
                  _mario._squashTime = millis();
                  _mario.lastJumpTime = millis(); // v39.29: Cooldown start
                  debugEffect(LOG_MASK_PHYSICS, "[%p] Mario Jump Landed. x:%.1f\n", this, _mario.x);
-                 
+
                   // v39.13: Landing Re-Evaluation - check for immediate threats
                   // Fixed: Check threats in BOTH directions, not just current vx direction
                   // v39.20: Disable retreat if Going For Win or Forcing Hidey
                   bool goingForWin = (_mario.tier == 3 && _mario.x < 25.0f);
                   bool forcingHidey = (_mario.tier == 2 && _mario.targetX == 60.0f);
-                  
+
                   int threatsLeft = 0;
                   int threatsRight = 0;
                   float nearestLeft = -999.0f;
@@ -696,7 +686,7 @@ private:
                           float dx = b.x - _mario.x;
                           float dy = b.y - _mario.y;
                           if (abs(dy - 2.0f) > 3.0f) continue;
-                          
+
                           // Check for threats within ~20px
                           if (dx < 0 && dx > -20.0f) {
                               threatsLeft++;
@@ -720,12 +710,12 @@ private:
                        // Single threat direction - Retreat away
                        // v39.24: Panic Jump Fix - Lock Target!
                        float retreatDir = (threatsRight > 0) ? -1.0f : 1.0f; // If threat Right, Go Left
-                       
+
                        _mario.vx = retreatDir * kWalkSpeed * 1.7f;
                        _mario.targetX = _mario.x + (retreatDir * 50.0f);
                        _mario.lastTargetX = _mario.targetX;
                        _mario.targetLockTime = millis();
-                       
+
                        debugEffect(LOG_MASK_THREATS, "[LANDING] Threat! Retreating. x:%.1f vx:%.1f Target:%.1f\n", _mario.x, _mario.vx, _mario.targetX);
                   }
             }
@@ -808,7 +798,7 @@ private:
             }
             else if (b.vx == 0 && b.vy > 0 && b.y < 22) { // Ladder T3->T2
                  // v23: Add X-bound (>32) to prevent catching L1 drops (x=8)!
-                 if (b.x > 32 && b.y >= 20.0f) { b.y = 20.0f; b.vx = -0.5f; b.vy = 0; }
+                 if (b.x > kLadder2X && b.y >= 20.0f) { b.y = 20.0f; b.vx = -0.5f; b.vy = 0; }
             }
             else if (b.vx < 0 && b.y < 24) { // T2 Slope
                  b.y = GetFloorY(b.x, 2) - 2.0f;
@@ -826,7 +816,7 @@ private:
                  if (b.x >= MATRIX_WIDTH - 16) { b.x = MATRIX_WIDTH - 16; b.vx = 0; b.vy = 0.5f; }
             }
             else if (b.vx == 0 && b.vy > 0 && b.y >= kT1Y + 0.5f) { // Ladder T1->Ground
-                 if (b.x > 32 && b.y >= 30.0f) {
+                 if (b.x > kLadder2X && b.y >= 30.0f) {
                      b.y = 30.0f;
                      b.vx = -0.6f; // v15: Always roll LEFT on ground to use full floor
                      b.vy = 0;
