@@ -179,7 +179,17 @@ public:
     PatternCGKong() : EffectWithId<PatternCGKong>("CG Kong") { ResetGame(); }
     PatternCGKong(const JsonObjectConst& json) : EffectWithId<PatternCGKong>(json) { ResetGame(); }
 
-    void Start() override { ResetGame(); }
+    void Start() override {
+        // Initialize palette once
+        _palFur       = GFXBase::from16Bit(kDKFur565);
+        _palTan       = GFXBase::from16Bit(kDKTan565);
+        _palMarioSkin = GFXBase::from16Bit(kMarioSkin565);
+        _palBarrel    = GFXBase::from16Bit(kBarrel565);
+        _palGirder    = GFXBase::from16Bit(kGirder565);
+        _palRed       = GFXBase::from16Bit(kRed565);
+        _palBlue      = GFXBase::from16Bit(0x001F);
+        ResetGame();
+    }
 
     void ResetGame() {
         if (_resetTime == 0) {
@@ -197,7 +207,6 @@ public:
         _mario.vy = 0;
         _mario.targetX = 64.0f;
         _mario.faceLeft = false;
-        _mario.lastClimbTime = 0;
         _mario.lastClimbTime = 0;
         _mario.panicTime = 0;
         _mario.lastJumpTime = 0;
@@ -219,15 +228,6 @@ public:
         frameTime = millis();
         // Calculate DK breathing (Sub-pixel breathing: < 0.5px keeps DK heavy, not floaty)
         _dkBreath = sinf(frameTime * 0.002f) * 0.3f;
-
-        // Convert gamma-corrected palette values once per frame
-        _palFur       = GFXBase::from16Bit(kDKFur565);
-        _palTan       = GFXBase::from16Bit(kDKTan565);
-        _palMarioSkin = GFXBase::from16Bit(kMarioSkin565);
-        _palBarrel    = GFXBase::from16Bit(kBarrel565);
-        _palGirder    = GFXBase::from16Bit(kGirder565);
-        _palRed       = GFXBase::from16Bit(kRed565);
-        _palBlue      = GFXBase::from16Bit(0x001F); // Standard Blue
 
         // v37: Visual Fade Reset
         if (_resetTime > 0) {
