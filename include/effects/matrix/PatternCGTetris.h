@@ -224,8 +224,8 @@ private:
         int y = gy * BLOCK_SIZE;
 
         // Block Size 3: Draws pixels 0, 1. Gap at 2.
-        int w = BLOCK_SIZE - 1;
-        int h = BLOCK_SIZE - 1;
+        int w = BLOCK_SIZE;
+        int h = BLOCK_SIZE;
 
         g()->fillRectangle(x, y, x + w, y + h, TETRIS_COLORS[colorIdx]);
     }
