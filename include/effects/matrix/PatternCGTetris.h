@@ -233,7 +233,8 @@ private:
     int currentMinute() {
         time_t now;
         time(&now);
-        struct tm *local = localtime(&now);
+        struct tm local_buf;
+        struct tm* local = localtime_r(&now, &local_buf);
         return local->tm_min;
     }
 
@@ -307,7 +308,8 @@ public:
                     // Queue up the time
                     time_t now;
                     time(&now);
-                    struct tm *local = localtime(&now);
+                    struct tm local_buf;
+                    struct tm* local = localtime_r(&now, &local_buf);
                     int h = local->tm_hour;
                     int m = local->tm_min;
 
