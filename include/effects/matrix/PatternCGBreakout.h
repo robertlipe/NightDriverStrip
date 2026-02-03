@@ -191,6 +191,17 @@ public:
         ball.x += ball.vx;
         ball.y += ball.vy;
 
+        if (fabsf(ball.vx) < 0.001f) {
+            ball.x = MATRIX_WIDTH / 2.0f;
+            ball.y = 20.0f;
+            ball.vx = (random(100) - 50.0f) / 50.0f;
+            ball.vy = -1.0f;
+            float speed = sqrtf(ball.vx * ball.vx + ball.vy * ball.vy);
+            ball.vx = (ball.vx / speed) * kBallSpeed;
+            ball.vy = (ball.vy / speed) * kBallSpeed;
+            return;
+        }
+
         // Check if ball is too horizontal (boring trajectory)
         // If |vy| is very small compared to |vx|, respawn the ball
         float slope = fabsf(ball.vy / ball.vx);
