@@ -79,3 +79,151 @@ extern const TProgmemRGBPalette16 HeatColors2_p FL_PROGMEM =
     0xFF3300, 0xFF6600, 0xFF9900, 0xFFCC00, 0xFFFF00,
     0xFFFF33, 0xFFFF66, 0xFFFF99, 0xFFFFCC, 0x0000FF
 };
+
+extern const CRGBPalette16 BlueColors_p =
+{
+    CRGB::DarkBlue,
+    CRGB::MediumBlue,
+    CRGB::Blue,
+    CRGB::MediumBlue,
+    CRGB::DarkBlue,
+    CRGB::MediumBlue,
+    CRGB::Blue,
+    CRGB::MediumBlue,
+    CRGB::DarkBlue,
+    CRGB::MediumBlue,
+    CRGB::Blue,
+    CRGB::MediumBlue,
+    CRGB::DarkBlue,
+    CRGB::MediumBlue,
+    CRGB::Blue,
+    CRGB::MediumBlue
+};
+
+extern const CRGBPalette16 RedColors_p =
+{
+    CRGB::Red,
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+
+    CRGB::Red,
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+
+    CRGB::Red,
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+
+    CRGB::Red,
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+    CRGB::OrangeRed
+};
+
+extern const CRGBPalette16 GreenColors_p =
+{
+    CRGB::Green,
+    CRGB::DarkGreen,
+    CRGB::DarkGreen,
+    CRGB::DarkGreen,
+
+    CRGB::Green,
+    CRGB::DarkGreen,
+    CRGB::DarkGreen,
+    CRGB::DarkGreen,
+
+    CRGB::Green,
+    CRGB::DarkGreen,
+    CRGB::DarkGreen,
+    CRGB::DarkGreen,
+
+    CRGB::Green,
+    CRGB::DarkGreen,
+    CRGB::DarkGreen,
+    CRGB::LimeGreen
+};
+
+extern const CRGBPalette16 RGBColors_p =
+{
+    CRGB::Red,
+    CRGB::Green,
+    CRGB::Blue,
+    CRGB::Red,
+    CRGB::Green,
+    CRGB::Blue,
+    CRGB::Red,
+    CRGB::Green,
+    CRGB::Blue,
+    CRGB::Red,
+    CRGB::Green,
+    CRGB::Blue,
+    CRGB::Red,
+    CRGB::Green,
+    CRGB::Blue,
+    CRGB::Blue
+};
+
+extern const CRGBPalette16 spectrumBasicColors =
+{
+    CRGB(0xFD0E35), // Red
+    CRGB(0xFF8833), // Orange
+    CRGB(0xFFEB00), // Middle Yellow
+    CRGB(0xAFE313), // Inchworm
+    CRGB(0x3AA655), // Green
+    CRGB(0x8DD9CC), // Middle Blue Green
+    CRGB(0x0066FF), // Blue III
+    CRGB(0xDB91EF), // Lilac
+    CRGB(0xFD0E35), // Red
+    CRGB(0xFF8833), // Orange
+    CRGB(0xFFEB00), // Middle Yellow
+    CRGB(0xAFE313), // Inchworm
+    CRGB(0x3AA655), // Green
+    CRGB(0x8DD9CC), // Middle Blue Green
+    CRGB(0x0066FF), // Blue III
+    CRGB(0xDB91EF)  // Lilac
+};
+
+extern const CRGBPalette16 spectrumAltColors =
+{
+    CRGB::Red,
+    CRGB::OrangeRed,
+    CRGB::Orange,
+    CRGB::Green,
+    CRGB::ForestGreen,
+    CRGB::Cyan,
+    CRGB::Blue,
+    CRGB::Indigo,
+    CRGB::Red,
+    CRGB::OrangeRed,
+    CRGB::Orange,
+    CRGB::Green,
+    CRGB::ForestGreen,
+    CRGB::Cyan,
+    CRGB::Blue,
+    CRGB::Indigo,
+};
+
+extern const CRGBPalette16 USAColors_p =
+{
+    CRGB::Blue,
+    CRGB::Blue,
+    CRGB::Blue,
+    CRGB::Blue,
+    CRGB::Blue,
+    CRGB::Red,
+    CRGB::White,
+    CRGB::Red,
+    CRGB::White,
+    CRGB::Red,
+    CRGB::White,
+    CRGB::Red,
+    CRGB::White,
+    CRGB::Red,
+    CRGB::White,
+    CRGB::Red
+};
+
+extern const CRGBPalette16 rainbowPalette = RainbowColors_p;

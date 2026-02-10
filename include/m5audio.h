@@ -1,8 +1,6 @@
 //+--------------------------------------------------------------------------
 //
-// File:        colordata.h
-//
-// NightDriverStrip - (c) 2018 Plummer's Software LLC.  All Rights Reserved.
+// NightDriverStrip - (c) 2026 Plummer's Software LLC.  All Rights Reserved.
 //
 // This file is part of the NightDriver software project.
 //
@@ -20,29 +18,20 @@
 //    along with Nightdriver.  It is normally found in copying.txt
 //    If not, see <https://www.gnu.org/licenses/>.
 //
-//
-// Description:
-//
-//    Palettes and other color table definitions.  CPP daa in colordata.cpp
-//
-// History:     May-11-2021         Davepl      Commented
-//
 //---------------------------------------------------------------------------
 
-// Palettes defined in colordata.cpp
+#pragma once
 
-extern const CRGBPalette16 vuPaletteGreen;
-extern const CRGBPalette16 vuPaletteBlue;
-extern const CRGBPalette16 spectrumBasicColors;
-extern const CRGBPalette16 BlueColors_p;
-extern const CRGBPalette16 RedColors_p;
-extern const CRGBPalette16 GreenColors_p;
-extern const CRGBPalette16 RGBColors_p;
-extern const CRGBPalette16 spectrumAltColors;
-extern const CRGBPalette16 USAColors_p;
-extern const CRGBPalette16 rainbowPalette;
-extern const TProgmemRGBGradientPalette_byte vu_gpGreen[];
-extern const TProgmemRGBPalette16 BlueHeatColors_p;
-extern const TProgmemRGBPalette16 HeatColors2_p;
-extern const TProgmemRGBPalette16 GreenHeatColors_p;
+#include "globals.h"
 
+#if USE_M5
+#include <stddef.h>
+#include <stdint.h>
+
+namespace M5Audio {
+    bool MicRecord(int16_t* buffer, size_t samples, int frequency);
+    void SpeakerSetVolume(uint8_t volume);
+    void SpeakerEnd();
+    void MicConfigAndBegin(int sampleRate);
+}
+#endif

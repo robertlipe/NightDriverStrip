@@ -171,6 +171,11 @@
   #include "Bounce2.h"                            // For Bounce button class
 #endif
 
+#if USE_M5
+#include <M5Unified.h>
+#include "screens/m5screen.h"
+#endif
+
 void IRAM_ATTR ScreenUpdateLoopEntry(void *);
 
 #if ENABLE_ESPNOW

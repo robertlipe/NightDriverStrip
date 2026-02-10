@@ -40,6 +40,10 @@
 
 #if USE_SCREEN
 
+#if USE_M5
+#include <M5Unified.h>
+#endif
+
 #if USE_TFTSPI
 #include <SPI.h>
 #include <TFT_eSPI.h>

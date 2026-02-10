@@ -35,6 +35,7 @@
 #pragma once
 
 #include "globals.h"
+#include "m5audio.h"
 #include <algorithm>
 #include <numeric>
 #include <array>
@@ -348,7 +349,7 @@ class SoundAnalyzer : public ISoundAnalyzer
         #if USE_M5
             // M5 path unchanged; fills ptrSampleBuffer with int16 samples
             constexpr auto bytesExpected = MAX_SAMPLES * sizeof(ptrSampleBuffer[0]);
-            if (M5.Mic.record((int16_t *)ptrSampleBuffer.get(), MAX_SAMPLES, SAMPLING_FREQUENCY, false))
+            if (M5Audio::MicRecord((int16_t *)ptrSampleBuffer.get(), MAX_SAMPLES, SAMPLING_FREQUENCY))
                 bytesRead = bytesExpected;
             if (bytesRead != bytesExpected)
             {
@@ -812,17 +813,10 @@ class SoundAnalyzer : public ISoundAnalyzer
         debugV("Begin SamplerBufferInitI2S...");
 
 #if USE_M5
-
-        // Can't use speaker and mic at the same time, and speaker defaults on, so turn it off
-
-        M5.Speaker.setVolume(255);
-        M5.Speaker.end();
-        auto cfg = M5.Mic.config();
-        cfg.sample_rate = SAMPLING_FREQUENCY;
-        cfg.noise_filter_level = 0;
-        cfg.magnification = 8;
-        M5.Mic.config(cfg);
-        M5.Mic.begin();
+        // M5Unified requires some initialization for the mic to work
+        M5Audio::SpeakerSetVolume(255);
+        M5Audio::SpeakerEnd();
+        M5Audio::MicConfigAndBegin(SAMPLING_FREQUENCY);
 
 #elif USE_I2S_AUDIO
 
