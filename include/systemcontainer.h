@@ -300,4 +300,4 @@ class SystemContainer
     #endif
 };
 
-extern DRAM_ATTR std::unique_ptr<SystemContainer> g_ptrSystem;
+extern std::unique_ptr<SystemContainer> g_ptrSystem;
