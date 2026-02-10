@@ -39,7 +39,6 @@
 #include "globals.h"
 
 #include <numeric>
-#include <SPIFFS.h>
 
 #define IMPROV_LOG_FILE             "/improv.log"
 

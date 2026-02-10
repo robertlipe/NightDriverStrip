@@ -44,6 +44,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <esp_arduino_version.h>
 #include <esp_task_wdt.h>
 
 #include <utility>
@@ -187,8 +188,13 @@ public:
         // to see how much there is (it's how they measure free CPU).  Thus, we starve the system's normal idle tasks
         // and have to feed the watchdog on our own.
 
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+        esp_task_wdt_delete(xTaskGetIdleTaskHandleForCore(0));
+        esp_task_wdt_delete(xTaskGetIdleTaskHandleForCore(1));
+#else
         esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
         esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(1));
+#endif
         esp_task_wdt_add(_hIdle0);
         esp_task_wdt_add(_hIdle1);
     }
