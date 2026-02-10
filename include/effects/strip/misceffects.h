@@ -39,6 +39,9 @@
 #include "effects.h"
 #include "ntptimeclient.h"
 #include "systemcontainer.h"
+#if HEXAGON
+#include "ws281xgfx.h"
+#endif
 
 // SimpleRainbowTestEffect
 //

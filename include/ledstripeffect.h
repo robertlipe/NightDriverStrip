@@ -70,6 +70,9 @@ using EffectSettingSpecs = std::vector<SettingSpec, psram_allocator<SettingSpec>
 //
 // Base class for an LED strip effect.  At a minimum they must draw themselves and provide a unique name.
 
+class HexagonGFX;
+
+
 class LEDStripEffect : public IJSONSerializable
 {
   private:
@@ -91,40 +94,8 @@ class LEDStripEffect : public IJSONSerializable
     // instances to a static vector, meaning they are loaded once for all effects. The _settingSpecReferences
     // instance variable vector only contains reference_wrappers to the actual SettingSpecs to save
     // memory.
-    static void FillBaseSettingSpecs()
-    {
-        // If the base SettingSpec instances already exist, bail out...
-        if (!_baseSettingSpecs.empty())
-            return;
+    static void FillBaseSettingSpecs();
 
-        // ...otherwise, create and add them
-
-        _baseSettingSpecs.emplace_back(
-            ACTUAL_NAME_OF(_friendlyName),
-            "Friendly name",
-            "The friendly name of the effect, as shown in the web UI and/or on the matrix.",
-            SettingSpec::SettingType::String
-        );
-        _baseSettingSpecs.emplace_back(
-            ACTUAL_NAME_OF(_maximumEffectTime),
-            "Maximum effect time",
-            "The maximum time in ms that the effect is shown per effect rotation. This duration is only applied if it's "
-            "shorter than the default effect interval. A value of 0 means no maximum effect time is set.",
-            SettingSpec::SettingType::PositiveBigInteger
-        );
-        _baseSettingSpecs.emplace_back(
-            "hasMaximumEffectTime",
-            "Has maximum effect time set",
-            "Indicates if the effect has a maximum effect time set.",
-            SettingSpec::SettingType::Boolean
-        ).Access = SettingSpec::SettingAccess::ReadOnly;
-        _baseSettingSpecs.emplace_back(
-            "clearMaximumEffectTime",
-            "Clear maximum effect time",
-            "Clear maximum effect time. Set to true to reset the maximum effect time to the default value.",
-            SettingSpec::SettingType::Boolean
-        ).Access = SettingSpec::SettingAccess::WriteOnly;
-    }
 
   protected:
 
@@ -264,10 +235,7 @@ class LEDStripEffect : public IJSONSerializable
     }
 
     #if HEXAGON
-      std::shared_ptr<HexagonGFX> hg(size_t channel = 0)
-      {
-        return std::static_pointer_cast<HexagonGFX>(_GFX[channel]);
-      }
+      std::shared_ptr<HexagonGFX> hg(size_t channel = 0);
     #endif
 
     virtual bool CanDisplayVUMeter() const
@@ -519,26 +487,8 @@ class LEDStripEffect : public IJSONSerializable
     //
     // Serialize this effects parameters to a JSON document
 
-    bool SerializeToJSON(JsonObject& jsonObject) override
-    {
-        auto jsonDoc = CreateJsonDocument();
+    bool SerializeToJSON(JsonObject& jsonObject) override;
 
-        jsonDoc[PTY_EFFECTNR]       = static_cast<int>(effectId());
-        jsonDoc["fn"]               = _friendlyName;
-        jsonDoc["es"]               = _enabled ? 1 : 0;
-
-        // Migrations are done when the effect is constructed from JSON, so by definition all known
-        // migrations have been performed by the time we get here.
-        jsonDoc["mi"]               = to_value(JSONMigrations::All);
-
-        // Only add the max effect time and core effect flag if they're not the default, to save space
-        if (HasMaximumEffectTime())
-            jsonDoc["mt"]           = _maximumEffectTime;
-        if (_coreEffect)
-            jsonDoc[PTY_COREEFFECT] = 1;
-
-        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
-    }
 
     virtual bool IsEnabled() const
     {
@@ -589,37 +539,15 @@ class LEDStripEffect : public IJSONSerializable
     // Serialize the "known effect settings" for this effect to JSON. In principle, there
     // should be a SettingSpec instance returned by GetSettingSpecs() for every setting value
     // that's serialized by this function.
-    virtual bool SerializeSettingsToJSON(JsonObject& jsonObject)
-    {
-        auto jsonDoc = CreateJsonDocument();
+    virtual bool SerializeSettingsToJSON(JsonObject& jsonObject);
 
-        jsonDoc[ACTUAL_NAME_OF(_friendlyName)] = _friendlyName;
-        jsonDoc[ACTUAL_NAME_OF(_maximumEffectTime)] = _maximumEffectTime;
-        jsonDoc["hasMaximumEffectTime"] = HasMaximumEffectTime();
-
-        return SetIfNotOverflowed(jsonDoc, jsonObject, __PRETTY_FUNCTION__);
-    }
 
     // Changes the value for one "known" effect setting. All setting values are passed to this
     // function are Strings; the conversion to the target type of a member variable that
     // corresponds with a setting can be taken care of by using one of the SetIfSelected()
     // overloads (either via RETURN_IF_SET or directly).
-    virtual bool SetSetting(const String& name, const String& value)
-    {
-        RETURN_IF_SET(name, ACTUAL_NAME_OF(_friendlyName), _friendlyName, value);
-        RETURN_IF_SET(name, ACTUAL_NAME_OF(_maximumEffectTime), _maximumEffectTime, value);
+    virtual bool SetSetting(const String& name, const String& value);
 
-        bool clearMaximumEffectTime = false;
-        if (SetIfSelected(name, "clearMaximumEffectTime", clearMaximumEffectTime, value))
-        {
-            if (clearMaximumEffectTime)
-                _maximumEffectTime = 0;
-
-            return true;
-        }
-
-        return false;
-    }
 };
 
 #ifndef EFFECT_ID_DEBUG

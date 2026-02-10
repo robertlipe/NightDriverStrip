@@ -136,8 +136,6 @@
 
 // Inform the linker which effects have setting specs, and in which class member
 
-INIT_EFFECT_SETTING_SPECS(LEDStripEffect, _baseSettingSpecs);
-
 //#if USE_HUB75 && ENABLE_WIFI
 #if USE_MATRIX && ENABLE_WIFI
     INIT_EFFECT_SETTING_SPECS(PatternSubscribers, mySettingSpecs);
