@@ -30,6 +30,7 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
+#include "colordata.h"
 
 DEFINE_GRADIENT_PALETTE( vu_gpGreen )
 {

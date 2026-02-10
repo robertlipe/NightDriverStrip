@@ -29,14 +29,15 @@
 //
 //---------------------------------------------------------------------------
 
-#include <mutex>
+#include "globals.h"
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 #include <ArduinoOTA.h> // Over-the-air helper object so we can be flashed via WiFi
-#include "globals.h"
 #include "colordata.h"
-#include "effects/matrix/spectrumeffects.h"
+#include "ntptimeclient.h"
 #include "systemcontainer.h"
+#include "effects/matrix/spectrumeffects.h"
 
 static DRAM_ATTR CRGB l_SinglePixel = CRGB::Blue;
 static DRAM_ATTR uint64_t l_usLastWifiDraw = 0;

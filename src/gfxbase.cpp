@@ -31,8 +31,11 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
-#include "gfxbase.h"
+
 #include <gfxfont.h>                 // Include Adafruit GFX font types BEFORE any M5/LovyanGFX includes
+
+#include "colordata.h"
+#include "gfxbase.h"
 #include "systemcontainer.h"
 
 #if USE_NOISE

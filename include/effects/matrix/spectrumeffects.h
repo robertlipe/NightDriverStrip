@@ -31,11 +31,15 @@
 
 #pragma once
 
-#include "esp_attr.h"
+#include <esp_attr.h>
+
+#include "globals.h"
+
+#include "colordata.h"
+#include "systemcontainer.h"
+#include "values.h"
 #include "effects/strip/musiceffect.h"
 #include "effects/strip/particles.h"
-#include "values.h"
-#include "systemcontainer.h"
 
 #if ENABLE_AUDIO
 

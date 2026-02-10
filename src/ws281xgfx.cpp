@@ -29,8 +29,10 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
-#include "ws281xgfx.h"
+#include "ledbuffer.h"
 #include "systemcontainer.h"
+#include "values.h"
+#include "ws281xgfx.h"
 
 void WS281xGFX::PostProcessFrame(uint16_t localPixelsDrawn, uint16_t wifiPixelsDrawn)
 {

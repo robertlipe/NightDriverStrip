@@ -32,13 +32,16 @@
 
 #pragma once
 
-#include "globals.h"
-#include <type_traits>
-#include <string_view>
-#include <cstdint>
 #include <algorithm>
-#include <vector>
+#include <cstdint>
+#include <memory>
+#include <string_view>
+#include <type_traits>
 #include <utility>
+#include <vector>
+
+#include "globals.h"
+#include "effectfactories.h"
 #include "hashing.h"
 
 // Palettes used by a number of effects - now in colordata.h / colordata.cpp

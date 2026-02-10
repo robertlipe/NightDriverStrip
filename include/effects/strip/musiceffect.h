@@ -34,6 +34,8 @@
 
 #include "effects.h"
 #include "faneffects.h"
+#include "soundanalyzer.h"
+#include "values.h"
 
 #if ENABLE_AUDIO
 

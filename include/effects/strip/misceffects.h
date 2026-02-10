@@ -37,6 +37,7 @@
 #include "TJpg_Decoder.h"
 #endif
 #include "effects.h"
+#include "ntptimeclient.h"
 #include "systemcontainer.h"
 
 // SimpleRainbowTestEffect

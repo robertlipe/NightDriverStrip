@@ -1,5 +1,6 @@
 
 #include "globals.h"
+#include "ntptimeclient.h"
 
 #if ENABLE_NTP
 #include "systemcontainer.h"

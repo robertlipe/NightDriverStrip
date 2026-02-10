@@ -29,6 +29,7 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
+#include "ntptimeclient.h"
 #include "systemcontainer.h"
 
 #if ENABLE_WIFI

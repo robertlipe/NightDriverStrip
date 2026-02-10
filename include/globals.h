@@ -884,14 +884,9 @@ inline auto accumulate(const Range& r)
 
 // Main includes
 
-#include "gfxbase.h"                            // GFXBase drawing interface
-#include "socketserver.h"                       // Incoming WiFi data connections
-#include "ws281xgfx.h"                           // Essential drawing code for strips
 #include "ledstripeffect.h"                     // Defines base led effect classes
-#include "ntptimeclient.h"                      // setting the system clock from ntp
 #include "effectmanager.h"                      // For g_EffectManager
-#include "ledbuffer.h"                          // Buffer manager for strip
-#include "colordata.h"                          // color palettes
+
 
 #if USE_TFTSPI
     #define DISABLE_ALL_LIBRARY_WARNINGS 1

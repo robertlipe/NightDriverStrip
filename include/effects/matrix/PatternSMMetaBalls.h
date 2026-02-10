@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colordata.h"
 #include "effectmanager.h"
 
 // Derived from https://wokwi.com/projects/289218075224441356

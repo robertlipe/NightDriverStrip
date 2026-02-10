@@ -29,6 +29,10 @@
 //
 //---------------------------------------------------------------------------
 
+#pragma once
+
+#include <FastLED.h>
+
 // Palettes defined in colordata.cpp
 
 extern const CRGBPalette16 vuPaletteGreen;

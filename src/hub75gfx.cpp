@@ -34,8 +34,9 @@
 
 #include <SmartMatrix.h>
 #include "hub75gfx.h"
-#include "systemcontainer.h"
 #include "soundanalyzer.h"
+#include "systemcontainer.h"
+#include "values.h"
 
 // The declarations create the "layers" that make up the matrix display
 

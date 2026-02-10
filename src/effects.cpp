@@ -28,10 +28,13 @@
 //              Sep-26-2023         Rbergen     Extracted EffectManager stuff
 //---------------------------------------------------------------------------
 
+#include "globals.h"
+
 // Ensure Adafruit font types are seen before any potential LGFX aliasing from M5Unified
 #include <gfxfont.h>
 #include <Adafruit_GFX.h>
 
+#include "colordata.h"
 #include "effectsupport.h"
 
 // Include the effect classes we'll need later

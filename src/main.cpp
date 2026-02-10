@@ -151,6 +151,8 @@
 
 
 
+#include "globals.h"
+
 #define FASTLED_ALL_PINS_HARDWARE_SPI
 #define FASTLED_ESP32_SPI_BUS HSPI
 
@@ -158,14 +160,20 @@
 #include <nvs_flash.h>                   // Non-volatile storage access
 #include <nvs.h>
 
-#include "globals.h"
-
+#include "colordata.h"
 #include "debug_cli.h"
 #include "deviceconfig.h"
+#include "gfxbase.h"
 #include "improvserial.h"                       // ImprovSerial impl for setting WiFi credentials over the serial port
+#include "ledbuffer.h"
+#include "ntptimeclient.h"
+#include "socketserver.h"
 #include "soundanalyzer.h"
 #include "systemcontainer.h"
 #include "values.h"
+#include "ws281xgfx.h"
+
+
 
 #if defined(TOGGLE_BUTTON_0) || defined(TOGGLE_BUTTON_1)
   #include "Bounce2.h"                            // For Bounce button class
