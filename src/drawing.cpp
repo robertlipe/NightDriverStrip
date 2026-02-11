@@ -29,13 +29,19 @@
 //
 //---------------------------------------------------------------------------
 
-#include <mutex>
+#include "globals.h"
+
 #include <algorithm>
 #include <cmath>
-#include <ArduinoOTA.h> // Over-the-air helper object so we can be flashed via WiFi
-#include "globals.h"
+#include <mutex>
+#include <ArduinoOTA.h>
+
 #include "colordata.h"
+#include "drawing.h"
+#include "effectmanager.h"
 #include "effects/matrix/spectrumeffects.h"
+#include "ledstripeffect.h"
+#include "ntptimeclient.h"
 #include "systemcontainer.h"
 
 static DRAM_ATTR CRGB l_SinglePixel = CRGB::Blue;

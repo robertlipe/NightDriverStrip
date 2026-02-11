@@ -64,15 +64,18 @@
 
 #pragma once
 
-#include <stdexcept>
-#include "globals.h"            // Defines FASTLED, MATRIX_* macros used by subsequent includes
 #include <algorithm>
+#include <stdexcept>
+#include <memory>
+#include <mutex>
+
+#include "globals.h"            // Defines FASTLED, MATRIX_* macros used by subsequent includes
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 #include "Adafruit_GFX.h"
 #include "pixeltypes.h"         // Depends on FastLED namespace/macros from globals.h
 #include "effects/matrix/Boid.h" // Depends on MATRIX_WIDTH/HEIGHT from globals.h
 #include "effects/matrix/Vector.h"
-#include <memory>
-#include <mutex>
 
 // Calculates a weight for anti-aliasing in Wu's algorithm.
 constexpr static inline uint8_t WU_WEIGHT(uint8_t a, uint8_t b)

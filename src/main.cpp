@@ -154,35 +154,52 @@
 #define FASTLED_ALL_PINS_HARDWARE_SPI
 #define FASTLED_ESP32_SPI_BUS HSPI
 
+#include "globals.h"
 #include <ArduinoOTA.h>             // Over-the-air helper object so we can be flashed via WiFi
 #include <nvs_flash.h>                   // Non-volatile storage access
 #include <nvs.h>
 
-#include "globals.h"
-
+#include "colordata.h"
 #include "debug_cli.h"
 #include "deviceconfig.h"
+#include "gfxbase.h"
 #include "improvserial.h"                       // ImprovSerial impl for setting WiFi credentials over the serial port
+#include "ledbuffer.h"
+#include "ntptimeclient.h"
+#include "socketserver.h"
 #include "soundanalyzer.h"
 #include "systemcontainer.h"
 #include "values.h"
+#include "ws281xgfx.h"
+
+
 
 #if defined(TOGGLE_BUTTON_0) || defined(TOGGLE_BUTTON_1)
   #include "Bounce2.h"                            // For Bounce button class
+#endif
+
+#if USE_M5
+#include <M5Unified.h>
+#include "screens/m5screen.h"
 #endif
 
 void IRAM_ATTR ScreenUpdateLoopEntry(void *);
 
 #if ENABLE_ESPNOW
 #include <esp_now.h>
+#include <esp_arduino_version.h>
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+void onReceiveESPNOW(const esp_now_recv_info_t *recvInfo, const uint8_t *data, int dataLen);
+#else
 void onReceiveESPNOW(const uint8_t *macAddr, const uint8_t *data, int dataLen);
+#endif
 #endif
 
 //
 // Global Variables
 //
 
-std::unique_ptr<SystemContainer> g_ptrSystem;
+DRAM_ATTR std::unique_ptr<SystemContainer> g_ptrSystem;
 Values g_Values;
 RemoteDebug Debug;                                                        // Instance of our telnet debug server
 std::mutex g_buffer_mutex;
@@ -199,7 +216,7 @@ std::unique_ptr<ImprovSerial<typeof(Serial)>> g_pImprovSerial;
 // Imagine a setup of 5 Christmas trees, where each tree was made up of 4 concentric rings of decreasing
 // size, like 16, 12, 8, 4.  You would have NUM_FANS of 5 and MAX_RINGS of 4 and your ring table would be 16, 12, 8 4.
 
-const int g_aRingSizeTable[MAX_RINGS] =
+DRAM_ATTR const int g_aRingSizeTable[MAX_RINGS] =
 {
     RING_SIZE_0,
     RING_SIZE_1,
@@ -512,12 +529,18 @@ void setup()
     // Onboard PWM LED
 
     #if ONBOARD_LED_R
-        ledcAttachPin(ONBOARD_LED_R,  1);   // assign RGB led pins to PWM channels
-        ledcAttachPin(ONBOARD_LED_G,  2);
-        ledcAttachPin(ONBOARD_LED_B,  3);
-        ledcSetup(1, 12000, 8);             // 12 kHz PWM, 8-bit resolution
-        ledcSetup(2, 12000, 8);
-        ledcSetup(3, 12000, 8);
+        #if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+            ledcAttach(ONBOARD_LED_R, 12000, 8);
+            ledcAttach(ONBOARD_LED_G, 12000, 8);
+            ledcAttach(ONBOARD_LED_B, 12000, 8);
+        #else
+            ledcAttachPin(ONBOARD_LED_R,  1);   // assign RGB led pins to PWM channels
+            ledcAttachPin(ONBOARD_LED_G,  2);
+            ledcAttachPin(ONBOARD_LED_B,  3);
+            ledcSetup(1, 12000, 8);             // 12 kHz PWM, 8-bit resolution
+            ledcSetup(2, 12000, 8);
+            ledcSetup(3, 12000, 8);
+        #endif
     #endif
 
     g_ptrSystem->SetupBufferManagers();

@@ -28,24 +28,27 @@
 //              Sep-26-2023         Rbergen     Extracted EffectManager stuff
 //---------------------------------------------------------------------------
 
+#include "globals.h"
+
 // Ensure Adafruit font types are seen before any potential LGFX aliasing from M5Unified
 #include <gfxfont.h>
 #include <Adafruit_GFX.h>
 
+#include "colordata.h"
 #include "effectsupport.h"
 
 // Include the effect classes we'll need later
 
-#include "effects/strip/fireeffect.h"           // fire effects
-#include "effects/strip/paletteeffect.h"        // palette effects
-#include "effects/strip/doublepaletteeffect.h"  // double palette effect
-#include "effects/strip/meteoreffect.h"         // meteor blend effect
-#include "effects/strip/stareffect.h"           // star effects
-#include "effects/strip/bouncingballeffect.h"   // bouncing ball effects
-#include "effects/strip/tempeffect.h"
-#include "effects/strip/laserline.h"
-#include "effects/strip/misceffects.h"
 #include "effects/matrix/PatternClock.h"        // No matrix dependencies
+#include "effects/strip/bouncingballeffect.h"   // bouncing ball effects
+#include "effects/strip/doublepaletteeffect.h"  // double palette effect
+#include "effects/strip/fireeffect.h"           // fire effects
+#include "effects/strip/laserline.h"
+#include "effects/strip/meteoreffect.h"         // meteor blend effect
+#include "effects/strip/misceffects.h"
+#include "effects/strip/paletteeffect.h"        // palette effects
+#include "effects/strip/stareffect.h"           // star effects
+#include "effects/strip/tempeffect.h"
 
 #if ENABLE_AUDIO
     #include "effects/matrix/spectrumeffects.h" // Musis spectrum effects
@@ -132,8 +135,6 @@
 #define EFFECT_SET_VERSION 6
 
 // Inform the linker which effects have setting specs, and in which class member
-
-INIT_EFFECT_SETTING_SPECS(LEDStripEffect, _baseSettingSpecs);
 
 //#if USE_HUB75 && ENABLE_WIFI
 #if USE_MATRIX && ENABLE_WIFI

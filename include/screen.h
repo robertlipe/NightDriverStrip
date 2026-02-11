@@ -69,7 +69,7 @@ class Page
 class Screen : public GFXBase
 {
   public:
-    static DRAM_ATTR std::mutex _screenMutex;
+    static std::mutex _screenMutex;
 
     Screen(int w, int h) : GFXBase(w, h)
     {
@@ -205,43 +205,7 @@ class Screen : public GFXBase
 // Class specializations of the Screen class for various display types can implement hardware-specific versions of functions
 // like fillRect.  They also do any required initial setup of the display.
 
-#if USE_M5DISPLAY
 
-    // M5Screen
-    //
-    // Display code for the M5 based TFT displays on the M5 Stick, Stick C Plus, and Stack
-
-    #include <M5UnitLCD.h>
-
-    // M5Screen
-    //
-    // Screen class that supports the M5 devices
-
-    class M5Screen : public Screen
-    {
-      public:
-
-        M5Screen(int w, int h) : Screen(w, h)
-        {
-            M5.Lcd.fillScreen(GREEN16);
-        }
-
-        virtual void drawPixel(int16_t x, int16_t y, uint16_t color) override
-        {
-            M5.Lcd.drawPixel(x, y, color);
-        }
-
-        virtual void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override
-        {
-            M5.Lcd.fillRect(x, y, w, h, color);
-        }
-
-        virtual void fillScreen(uint16_t color) override
-        {
-            M5.Lcd.fillScreen(color);
-        }
-    };
-#endif
 
 #if USE_TFTSPI
     #include <TFT_eSPI.h>

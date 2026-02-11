@@ -34,6 +34,7 @@
 #if ENABLE_AUDIO
 
 #include <deque>
+#include "colordata.h"
 
 class SimpleInsulatorBeatEffect : public EffectWithId<SimpleInsulatorBeatEffect>, public BeatEffectBase
 {

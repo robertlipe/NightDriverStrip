@@ -33,9 +33,12 @@
 #if USE_HUB75
 
 #include <SmartMatrix.h>
+#include "effectmanager.h"
 #include "hub75gfx.h"
-#include "systemcontainer.h"
+#include "ledstripeffect.h"
 #include "soundanalyzer.h"
+#include "systemcontainer.h"
+#include "values.h"
 
 // The declarations create the "layers" that make up the matrix display
 

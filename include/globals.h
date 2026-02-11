@@ -84,9 +84,6 @@
 
 #pragma once
 
-#include <sstream>
-#include <iomanip>
-
 //  See https://github.com/PlummersSoftwareLLC/NightDriverStrip/issues/515
 #define FASTLED_ESP32_FLASH_LOCK 1
 #define FASTLED_INTERNAL 1               // Suppresses build banners
@@ -157,9 +154,7 @@
 #endif
 
 
-#if USE_M5
-#include "M5Unified.h"
-#endif
+
 #define EFFECT_CROSS_FADE_TIME 1200.0    // How long for an effect to ramp brightness fader down and back during effect change
 
 // Thread priorities
@@ -649,7 +644,7 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 // Items with rings must provide a table indicating how big each ring is.  If an insulator had 60 LEDs grouped
 // into rings of 30, 20, and 10, you'd have (NUM_RINGS = 3) and this table would contain (30, 20, 10).
 
-extern DRAM_ATTR const int g_aRingSizeTable[];
+extern const int g_aRingSizeTable[];
 
 #ifndef MICROS_PER_SECOND
     #define MICROS_PER_SECOND 1000000
@@ -778,38 +773,7 @@ inline int FPS(unsigned long duration, uint32_t perSecond = MILLIS_PER_SECOND)
 // va-args style printf that returns the formatted string as a result
 
 // Let compiler warn if our arguments don't match.
-inline String str_sprintf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
-
-inline String str_sprintf(const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-
-    va_list args_copy;
-    va_copy(args_copy, args);
-
-    // BUGBUG: Investigate a vasprintf here and String::copy() to get move semantics
-    // on the return.
-    // Could Save one complete format, a copy, and an alloc and we're called a
-    // few times a second.
-    int requiredLen = vsnprintf(nullptr, 0, fmt, args) + 1;
-    va_end(args);
-
-    if (requiredLen <= 0) {
-        va_end(args_copy);
-        return {};
-    }
-
-    std::unique_ptr<char []> str = std::make_unique<char []>(requiredLen);
-    vsnprintf(str.get(), requiredLen, fmt, args_copy);
-    va_end(args_copy);
-
-    String retval;
-    retval.reserve(requiredLen); // At least saves one scan of the buffer.
-
-    retval = str.get();
-    return retval;
-}
+String str_sprintf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 #include "types.h"
 
@@ -850,31 +814,9 @@ inline static T random_range(T lower, T upper)
 #endif
 }
 
-inline uint64_t ULONGFromMemory(const uint8_t * payloadData)
-{
-    return  (uint64_t)payloadData[7] << 56  |
-            (uint64_t)payloadData[6] << 48  |
-            (uint64_t)payloadData[5] << 40  |
-            (uint64_t)payloadData[4] << 32  |
-            (uint64_t)payloadData[3] << 24  |
-            (uint64_t)payloadData[2] << 16  |
-            (uint64_t)payloadData[1] << 8   |
-            (uint64_t)payloadData[0];
-}
-
-inline uint32_t DWORDFromMemory(const uint8_t * payloadData)
-{
-    return  (uint32_t)payloadData[3] << 24  |
-            (uint32_t)payloadData[2] << 16  |
-            (uint32_t)payloadData[1] << 8   |
-            (uint32_t)payloadData[0];
-}
-
-inline uint16_t WORDFromMemory(const uint8_t * payloadData)
-{
-    return  (uint16_t)payloadData[1] << 8   |
-            (uint16_t)payloadData[0];
-}
+uint64_t ULONGFromMemory(const uint8_t * payloadData);
+uint32_t DWORDFromMemory(const uint8_t * payloadData);
+uint16_t WORDFromMemory(const uint8_t * payloadData);
 
 // SetSocketBlockingEnabled
 //
@@ -900,26 +842,7 @@ inline bool SetSocketBlockingEnabled(int fd, bool blocking)
 // For example, 1024 becomes "1K", 1000*1000 becomes "1M", etc.
 // It pains me not to use 1024, but such are the times we live in.
 
-inline String formatSize(size_t size, size_t threshold = 1000)
-{
-    // If the size is above the threshold, we want a precision of 2 to show more accurate value
-    const int precision = size < threshold ? 0 : 2;
-
-    const char* suffixes[] = {"", "K", "M", "G", "T", "P", "E", "Z"};
-    size_t suffixIndex = 0;
-    double sizeDouble = static_cast<double>(size);
-
-    while (sizeDouble >= threshold && suffixIndex < (sizeof(suffixes) / sizeof(suffixes[0])) - 1)
-    {
-        sizeDouble /= 1000;
-        ++suffixIndex;
-    }
-
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(precision) << sizeDouble << suffixes[suffixIndex];
-    std::string result = oss.str();  // Store the result to avoid dangling pointer
-    return String(result.c_str());
-}
+String formatSize(size_t size, size_t threshold = 1000);
 
 
 // to_array
@@ -961,14 +884,9 @@ inline auto accumulate(const Range& r)
 
 // Main includes
 
-#include "gfxbase.h"                            // GFXBase drawing interface
-#include "socketserver.h"                       // Incoming WiFi data connections
-#include "ws281xgfx.h"                           // Essential drawing code for strips
 #include "ledstripeffect.h"                     // Defines base led effect classes
-#include "ntptimeclient.h"                      // setting the system clock from ntp
 #include "effectmanager.h"                      // For g_EffectManager
-#include "ledbuffer.h"                          // Buffer manager for strip
-#include "colordata.h"                          // color palettes
+
 
 #if USE_TFTSPI
     #define DISABLE_ALL_LIBRARY_WARNINGS 1

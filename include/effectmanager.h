@@ -35,12 +35,17 @@
 
 #pragma once
 
-#include <set>
 #include <algorithm>
 #include <functional>
 #include <math.h>
+#include <set>
+
+#include "globals.h"
+
 #include "effectfactories.h"
+#include "ledstripeffect.h"
 #include "hub75gfx.h"
+#include "values.h"
 
 #define JSON_FORMAT_VERSION         1
 #define CURRENT_EFFECT_CONFIG_FILE  "/current.cfg"

@@ -31,13 +31,13 @@
 #include "globals.h"
 
 #if ENABLE_WEBSERVER
-
-#include "webserver.h"
-
 #include <utility>
-#include "systemcontainer.h"
-#include "soundanalyzer.h"
+#include "effectmanager.h"
 #include "improvserial.h"
+#include "ledstripeffect.h"
+#include "soundanalyzer.h"
+#include "systemcontainer.h"
+#include "webserver.h"
 
 // Static member initializers
 

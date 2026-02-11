@@ -30,8 +30,13 @@
 //---------------------------------------------------------------------------
 
 #include <esp_task_wdt.h>
+
 #include "globals.h"
+#include "audio.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 #include "soundanalyzer.h"
+#include "values.h"
 
 ProjectSoundAnalyzer g_Analyzer;
 

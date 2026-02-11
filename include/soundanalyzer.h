@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "globals.h"
 #include <algorithm>
 #include <numeric>
 #include <array>
@@ -42,6 +41,12 @@
 #include <driver/adc.h>
 #include <driver/i2s.h>
 #include <memory>
+
+#include "globals.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
+#include "m5audio.h"
+
 
 #ifndef SPECTRUM_BAND_SCALE_MEL
 #define SPECTRUM_BAND_SCALE_MEL 1
@@ -251,8 +256,8 @@ class SoundAnalyzer : public ISoundAnalyzer // Non-audio case stub
 
 #else // Audio case
 
-void IRAM_ATTR AudioSamplerTaskEntry(void *);
-void IRAM_ATTR AudioSerialTaskEntry(void *);
+void AudioSamplerTaskEntry(void *);
+void AudioSerialTaskEntry(void *);
 
 // SoundAnalyzer
 //
@@ -265,8 +270,8 @@ class SoundAnalyzer : public ISoundAnalyzer
 {
   public:
     // Give internal audio task functions access to private members
-    friend void IRAM_ATTR AudioSamplerTaskEntry(void *);
-    friend void IRAM_ATTR AudioSerialTaskEntry(void *);
+    friend void AudioSamplerTaskEntry(void *);
+    friend void AudioSerialTaskEntry(void *);
 
     // I'm old enough I can only hear up to about 12000Hz, but feel free to adjust.  Remember from
     // school that you need to sample at double the frequency you want to process, so 24000 samples is 12000Hz
@@ -348,7 +353,7 @@ class SoundAnalyzer : public ISoundAnalyzer
         #if USE_M5
             // M5 path unchanged; fills ptrSampleBuffer with int16 samples
             constexpr auto bytesExpected = MAX_SAMPLES * sizeof(ptrSampleBuffer[0]);
-            if (M5.Mic.record((int16_t *)ptrSampleBuffer.get(), MAX_SAMPLES, SAMPLING_FREQUENCY, false))
+            if (M5Audio::MicRecord((int16_t *)ptrSampleBuffer.get(), MAX_SAMPLES, SAMPLING_FREQUENCY))
                 bytesRead = bytesExpected;
             if (bytesRead != bytesExpected)
             {
@@ -812,17 +817,10 @@ class SoundAnalyzer : public ISoundAnalyzer
         debugV("Begin SamplerBufferInitI2S...");
 
 #if USE_M5
-
-        // Can't use speaker and mic at the same time, and speaker defaults on, so turn it off
-
-        M5.Speaker.setVolume(255);
-        M5.Speaker.end();
-        auto cfg = M5.Mic.config();
-        cfg.sample_rate = SAMPLING_FREQUENCY;
-        cfg.noise_filter_level = 0;
-        cfg.magnification = 8;
-        M5.Mic.config(cfg);
-        M5.Mic.begin();
+        // M5Unified requires some initialization for the mic to work
+        M5Audio::SpeakerSetVolume(255);
+        M5Audio::SpeakerEnd();
+        M5Audio::MicConfigAndBegin(SAMPLING_FREQUENCY);
 
 #elif USE_I2S_AUDIO
 

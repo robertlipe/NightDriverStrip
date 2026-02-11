@@ -1,6 +1,19 @@
 #include "globals.h"
-#include "systemcontainer.h"
+
+#if INCOMING_WIFI_ENABLED
+#undef INADDR_NONE
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
+#include "effectmanager.h"
+#include "ledstripeffect.h"
+#include "socketserver.h"
 #include "soundanalyzer.h"
+#include "systemcontainer.h"
+#include "values.h"
 
 #if INCOMING_WIFI_ENABLED
 
@@ -265,6 +278,51 @@ bool SocketServer::ProcessIncomingConnectionsLoop()
     close(new_socket);
     ResetReadBuffer();
     return false;
+}
+
+// DecompressBuffer
+//
+// Use unzlib to decompress a memory buffer
+
+bool SocketServer::DecompressBuffer(const uint8_t * pBuffer, size_t cBuffer, uint8_t * pOutput, size_t expectedOutputSize)
+{
+    debugV("Compressed Data: %02X %02X %02X %02X...", pBuffer[0], pBuffer[1], pBuffer[2], pBuffer[3]);
+
+    struct uzlib_uncomp d = { 0 };
+    uzlib_uncompress_init(&d, nullptr, 0);
+
+    d.source         = pBuffer;
+    d.source_limit   = pBuffer + cBuffer;
+    d.source_read_cb = nullptr;
+    d.dest_start     = pOutput;
+    d.dest           = pOutput;
+
+    // There's an "off by one" bug/feature in uzlib that reaches one byte past the end.  Took forever
+    // to find it...
+
+    d.dest_limit     = pOutput + expectedOutputSize + 1;
+
+    int res = uzlib_zlib_parse_header(&d);
+    if (res < 0)
+    {
+        debugE("ERROR: Cannot parse zlib data header\n");
+        return false;
+    }
+
+    res = uzlib_uncompress_chksum(&d);                                          // Expand the data
+
+    if (res != TINF_DONE) {
+        debugE("Error during decompression after producing %d bytes: %d\n", d.dest - pOutput, res);
+        return false;
+    }
+
+    if (d.dest - pOutput != expectedOutputSize)
+    {
+        debugE("Expected it to to decompress to %d but got %d instead\n", expectedOutputSize, d.dest - pOutput);
+        return false;
+    }
+
+    return true;
 }
 
 #endif

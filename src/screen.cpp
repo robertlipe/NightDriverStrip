@@ -28,17 +28,27 @@
 // History:     Jul-14-2021         Davepl      Moved out of main.cpp
 //---------------------------------------------------------------------------
 
+#include <algorithm>
+
 #include "globals.h"
+
+#include "colordata.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
+#include "screen.h"
 #include "soundanalyzer.h"
 #include "systemcontainer.h"
-#include <algorithm>
-#include "screen.h"
+#include "values.h"
 
 #if defined(TOGGLE_BUTTON_0) || defined(TOGGLE_BUTTON_1)
 #include "Bounce2.h" // For Bounce button class
 #endif
 
 #if USE_SCREEN
+
+#if USE_M5
+#include <M5Unified.h>
+#endif
 
 #if USE_TFTSPI
 #include <SPI.h>

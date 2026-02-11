@@ -33,7 +33,8 @@
 #pragma once
 
 #include <deque>
-
+#include "soundanalyzer.h"
+#include "values.h"
 #include "effects.h"
 // Needed for FillRingPixels, DrawRingPixels, and fan/ring utilities
 #include "faneffects.h"

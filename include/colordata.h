@@ -29,11 +29,22 @@
 //
 //---------------------------------------------------------------------------
 
+#pragma once
+
+#include <FastLED.h>
+
 // Palettes defined in colordata.cpp
 
 extern const CRGBPalette16 vuPaletteGreen;
 extern const CRGBPalette16 vuPaletteBlue;
 extern const CRGBPalette16 spectrumBasicColors;
+extern const CRGBPalette16 BlueColors_p;
+extern const CRGBPalette16 RedColors_p;
+extern const CRGBPalette16 GreenColors_p;
+extern const CRGBPalette16 RGBColors_p;
+extern const CRGBPalette16 spectrumAltColors;
+extern const CRGBPalette16 USAColors_p;
+extern const CRGBPalette16 rainbowPalette;
 extern const TProgmemRGBGradientPalette_byte vu_gpGreen[];
 extern const TProgmemRGBPalette16 BlueHeatColors_p;
 extern const TProgmemRGBPalette16 HeatColors2_p;

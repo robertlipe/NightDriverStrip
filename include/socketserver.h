@@ -235,50 +235,7 @@ public:
 
     bool ProcessIncomingConnectionsLoop();
 
-    // DecompressBuffer
-    //
-    // Use unzlib to decompress a memory buffer
-
-    static bool DecompressBuffer(const uint8_t * pBuffer, size_t cBuffer, uint8_t * pOutput, size_t expectedOutputSize)
-    {
-        debugV("Compressed Data: %02X %02X %02X %02X...", pBuffer[0], pBuffer[1], pBuffer[2], pBuffer[3]);
-
-        struct uzlib_uncomp d = { 0 };
-        uzlib_uncompress_init(&d, nullptr, 0);
-
-        d.source         = pBuffer;
-        d.source_limit   = pBuffer + cBuffer;
-        d.source_read_cb = nullptr;
-        d.dest_start     = pOutput;
-        d.dest           = pOutput;
-
-        // There's an "off by one" bug/feature in uzlib that reaches one byte past the end.  Took forever
-        // to find it...
-
-        d.dest_limit     = pOutput + expectedOutputSize + 1;
-
-        int res = uzlib_zlib_parse_header(&d);
-        if (res < 0)
-        {
-            debugE("ERROR: Cannot parse zlib data header\n");
-            return false;
-        }
-
-        res = uzlib_uncompress_chksum(&d);                                          // Expand the data
-
-        if (res != TINF_DONE) {
-            debugE("Error during decompression after producing %d bytes: %d\n", d.dest - pOutput, res);
-            return false;
-        }
-
-        if (d.dest - pOutput != expectedOutputSize)
-        {
-            debugE("Expected it to to decompress to %d but got %d instead\n", expectedOutputSize, d.dest - pOutput);
-            return false;
-        }
-
-        return true;
-    }
+    static bool DecompressBuffer(const uint8_t * pBuffer, size_t cBuffer, uint8_t * pOutput, size_t expectedOutputSize);
 };
 
 #endif

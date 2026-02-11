@@ -37,7 +37,7 @@
 
 // Variables we need further down
 
-extern DRAM_ATTR std::unique_ptr<EffectFactories> g_ptrEffectFactories;
+extern std::unique_ptr<EffectFactories> g_ptrEffectFactories;
 extern std::map<int, JSONEffectFactory> g_JsonStarryNightEffectFactories;
 DRAM_ATTR size_t g_EffectsManagerJSONBufferSize = 0;
 static DRAM_ATTR size_t l_EffectsManagerJSONWriterIndex = SIZE_MAX;

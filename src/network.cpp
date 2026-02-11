@@ -29,6 +29,7 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
+#include "ntptimeclient.h"
 #include "systemcontainer.h"
 
 #if ENABLE_WIFI
@@ -41,6 +42,7 @@
 #include "debug_cli.h"
 #include "effectmanager.h"
 #include "ledviewer.h"              // For the LEDViewer task and object
+#include "ledstripeffect.h"
 #include "network.h"
 #include "soundanalyzer.h"
 

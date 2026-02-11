@@ -46,6 +46,7 @@
 #include <thread>
 #include <vector>
 #include <map>
+#include <sstream>
 
 extern const GFXfont Apple5x7 PROGMEM;
 using namespace std;
