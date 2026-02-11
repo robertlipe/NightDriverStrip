@@ -31,6 +31,8 @@
 
 #include "globals.h"
 #include "colordata.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 
 DEFINE_GRADIENT_PALETTE( vu_gpGreen )
 {

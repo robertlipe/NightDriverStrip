@@ -42,6 +42,8 @@
 
 #include "globals.h"
 #include "effectfactories.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 #include "hashing.h"
 
 // Palettes used by a number of effects - now in colordata.h / colordata.cpp

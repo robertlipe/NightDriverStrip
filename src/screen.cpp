@@ -33,6 +33,8 @@
 #include "globals.h"
 
 #include "colordata.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 #include "screen.h"
 #include "soundanalyzer.h"
 #include "systemcontainer.h"

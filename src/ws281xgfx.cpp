@@ -29,7 +29,9 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
+#include "effectmanager.h"
 #include "ledbuffer.h"
+#include "ledstripeffect.h"
 #include "systemcontainer.h"
 #include "values.h"
 #include "ws281xgfx.h"

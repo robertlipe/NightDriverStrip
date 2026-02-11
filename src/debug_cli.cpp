@@ -25,27 +25,26 @@
 //    Implementation of debugging command line interface to NightDriver.
 //
 
-#include "globals.h"
-
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cstring>
 #include <esp_heap_caps.h>
 #include <esp_log.h>
-#include <esp_system.h>
+#include <esp_system.h> // esp_restart
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <FS.h>
 #include <optional>
 #include <SPIFFS.h>
+#include "globals.h"
 #include <string>
 #include <string_view>
 #include <vector>
-
 #include "colordata.h"
 #include "debug_cli.h"
 #include "effectmanager.h"
+#include "ledstripeffect.h"
 #include "systemcontainer.h"
 
 namespace DebugCLI

@@ -35,12 +35,15 @@
 
 #pragma once
 
-#include "globals.h"
 #include <algorithm>
 #include <functional>
 #include <math.h>
 #include <set>
+
+#include "globals.h"
+
 #include "effectfactories.h"
+#include "ledstripeffect.h"
 #include "hub75gfx.h"
 #include "values.h"
 

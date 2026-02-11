@@ -23,6 +23,8 @@
 #pragma once
 
 #include "globals.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 
 #if USE_M5
 #include <stddef.h>

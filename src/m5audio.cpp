@@ -25,6 +25,8 @@
 
 #if USE_M5
 #include <M5Unified.h>
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 #include "m5audio.h"
 
 namespace M5Audio {

@@ -1,5 +1,7 @@
 
 #include "globals.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 #include "ntptimeclient.h"
 
 #if ENABLE_NTP

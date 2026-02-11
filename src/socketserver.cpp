@@ -8,6 +8,8 @@
 #include <unistd.h>
 #endif
 
+#include "effectmanager.h"
+#include "ledstripeffect.h"
 #include "socketserver.h"
 #include "soundanalyzer.h"
 #include "systemcontainer.h"

@@ -151,11 +151,10 @@
 
 
 
-#include "globals.h"
-
 #define FASTLED_ALL_PINS_HARDWARE_SPI
 #define FASTLED_ESP32_SPI_BUS HSPI
 
+#include "globals.h"
 #include <ArduinoOTA.h>             // Over-the-air helper object so we can be flashed via WiFi
 #include <nvs_flash.h>                   // Non-volatile storage access
 #include <nvs.h>

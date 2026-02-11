@@ -16,8 +16,7 @@
 //    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 //    GNU General Public License for more details.
 //
-//    You should have received a copy of the GNU General Public License
-//    along with NightDriver.  It is normally found in copying.txt
+//    along with Nightdriver.  It is normally found in copying.txt
 //    If not, see <https://www.gnu.org/licenses/>.
 //
 // Description:
@@ -29,8 +28,9 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
-#include "ledstripeffect.h"
+#include "effectmanager.h"
 #include "jsonserializer.h"
+#include "ledstripeffect.h"
 
 #ifdef HEXAGON
 #include "ws281xgfx.h"

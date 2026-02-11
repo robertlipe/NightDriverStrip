@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include "globals.h"
-#include "m5audio.h"
 #include <algorithm>
 #include <numeric>
 #include <array>
@@ -43,6 +41,12 @@
 #include <driver/adc.h>
 #include <driver/i2s.h>
 #include <memory>
+
+#include "globals.h"
+#include "effectmanager.h"
+#include "ledstripeffect.h"
+#include "m5audio.h"
+
 
 #ifndef SPECTRUM_BAND_SCALE_MEL
 #define SPECTRUM_BAND_SCALE_MEL 1

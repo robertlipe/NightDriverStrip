@@ -32,6 +32,7 @@
 #pragma once
 
 #include "globals.h"
+#include "ledstripeffect.h"
 
 #define WEB_SOCKETS_ANY_ENABLED (COLORDATA_WEB_SOCKET_ENABLED || EFFECTS_WEB_SOCKET_ENABLED)
 

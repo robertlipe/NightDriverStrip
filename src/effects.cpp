@@ -39,16 +39,16 @@
 
 // Include the effect classes we'll need later
 
-#include "effects/strip/fireeffect.h"           // fire effects
-#include "effects/strip/paletteeffect.h"        // palette effects
-#include "effects/strip/doublepaletteeffect.h"  // double palette effect
-#include "effects/strip/meteoreffect.h"         // meteor blend effect
-#include "effects/strip/stareffect.h"           // star effects
-#include "effects/strip/bouncingballeffect.h"   // bouncing ball effects
-#include "effects/strip/tempeffect.h"
-#include "effects/strip/laserline.h"
-#include "effects/strip/misceffects.h"
 #include "effects/matrix/PatternClock.h"        // No matrix dependencies
+#include "effects/strip/bouncingballeffect.h"   // bouncing ball effects
+#include "effects/strip/doublepaletteeffect.h"  // double palette effect
+#include "effects/strip/fireeffect.h"           // fire effects
+#include "effects/strip/laserline.h"
+#include "effects/strip/meteoreffect.h"         // meteor blend effect
+#include "effects/strip/misceffects.h"
+#include "effects/strip/paletteeffect.h"        // palette effects
+#include "effects/strip/stareffect.h"           // star effects
+#include "effects/strip/tempeffect.h"
 
 #if ENABLE_AUDIO
     #include "effects/matrix/spectrumeffects.h" // Musis spectrum effects
