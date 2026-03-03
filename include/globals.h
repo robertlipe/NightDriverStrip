@@ -84,6 +84,49 @@
 
 #pragma once
 
+#include <Arduino.h>
+#include <memory>
+#include <cstdarg>
+
+// str_snprintf
+//
+// va-args style printf that returns the formatted string as a result
+
+// Let compiler warn if our arguments don't match.
+inline String str_sprintf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+inline String str_sprintf(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    va_list args_copy;
+    va_copy(args_copy, args);
+
+    // BUGBUG: Investigate a vasprintf here and String::copy() to get move semantics
+    // on the return.
+    // Could Save one complete format, a copy, and an alloc and we're called a
+    // few times a second.
+    int requiredLen = vsnprintf(nullptr, 0, fmt, args) + 1;
+    va_end(args);
+
+    if (requiredLen <= 0) {
+        va_end(args_copy);
+        return {};
+    }
+
+    std::unique_ptr<char []> str = std::make_unique<char []>(requiredLen);
+    vsnprintf(str.get(), requiredLen, fmt, args_copy);
+    va_end(args_copy);
+
+    String retval;
+    retval.reserve(requiredLen); // At least saves one scan of the buffer.
+
+    retval = str.get();
+    return retval;
+}
+
+
 #include <sstream>
 #include <iomanip>
 
@@ -649,7 +692,7 @@ extern RemoteDebug Debug;           // Let everyone in the project know about it
 // Items with rings must provide a table indicating how big each ring is.  If an insulator had 60 LEDs grouped
 // into rings of 30, 20, and 10, you'd have (NUM_RINGS = 3) and this table would contain (30, 20, 10).
 
-extern DRAM_ATTR const int g_aRingSizeTable[];
+extern const int g_aRingSizeTable[];
 
 #ifndef MICROS_PER_SECOND
     #define MICROS_PER_SECOND 1000000
@@ -771,44 +814,6 @@ inline int FPS(unsigned long duration, uint32_t perSecond = MILLIS_PER_SECOND)
     if (FPS > 999)
         FPS = 999;
     return FPS;
-}
-
-// str_snprintf
-//
-// va-args style printf that returns the formatted string as a result
-
-// Let compiler warn if our arguments don't match.
-inline String str_sprintf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
-
-inline String str_sprintf(const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-
-    va_list args_copy;
-    va_copy(args_copy, args);
-
-    // BUGBUG: Investigate a vasprintf here and String::copy() to get move semantics
-    // on the return.
-    // Could Save one complete format, a copy, and an alloc and we're called a
-    // few times a second.
-    int requiredLen = vsnprintf(nullptr, 0, fmt, args) + 1;
-    va_end(args);
-
-    if (requiredLen <= 0) {
-        va_end(args_copy);
-        return {};
-    }
-
-    std::unique_ptr<char []> str = std::make_unique<char []>(requiredLen);
-    vsnprintf(str.get(), requiredLen, fmt, args_copy);
-    va_end(args_copy);
-
-    String retval;
-    retval.reserve(requiredLen); // At least saves one scan of the buffer.
-
-    retval = str.get();
-    return retval;
 }
 
 #include "types.h"
@@ -969,6 +974,11 @@ inline auto accumulate(const Range& r)
 #include "effectmanager.h"                      // For g_EffectManager
 #include "ledbuffer.h"                          // Buffer manager for strip
 #include "colordata.h"                          // color palettes
+
+// rjl hack
+#include "values.h"
+#include "gfxbase.h"
+#include "types.h"
 
 #if USE_TFTSPI
     #define DISABLE_ALL_LIBRARY_WARNINGS 1

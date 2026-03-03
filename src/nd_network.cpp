@@ -41,7 +41,7 @@
 #include "debug_cli.h"
 #include "effectmanager.h"
 #include "ledviewer.h"              // For the LEDViewer task and object
-#include "network.h"
+#include "nd_network.h"
 #include "soundanalyzer.h"
 
 extern DRAM_ATTR std::mutex g_buffer_mutex;

@@ -38,7 +38,7 @@ ProjectSoundAnalyzer g_Analyzer;
 #if ENABLE_AUDIO
 
 #if ENABLE_VICE_SERVER
-#include "network.h"
+#include "nd_network.h"
 #endif
 
 // AudioSamplerTaskEntry

@@ -33,7 +33,7 @@
 #include "effectmanager.h"
 #include "taskmgr.h"
 #include "jsonserializer.h"
-#include "network.h"
+#include "nd_network.h"
 #include "deviceconfig.h"
 #include "screen.h"
 #include "socketserver.h"
@@ -300,4 +300,4 @@ class SystemContainer
     #endif
 };
 
-extern DRAM_ATTR std::unique_ptr<SystemContainer> g_ptrSystem;
+extern std::unique_ptr<SystemContainer> g_ptrSystem;

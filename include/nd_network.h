@@ -26,20 +26,23 @@
 //
 //---------------------------------------------------------------------------
 #pragma once
+#include "globals.h" // RJL
 
 #include <utility>
 // Retire this test once Arduino3 fully lands.
 #include <esp_arduino_version.h>
 #if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
-   #include_next <Network.h> // For wl_status_t, etc. (case matters)
+   #include <atomic>
+   #include <Network.h>
+   #include <WiFi.h>
 #endif
 #include "esp_mac.h"
 
 #include "types.h"
 
-#if INCOMING_WIFI_ENABLED
-    #include "socketserver.h"
-#endif
+//#if INCOMING_WIFI_ENABLED
+//    #include "socketserver.h" // this is in globals
+//#endif
 
     // For now, just a centralized location for the port numbers for our
     // various services. Someday these might be configurable.

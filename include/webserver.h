@@ -42,7 +42,7 @@
 #if ENABLE_WEBSERVER
 
 #include "deviceconfig.h"
-#include "network.h"
+#include "nd_network.h"
 
 #include <Arduino.h>
 #include <ArduinoJson.h>

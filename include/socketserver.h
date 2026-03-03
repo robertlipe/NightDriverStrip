@@ -41,6 +41,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "esp_log.h"
+
 extern "C"
 {
     #include "uzlib/src/uzlib.h"
@@ -127,7 +129,7 @@ public:
             _server_fd = -1;
         }
     }
-
+#define ME "socket"
     bool begin()
     {
         _pBuffer.reset( psram_allocator<uint8_t>().allocate(MAXIMUM_PACKET_SIZE) );
@@ -136,7 +138,7 @@ public:
         // Creating socket file descriptor
         if ((_server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         {
-            debugW("socket error\n");
+            ESP_LOGW(TAG, "socket error\n");
             release();
             return false;
         }
@@ -188,7 +190,7 @@ public:
     {
         if (cbNeeded <= _cbReceived)                            // If we already have that many bytes, we're already done
         {
-            debugV("Already had enough data to satisfy read: requested %d, had %d", cbNeeded, _cbReceived);
+            ESP_LOGV(ME, "Already had enough data to satisfy read: requested %d, had %d", cbNeeded, _cbReceived);
             return true;
         }
 
@@ -197,7 +199,7 @@ public:
 
         if (cbNeeded > MAXIMUM_PACKET_SIZE)
         {
-            debugW("Unexpected request for %d bytes in ReadUntilNBytesReceived\n", cbNeeded);
+            ESP_LOGW(ME,"Unexpected request for %d bytes in ReadUntilNBytesReceived\n", cbNeeded);
             return false;
         }
 
@@ -221,7 +223,7 @@ public:
             }
             else
             {
-                debugW("ERROR: %d bytes read in ReadUntilNBytesReceived trying to read %d\n", cbRead, cbNeeded-_cbReceived);
+                ESP_LOGW(ME, "ERROR: %d bytes read in ReadUntilNBytesReceived trying to read %d\n", cbRead, cbNeeded-_cbReceived);
                 return false;
             }
         } while (_cbReceived < cbNeeded);
@@ -241,7 +243,7 @@ public:
 
     static bool DecompressBuffer(const uint8_t * pBuffer, size_t cBuffer, uint8_t * pOutput, size_t expectedOutputSize)
     {
-        debugV("Compressed Data: %02X %02X %02X %02X...", pBuffer[0], pBuffer[1], pBuffer[2], pBuffer[3]);
+        ESP_LOGV(ME, "Compressed Data: %02X %02X %02X %02X...", pBuffer[0], pBuffer[1], pBuffer[2], pBuffer[3]);
 
         struct uzlib_uncomp d = { 0 };
         uzlib_uncompress_init(&d, nullptr, 0);
@@ -260,20 +262,20 @@ public:
         int res = uzlib_zlib_parse_header(&d);
         if (res < 0)
         {
-            debugE("ERROR: Cannot parse zlib data header\n");
+            ESP_LOGE(ME, "ERROR: Cannot parse zlib data header\n");
             return false;
         }
 
         res = uzlib_uncompress_chksum(&d);                                          // Expand the data
 
         if (res != TINF_DONE) {
-            debugE("Error during decompression after producing %d bytes: %d\n", d.dest - pOutput, res);
+            ESP_LOGE(ME, "Error during decompression after producing %d bytes: %d\n", d.dest - pOutput, res);
             return false;
         }
 
         if (d.dest - pOutput != expectedOutputSize)
         {
-            debugE("Expected it to to decompress to %d but got %d instead\n", expectedOutputSize, d.dest - pOutput);
+            ESP_LOGE(ME, "Expected it to to decompress to %d but got %d instead\n", expectedOutputSize, d.dest - pOutput);
             return false;
         }
 

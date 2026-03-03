@@ -69,7 +69,7 @@ class Page
 class Screen : public GFXBase
 {
   public:
-    static DRAM_ATTR std::mutex _screenMutex;
+    static std::mutex _screenMutex;
 
     Screen(int w, int h) : GFXBase(w, h)
     {

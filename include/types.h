@@ -38,6 +38,8 @@
 #include <sys/time.h>
 #include <WString.h>
 
+#include "esp_log.h"
+
 #ifndef MICROS_PER_SECOND
     #define MICROS_PER_SECOND 1000000
 #endif
@@ -246,11 +248,11 @@ inline void * PreferPSRAMAlloc(size_t s)
 
     if (s_psramAvailable)
     {
-        debugV("PSRAM Array Request for %zu bytes\n", s);
+        ESP_LOGI("psram", "PSRAM Array Request for %zu bytes\n", s);
         auto p = ps_malloc(s);
         if (!p)
         {
-            debugE("PSRAM Allocation failed for %zu bytes\n", s);
+            ESP_LOGE("psram", "PSRAM Allocation failed for %zu bytes\n", s);
             throw std::bad_alloc();
         }
         return p;
@@ -260,7 +262,7 @@ inline void * PreferPSRAMAlloc(size_t s)
         auto p = malloc(s);
         if (!p)
         {
-            debugE("RAM Allocation failed for %zu bytes\n", s);
+            ESP_LOGE("psram", "RAM Allocation failed for %zu bytes\n", s);
             throw std::bad_alloc();
         }
         return p;

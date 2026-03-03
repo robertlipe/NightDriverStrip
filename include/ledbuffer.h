@@ -33,11 +33,15 @@
 
 #pragma once
 
+#include "globals.h"
+
 #include <pixeltypes.h>
 #include <memory>
 #include <iostream>
 #include <utility>
 #include "values.h"
+
+#include "esp_log.h"
 
 class LEDBuffer
 {
@@ -90,12 +94,12 @@ class LEDBuffer
     // UpdateFromWire
     //
     // Parse and deposit a WiFi packet into a buffer
-
+#define TAG "ledbuffer"
     bool UpdateFromWire(std::unique_ptr<uint8_t []> & payloadData, size_t payloadLength)
     {
         if (payloadLength < 24)                 // Our header size
         {
-            debugW("Not enough data received to process");
+            ESP_LOGW(TAG, "Not enough data received to process");
             return false;
         }
 
@@ -122,22 +126,22 @@ class LEDBuffer
 
         if (payloadLength < length32 * sizeof(CRGB) + cbHeader)
         {
-            debugW("command16: %hu   length32: %lu,  payloadLength: %zu\n", command16, (unsigned long)length32, payloadLength);
-            debugW("Data size mismatch");
+            ESP_LOGW(TAG, "command16: %hu   length32: %lu,  payloadLength: %zu\n", command16, (unsigned long)length32, payloadLength);
+            ESP_LOGW(TAG, "Data size mismatch");
             return false;
         }
         if (length32 > NUM_LEDS)
         {
-            debugW("More data than we have LEDs\n");
+            ESP_LOGW(TAG, "More data than we have LEDs\n");
             return false;
         }
-        debugV("PayloadLength: %zu, command16: %hu, Length32: %lu", payloadLength, command16, (unsigned long)length32);
+        ESP_LOGV(TAG, "PayloadLength: %zu, command16: %hu, Length32: %lu", payloadLength, command16, (unsigned long)length32);
 
         CRGB * pRGB = reinterpret_cast<CRGB *>(&payloadData[cbHeader]);
 
         memcpy(_leds.get(), pRGB, length32 * sizeof(CRGB));
-        debugV("seconds, micros: %llu.%llu", seconds, micros);
-        debugV("Color0: %08lx", (unsigned long)(uint32_t) _leds[0]);
+        ESP_LOGV(TAG,"seconds, micros: %llu.%llu", seconds, micros);
+        ESP_LOGV(TAG,"Color0: %08lx", (unsigned long)(uint32_t) _leds[0]);
         return true;
     }
 
@@ -298,5 +302,5 @@ class LEDBufferManager
         return (*_ppBuffers)[i];
     }
 };
-
+#undef TAG
 

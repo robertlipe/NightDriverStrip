@@ -192,7 +192,7 @@ const CRGBPalette16 USAColors_p =
 const CRGBPalette16 rainbowPalette(RainbowColors_p);
 
 // A pointer to the global effect factories.
-extern DRAM_ATTR std::unique_ptr<EffectFactories> g_ptrEffectFactories;
+extern std::unique_ptr<EffectFactories> g_ptrEffectFactories;
 
 // ------------------------------------------------------------
 // Support for building stable factory IDs and combining them
