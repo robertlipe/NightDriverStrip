@@ -274,7 +274,7 @@ void CWebServer::GetEffectListText(AsyncWebServerRequest * pRequest)
 
 void CWebServer::GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType) const
 {
-    debugV("GetStatistics");
+//    debugV("GetStatistics");
 
     auto response = new AsyncJsonResponse();
     auto& j = response->getRoot();
@@ -494,7 +494,7 @@ void CWebServer::GetSettingSpecs(AsyncWebServerRequest * pRequest)
 // Responds with current config, excluding any sensitive values
 void CWebServer::GetSettings(AsyncWebServerRequest * pRequest)
 {
-    debugV("GetSettings");
+//    debugV("GetSettings");
 
     auto response = new AsyncJsonResponse();
     response->addHeader("Server", "NightDriverStrip");

@@ -308,9 +308,11 @@ void setup()
     PrintOutputHeader();
     debugI("Startup!");
 
+#if 1
     // Start Debug
     debugI("Starting DebugLoopTaskEntry");
     taskManager.StartDebugThread();
+#endif
 
     // Initialize Non-Volatile Storage
     esp_err_t err = nvs_flash_init();

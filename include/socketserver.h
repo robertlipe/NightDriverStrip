@@ -138,7 +138,7 @@ public:
         // Creating socket file descriptor
         if ((_server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         {
-            ESP_LOGW(TAG, "socket error\n");
+            ESP_LOGW(ME, "socket error\n");
             release();
             return false;
         }

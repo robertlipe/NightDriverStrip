@@ -135,7 +135,54 @@ inline String str_sprintf(const char *fmt, ...)
 #define FASTLED_INTERNAL 1               // Suppresses build banners
 #include <FastLED.h>
 
-#include <RemoteDebug.h>
+#ifndef ENABLE_REMOTEDEBUG
+    #define ENABLE_REMOTEDEBUG 1
+#endif
+
+#if ENABLE_REMOTEDEBUG
+    #include <RemoteDebug.h>
+#else
+    #include <WiFiClient.h>
+    // Stub class to keep code compiling when RemoteDebug is disabled
+    class RemoteDebug {
+    public:
+        enum { ANY, INFO };
+        void begin(String, int) {}
+        void handle() {}
+        void setSerialEnabled(bool) {}
+        void showRaw(bool) {}
+        void print(const char*) {}
+        void printf(const char*, ...) {}
+        void showColors(bool) {}
+        void showProfiler(bool) {}
+        void setResetCmdEnabled(bool) {}
+        void setCallBackProjectCmds(void (*)(void)) {}
+        bool isActive(int) { return false; }
+        WiFiClient* getTelnetClient() { return nullptr; }
+        String getLastCommand() { return ""; }
+    };
+#endif
+
+// Fallback debug macros for when RemoteDebug is disabled or broken
+#ifndef debugV
+#define debugV(fmt, ...) Serial.printf(fmt "\n", ##__VA_ARGS__)
+#endif
+#ifndef debugD
+#define debugD(fmt, ...) Serial.printf(fmt "\n", ##__VA_ARGS__)
+#endif
+#ifndef debugI
+#define debugI(fmt, ...) Serial.printf(fmt "\n", ##__VA_ARGS__)
+#endif
+#ifndef debugW
+#define debugW(fmt, ...) Serial.printf(fmt "\n", ##__VA_ARGS__)
+#endif
+#ifndef debugE
+#define debugE(fmt, ...) Serial.printf(fmt "\n", ##__VA_ARGS__)
+#endif
+#ifndef debugA
+#define debugA(fmt, ...) Serial.printf(fmt "\n", ##__VA_ARGS__)
+#endif
+
 
 // If we're not using GNU C, (unlikely in embedded, especially in this
 // heavily ESP/Arduino-accented probject) elide __attribute__ - but even
@@ -238,16 +285,29 @@ inline String str_sprintf(const char *fmt, ...)
 // Some "Reliability Rules"
 // Drawing must be on Core 1 if using SmartMatrix unless you specify SMARTMATRIX_OPTIONS_ESP32_CALC_TASK_CORE_1
 
-#define DRAWING_CORE            1
-#define NET_CORE                1
-#define AUDIO_CORE              0
-#define AUDIOSERIAL_CORE        1
-#define SCREEN_CORE             1
-#define DEBUG_CORE              1
-#define SOCKET_CORE             1
-#define REMOTE_CORE             1
-#define JSONWRITER_CORE         0
-#define COLORDATA_CORE          1
+#if CONFIG_FREERTOS_NUMBER_OF_CORES > 1
+    #define DRAWING_CORE            1
+    #define NET_CORE                1
+    #define AUDIO_CORE              0
+    #define AUDIOSERIAL_CORE        1
+    #define SCREEN_CORE             1
+    #define DEBUG_CORE              1
+    #define SOCKET_CORE             1
+    #define REMOTE_CORE             1
+    #define JSONWRITER_CORE         0
+    #define COLORDATA_CORE          1
+#else
+    #define DRAWING_CORE            0
+    #define NET_CORE                0
+    #define AUDIO_CORE              0
+    #define AUDIOSERIAL_CORE        0
+    #define SCREEN_CORE             0
+    #define DEBUG_CORE              0
+    #define SOCKET_CORE             0
+    #define REMOTE_CORE             0
+    #define JSONWRITER_CORE         0
+    #define COLORDATA_CORE          0
+#endif
 
 #define FASTLED_INTERNAL            1   // Suppresses the compilation banner from FastLED
 #define __STDC_FORMAT_MACROS
