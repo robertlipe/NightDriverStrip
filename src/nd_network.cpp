@@ -390,10 +390,10 @@ void IRAM_ATTR RemoteLoopEntry(void *)
                     WiFi.setHostname(hostname);
                 }
 
-                debugV("Wifi.disconnect");
-                WiFi.disconnect();
                 debugV("Wifi.mode");
                 WiFi.mode(WIFI_STA);
+                debugV("Wifi.disconnect");
+                WiFi.disconnect();
                 debugW("Connecting to Wifi SSID: \"%s\" - ESP32 Free Memory: %zu, PSRAM:%zu, PSRAM Free: %zu\n",
                        WiFi_ssid.c_str(), (size_t)ESP.getFreeHeap(), (size_t)ESP.getPsramSize(), (size_t)ESP.getFreePsram());
 
