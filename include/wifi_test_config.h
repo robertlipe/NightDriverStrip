@@ -14,8 +14,8 @@
 // IMPORTANT: Replace these with your actual home network details.
 // For 'Mistyped Password Case', the TEST_HOME_WRONG_PASSWORD should be intentionally incorrect.
 
-#define TEST_HOME_SSID          "Board-1"      // Replace with your actual home WiFi SSID
-#define TEST_HOME_CORRECT_PASSWORD "Cherry#1" // Replace with your actual home WiFi password
+#define TEST_HOME_SSID          "YOUR_HOME_SSID"      // Replace with your actual home WiFi SSID
+#define TEST_HOME_CORRECT_PASSWORD "YOUR_HOME_PASSWORD" // Replace with your actual home WiFi password
 #define TEST_HOME_WRONG_PASSWORD   "WRONG_PASSWORD"       // An intentionally wrong password for your home WiFi
 
 // --- Dummy Credentials (for clearsettings + startportal robustness test) ---
