@@ -53,6 +53,7 @@
 #include "systemcontainer.h"
 #include "types.h"
 
+#ifndef TINYLED
 // The GIF files are embedded within the flash image, and we need to tell the linker where they are
 
 extern const uint8_t colorsphere_start[]     asm("_binary_assets_gif_colorsphere_gif_start");
@@ -345,5 +346,6 @@ public:
 
     }
 };
+#endif
 
 #endif

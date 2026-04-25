@@ -561,6 +561,19 @@ void LoadEffectFactories()
 
     #endif
 
+    #if defined(TINYLED)
+        // TinyLED (8x8 Matrix) effect set
+        RegisterAll(*g_ptrEffectFactories,
+            Effect<PatternCube>(),
+            Effect<PatternMaze>(),
+            Effect<PatternSwirl>(),
+            Effect<PatternBounce>(),
+            Effect<PatternSMNoise>(),
+            Effect<PatternRadar>(),
+            Effect<RainbowFillEffect>(6, 2)
+        );
+    #endif
+
     // Default fallback if no set contributed any effect
     if (g_ptrEffectFactories->IsEmpty())
     {

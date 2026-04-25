@@ -119,6 +119,7 @@ class PatternPulse : public EffectWithId<PatternPulse>
         // effects.standardNoiseSmearing();
     }
 };
+#if ENABLE_AUDIO
 class PatternPulsar : public BeatEffectBase, public EffectWithId<PatternPulsar> {
   private:
     struct PulsePop
@@ -226,4 +227,5 @@ class PatternPulsar : public BeatEffectBase, public EffectWithId<PatternPulsar> 
         // effects.standardNoiseSmearing();
     }
 };
+#endif
 #endif
