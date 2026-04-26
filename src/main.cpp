@@ -657,6 +657,7 @@ void loop()
             }
         #endif
 
+/*
         EVERY_N_SECONDS(5)
         {
             String strOutput;
@@ -694,6 +695,7 @@ void loop()
 
             debugI("%s", strOutput.c_str());
         }
+*/
 
         // Once an update is underway, we loop tightly on ArduinoOTA.handle.  Otherwise, we delay a bit to share the CPU.
 

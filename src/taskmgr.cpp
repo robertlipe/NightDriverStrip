@@ -83,6 +83,7 @@ void TaskManager::begin()
 
 void TaskManager::CheckHeap()
 {
+    // TaskManager::LogStats();
     if (false == heap_caps_check_integrity_all(true))
     {
         throw std::runtime_error("Heap FAILED checks!");
@@ -219,7 +220,7 @@ void NightDriverTaskManager::NotifyJSONWriterThread()
     if (_taskJSONWriter == nullptr)
         return;
 
-    debugW(">> Notifying JSON Writer Thread");
+    // debugW(">> Notifying JSON Writer Thread");
     // Wake up the writer invoker task if it's sleeping, or request another write cycle if it isn't
     xTaskNotifyGive(_taskJSONWriter);
 }
@@ -229,7 +230,7 @@ void NightDriverTaskManager::NotifyNetworkThread()
     if (_taskNetwork == nullptr)
         return;
 
-    debugW(">> Notifying Network Thread");
+    // debugW(">> Notifying Network Thread");
     // Wake up the network task if it's sleeping, or request another read cycle if it isn't
     xTaskNotifyGive(_taskNetwork);
 }

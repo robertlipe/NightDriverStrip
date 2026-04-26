@@ -59,7 +59,7 @@ class LEDStripEffect;
 #define IDLE_STACK_SIZE    2048
 #define DRAWING_STACK_SIZE 4096
 #define AUDIO_STACK_SIZE   4096
-#define JSON_STACK_SIZE    4096
+#define JSON_STACK_SIZE    8192
 #define SOCKET_STACK_SIZE  4096
 #define NET_STACK_SIZE     8192
 #define COLORDATA_STACK_SIZE 4096
@@ -158,7 +158,7 @@ void RemoteLoopEntry(void *);
 void JSONWriterTaskEntry(void *);
 void ColorDataTaskEntry(void *);
 
-#define DELETE_TASK(handle) if (handle != nullptr) vTaskDelete(handle)
+#define DELETE_TASK(handle) if (handle != nullptr) { vTaskDelete(handle); handle = nullptr; }
 
 class NightDriverTaskManager : public TaskManager
 {
