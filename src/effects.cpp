@@ -83,7 +83,7 @@
 
 #if USE_MATRIX
 
-    #if ENABLE_WIFI
+    #if ENABLE_WIFI && !defined(TINYLED)
         #include "effects/matrix/PatternStocks.h"
         #include "effects/matrix/PatternSubscribers.h"
         #include "effects/matrix/PatternWeather.h"
@@ -141,7 +141,7 @@
 // Inform the linker which effects have setting specs, and in which class member
 
 //#if USE_HUB75 && ENABLE_WIFI
-#if USE_MATRIX && ENABLE_WIFI
+#if USE_MATRIX && ENABLE_WIFI && !defined(TINYLED)
     INIT_EFFECT_SETTING_SPECS(PatternSubscribers, mySettingSpecs);
     INIT_EFFECT_SETTING_SPECS(PatternStocks, mySettingSpecs);
 #endif
@@ -561,15 +561,16 @@ void LoadEffectFactories()
 
     #endif
 
-    #if defined(TINYLED)
+    #if defined(EFFECTS_TINYLED)
         // TinyLED (8x8 Matrix) effect set
         RegisterAll(*g_ptrEffectFactories,
             Effect<PatternCube>(),
-            Effect<PatternMaze>(),
-            Effect<PatternSwirl>(),
-            Effect<PatternBounce>(),
             Effect<PatternSMNoise>(),
             Effect<PatternRadar>(),
+            Effect<PatternSMRainbowTunnel>(),
+            Effect<PatternAlienText>(),
+            Effect<PatternLife>(),
+            Effect<PatternSwirl>(),
             Effect<RainbowFillEffect>(6, 2)
         );
     #endif
