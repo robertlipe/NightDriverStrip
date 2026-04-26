@@ -56,10 +56,6 @@
 #include "effects/strip/stareffect.h"           // star effects
 #include "effects/strip/tempeffect.h"
 
-#if ENABLE_AUDIO
-    #include "effects/matrix/spectrumeffects.h" // Musis spectrum effects
-    #include "effects/strip/musiceffect.h"      // Music based effects
-#endif
 
 #if FAN_SIZE
     #include "effects/strip/faneffects.h"       // Fan-based effects
@@ -93,6 +89,12 @@
         #include "effects/matrix/PatternNoiseSmearing.h"
         #include "effects/matrix/PatternSMSmoke.h"
     #endif
+
+    #include "effects/matrix/PatternSMNoise.h"
+    #include "effects/matrix/PatternRadar.h"
+    #include "effects/matrix/PatternLife.h"
+    #include "effects/matrix/PatternSMRainbowTunnel.h"
+    #include "effects/matrix/PatternSwirl.h"
 
     #include "effects/matrix/PatternAlienText.h"
     #include "effects/matrix/PatternAnimatedGIF.h"
@@ -132,6 +134,16 @@
     #include "effects/matrix/PatternSpiro.h"
     #include "effects/matrix/PatternSwirl.h"
     #include "effects/matrix/PatternWave.h"
+#endif
+
+#if defined(TINYLED)
+    #include "effects/matrix/PatternCube.h"
+    #include "effects/matrix/PatternSMNoise.h"
+    #include "effects/matrix/PatternRadar.h"
+    #include "effects/matrix/PatternLife.h"
+    #include "effects/matrix/PatternSMRainbowTunnel.h"
+    #include "effects/matrix/PatternSwirl.h"
+    #include "effects/matrix/PatternAlienText.h"
 #endif
 
 // Global effect set version
@@ -559,6 +571,19 @@ void LoadEffectFactories()
             Effect<OuterHexRingEffect>()
         );
 
+    #endif
+
+    #if defined(TINYLED)
+        RegisterAll(*g_ptrEffectFactories,
+            Effect<PatternCube>(),
+            Effect<PatternSMNoise>(),
+            Effect<PatternRadar>(),
+            Effect<PatternSMRainbowTunnel>(),
+            Effect<PatternAlienText>(),
+            Effect<PatternLife>(),
+            Effect<PatternSwirl>(),
+            Effect<RainbowFillEffect>(6, 2)
+        );
     #endif
 
     // Default fallback if no set contributed any effect
